@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>物流時間管理システム</title>
+<style>
+  :root {
+    --blue-50:#E6F1FB;--blue-200:#85B7EB;--blue-600:#185FA5;--blue-800:#0C447C;
+    --teal-50:#E1F5EE;--teal-200:#5DCAA5;--teal-600:#0F6E56;--teal-800:#085041;
+    --amber-50:#FAEEDA;--amber-200:#EF9F27;--amber-600:#854F0B;
+    --red-50:#FCEBEB;--red-200:#F09595;--red-600:#A32D2D;
+    --green-50:#EAF3DE;--green-200:#97C459;--green-600:#3B6D11;--green-800:#27500A;
+    --gray-50:#F1EFE8;--gray-100:#D3D1C7;--gray-600:#5F5E5A;
+    --purple-50:#EEEDFE;--purple-600:#534AB7;
+    --radius:12px;--radius-sm:8px;
+    --bg:#f8f7f4;--surface:#ffffff;--border:#e0ddd6;
+    --text:#2C2C2A;--text-sub:#5F5E5A;--text-hint:#888780;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  .nav{background:var(--blue-800);color:white;display:flex;align-items:center;height:60px;position:sticky;top:0;z-index:100;}
+  .nav-logo{padding:0 14px;font-size:15px;font-weight:600;white-space:nowrap;}
+  .nav-tabs{display:flex;flex:1;overflow-x:auto;scrollbar-width:none;}
+  .nav-tabs::-webkit-scrollbar{display:none;}
+  .nav-tab{padding:0 14px;height:60px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,0.65);transition:all 0.15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
+  .nav-tab:hover{color:white;background:rgba(255,255,255,0.08);}
+  .nav-tab.active{color:white;border-bottom:3px solid #85B7EB;background:rgba(255,255,255,0.1);}
+  .nav-right{display:flex;align-items:center;padding-right:8px;flex-shrink:0;}
+  .nav-date{padding:0 10px;font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;border-left:1px solid rgba(255,255,255,0.15);}
+  .conn-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;font-size:11px;font-weight:600;border-left:1px solid rgba(255,255,255,0.15);}
+  .conn-badge.online{color:#97C459;}
+  .conn-badge.offline{color:#F09595;}
+  .conn-badge.syncing{color:#EF9F27;}
+  .conn-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+
+  .page{display:none;min-height:calc(100vh - 60px);}
+  .page.active{display:block;}
+
+  .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-overlay.hidden{display:none;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--blue-600);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-overlay p{font-size:15px;color:var(--text-sub);}
+
+  .touch-header{padding:20px 20px 0;}
+  .touch-header h1{font-size:22px;font-weight:600;}
+  .touch-header p{font-size:14px;color:var(--text-sub);margin-top:4px;}
+  .mode-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:8px;}
+  .mode-badge.office{background:var(--blue-50);color:var(--blue-800);}
+  .mode-badge.field{background:var(--teal-50);color:var(--teal-800);}
+
+  .section{padding:16px 20px;}
+  .section-title{font-size:13px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;}
+  .carrier-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;}
+  .carrier-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:14px 12px;cursor:pointer;text-align:left;transition:all 0.12s;display:flex;flex-direction:column;gap:4px;}
+  .carrier-btn.selected{border:2px solid var(--blue-600);background:var(--blue-50);}
+  .carrier-btn.has-record{border-color:var(--green-200);background:var(--green-50);}
+  .carrier-btn.active-record{border-color:var(--amber-200);background:var(--amber-50);}
+  .carrier-name{font-size:15px;font-weight:600;color:var(--text);line-height:1.3;}
+  .carrier-type{font-size:11px;color:var(--text-hint);}
+  .carrier-status{font-size:11px;font-weight:600;margin-top:2px;}
+  .carrier-status.waiting{color:var(--text-hint);}
+  .carrier-status.entered{color:var(--amber-600);}
+  .carrier-status.loading{color:var(--blue-600);}
+  .carrier-status.done{color:var(--green-600);}
+  .carrier-status.departed{color:var(--gray-600);}
+
+  .action-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 20px 20px;padding:20px;}
+  .action-panel h2{font-size:18px;font-weight:600;margin-bottom:4px;}
+  .action-panel .sub{font-size:14px;color:var(--text-sub);margin-bottom:16px;}
+  .action-btns{display:flex;flex-direction:column;gap:10px;}
+  .action-btn{width:100%;padding:18px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:16px;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.12s;}
+  .action-btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .action-btn.enter{background:var(--blue-600);color:white;}
+  .action-btn.enter:hover:not(:disabled){background:var(--blue-800);}
+  .action-btn.start-load{background:var(--amber-200);color:var(--amber-600);}
+  .action-btn.start-load:hover:not(:disabled){background:var(--amber-600);color:white;}
+  .action-btn.end-load{background:var(--teal-200);color:var(--teal-800);}
+  .action-btn.end-load:hover:not(:disabled){background:var(--teal-600);color:white;}
+  .action-btn.depart{background:var(--green-200);color:var(--green-800);}
+  .action-btn.depart:hover:not(:disabled){background:var(--green-600);color:white;}
+
+  .timeline{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .time-chip{background:var(--gray-50);border:1px solid var(--gray-100);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text-sub);}
+  .time-chip span{font-weight:600;color:var(--text);margin-left:4px;}
+
+  .sign-modal{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .sign-modal.hidden{display:none;}
+  .sign-box{background:white;border-radius:var(--radius);padding:24px;width:100%;max-width:520px;}
+  .sign-box h3{font-size:18px;font-weight:600;margin-bottom:4px;}
+  .sign-box p{font-size:14px;color:var(--text-sub);margin-bottom:16px;}
+  canvas.sign-canvas{width:100%;height:200px;border:1.5px solid var(--border);border-radius:var(--radius-sm);display:block;cursor:crosshair;touch-action:none;}
+  .sign-actions{display:flex;gap:10px;margin-top:12px;}
+  .sign-actions button{flex:1;padding:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:15px;font-weight:600;font-family:inherit;}
+  .sign-actions button.confirm{background:var(--blue-600);color:white;border-color:var(--blue-600);}
+  .sign-actions button.clear{background:var(--gray-50);color:var(--text);}
+
+  .records-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 0;flex-wrap:wrap;gap:12px;}
+  .records-header h1{font-size:22px;font-weight:600;}
+  .date-nav{display:flex;align-items:center;gap:10px;}
+  .date-nav input[type=date]{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);}
+  .download-btn{display:flex;align-items:center;gap:7px;padding:10px 18px;background:var(--green-600);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+  .download-btn:hover{background:var(--green-800);}
+  .table-wrap{margin:16px 20px 40px;overflow-x:auto;}
+  table.records{width:100%;border-collapse:collapse;background:white;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+  table.records th{background:var(--gray-50);font-size:12px;font-weight:600;color:var(--text-sub);text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  table.records td{padding:12px 14px;font-size:13px;border-bottom:0.5px solid var(--border);vertical-align:middle;}
+  table.records tr:last-child td{border-bottom:none;}
+  table.records tr:hover td{background:var(--gray-50);}
+  .status-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .status-pill.complete{background:var(--green-50);color:var(--green-600);}
+  .status-pill.in-progress{background:var(--amber-50);color:var(--amber-600);}
+  .sign-thumb{width:60px;height:30px;border:1px solid var(--border);border-radius:4px;cursor:pointer;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--text-hint);font-size:15px;}
+
+  .master-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;}
+  @media(max-width:700px){.master-layout{grid-template-columns:1fr;}}
+  .master-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;}
+  .master-card h2{font-size:18px;font-weight:600;margin-bottom:16px;}
+  .form-group{margin-bottom:14px;}
+  .form-group label{display:block;font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:5px;}
+  .form-group input,.form-group select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;color:var(--text);background:var(--surface);}
+  .form-group input:focus,.form-group select:focus{outline:2px solid var(--blue-200);border-color:var(--blue-600);}
+  .add-btn{width:100%;padding:12px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .add-btn:hover{background:var(--blue-800);}
+  .carrier-list{display:flex;flex-direction:column;gap:8px;margin-top:16px;max-height:400px;overflow-y:auto;}
+  .carrier-item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-sm);}
+  .carrier-item-info{display:flex;flex-direction:column;gap:2px;}
+  .carrier-item-name{font-size:14px;font-weight:600;}
+  .carrier-item-meta{font-size:12px;color:var(--text-hint);}
+  .type-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;margin-left:6px;}
+  .type-badge.regular{background:var(--blue-50);color:var(--blue-800);}
+  .type-badge.irregular{background:var(--amber-50);color:var(--amber-600);}
+  .type-badge.charter{background:var(--purple-50);color:var(--purple-600);}
+  .del-btn{background:none;border:1px solid var(--red-200);color:var(--red-600);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;}
+  .del-btn:hover{background:var(--red-50);}
+
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap;}
+  .toast.show{opacity:1;}
+
+  .sign-view-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+  .sign-view-modal.open{display:flex;}
+  .sign-view-inner{background:white;border-radius:var(--radius);padding:20px;max-width:400px;width:100%;}
+  .sign-view-inner h3{font-size:16px;margin-bottom:12px;}
+  .sign-view-inner img{width:100%;border:1px solid var(--border);border-radius:6px;}
+  .sign-view-inner button{margin-top:12px;width:100%;padding:12px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:15px;cursor:pointer;font-family:inherit;font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Firebaseに接続中...</p>
+</div>
+
+<nav class="nav">
+  <div class="nav-logo">🚚 物流管理</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('office')" id="tab-office">🏢 事務所</button>
+    <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
+    <button class="nav-tab" onclick="showPage('records')" id="tab-records">📋 管理・記録</button>
+    <button class="nav-tab" onclick="showPage('master')" id="tab-master">⚙️ マスター</button>
+  </div>
+  <div class="nav-right">
+    <div class="conn-badge offline" id="conn-badge"><span class="conn-dot"></span><span id="conn-text">接続中...</span></div>
+    <div class="nav-date" id="nav-date"></div>
+  </div>
+</nav>
+
+<!-- ===== OFFICE ===== -->
+<div class="page active" id="page-office">
+  <div class="touch-header">
+    <h1>事務所タッチ画面</h1>
+    <p>運送会社を選択して入場・退場を記録します</p>
+    <span class="mode-badge office">🏢 事務所モード</span>
+  </div>
+  <div class="section">
+    <div class="section-title">本日の運送会社</div>
+    <div class="carrier-grid" id="office-carrier-grid"></div>
+  </div>
+  <div class="action-panel">
+    <div id="office-no-selection" style="color:var(--text-hint);font-size:15px;text-align:center;padding:8px 0;">運送会社を選択してください</div>
+    <div id="office-selected-panel" style="display:none;">
+      <h2 id="office-carrier-name"></h2>
+      <div class="sub" id="office-carrier-status-text"></div>
+      <div class="action-btns">
+        <button class="action-btn enter" id="btn-enter" onclick="doEnter()">🚪 入場記録</button>
+        <button class="action-btn depart" id="btn-depart" onclick="requestDepart()">🚗 退場記録・サイン</button>
+      </div>
+      <div class="timeline" id="office-timeline"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FIELD ===== -->
+<div class="page" id="page-field">
+  <div class="touch-header">
+    <h1>現場タッチ画面</h1>
+    <p>荷役開始・終了を記録します</p>
+    <span class="mode-badge field">🔧 現場モード</span>
+  </div>
+  <div class="section">
+    <div class="section-title">入場中の運送会社</div>
+    <div class="carrier-grid" id="field-carrier-grid"></div>
+  </div>
+  <div class="action-panel">
+    <div id="field-no-selection" style="color:var(--text-hint);font-size:15px;text-align:center;padding:8px 0;">入場中の運送会社を選択してください</div>
+    <div id="field-selected-panel" style="display:none;">
+      <h2 id="field-carrier-name"></h2>
+      <div class="sub" id="field-carrier-status-text"></div>
+      <div class="action-btns">
+        <button class="action-btn start-load" id="btn-start-load" onclick="doStartLoad()">📦 荷役開始</button>
+        <button class="action-btn end-load" id="btn-end-load" onclick="requestEndLoad()">✅ 荷役終了・サイン</button>
+      </div>
+      <div class="timeline" id="field-timeline"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RECORDS ===== -->
+<div class="page" id="page-records">
+  <div class="records-header">
+    <h1>日別記録</h1>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="date-nav">
+        <label style="font-size:13px;font-weight:600;color:var(--text-sub);">日付：</label>
+        <input type="date" id="records-date" onchange="renderRecords()">
+      </div>
+      <button class="download-btn" onclick="downloadExcel()">⬇️ Excelダウンロード</button>
+    </div>
+  </div>
+  <div class="table-wrap"><div id="records-table-container"></div></div>
+</div>
+
+<!-- ===== MASTER ===== -->
+<div class="page" id="page-master">
+  <div style="padding:20px 20px 0;">
+    <h1 style="font-size:22px;font-weight:600;">マスター設定</h1>
+    <p style="font-size:14px;color:var(--text-sub);margin-top:4px;">運送会社の登録・管理を行います</p>
+  </div>
+  <div class="master-layout">
+    <div class="master-card">
+      <h2>運送会社を追加</h2>
+      <div class="form-group"><label>会社名 *</label><input type="text" id="m-name" placeholder="例：山田運輸株式会社"></div>
+      <div class="form-group"><label>略称（タッチ画面表示用）</label><input type="text" id="m-short" placeholder="例：山田運輸"></div>
+      <div class="form-group"><label>種別 *</label>
+        <select id="m-type">
+          <option value="regular">定期便</option>
+          <option value="irregular">不定期便</option>
+          <option value="charter">専属チャーター</option>
+        </select>
+      </div>
+      <div class="form-group"><label>備考</label><input type="text" id="m-note" placeholder="例：東京ルート 毎日午前"></div>
+      <button class="add-btn" onclick="addCarrier()">+ 追加する</button>
+    </div>
+    <div class="master-card">
+      <h2>登録済み運送会社</h2>
+      <div class="carrier-list" id="master-carrier-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGN MODAL -->
+<div class="sign-modal hidden" id="sign-modal">
+  <div class="sign-box">
+    <h3 id="sign-title">サイン</h3>
+    <p id="sign-subtitle">こちらにサインをお願いします</p>
+    <canvas class="sign-canvas" id="sign-canvas" width="480" height="200"></canvas>
+    <div class="sign-actions">
+      <button class="clear" onclick="clearSign()">消去</button>
+      <button class="confirm" onclick="confirmSign()">サイン完了</button>
+    </div>
+    <button style="width:100%;margin-top:8px;padding:10px;border:1px solid var(--border);background:none;border-radius:var(--radius-sm);cursor:pointer;font-size:14px;color:var(--text-sub);font-family:inherit;" onclick="cancelSign()">キャンセル</button>
+  </div>
+</div>
+
+<div class="sign-view-modal" id="sign-view-modal">
+  <div class="sign-view-inner">
+    <h3 id="sign-view-title">サイン確認</h3>
+    <img id="sign-view-img" src="" alt="サイン">
+    <button onclick="document.getElementById('sign-view-modal').classList.remove('open')">閉じる</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, child }
+                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInAnonymously }
+                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// ===== Firebase設定 =====
+const firebaseConfig = {
+  apiKey:            "AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
+  authDomain:        "logitime-86b56.firebaseapp.com",
+  databaseURL:       "https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "logitime-86b56",
+  storageBucket:     "logitime-86b56.firebasestorage.app",
+  messagingSenderId: "148508185008",
+  appId:             "1:148508185008:web:bd7a729832528f2fec0675"
+};
+
+const app  = initializeApp(firebaseConfig);
+const db   = getDatabase(app);
+const auth = getAuth(app);
+
+// ===== STATE =====
+let state = { carriers: [], records: {} };
+let selectedOfficeCarrier = null;
+let selectedFieldCarrier  = null;
+let signMode = '', signCarrierId = '';
+let signCtx, signDrawing = false;
+
+// ===== UTILS =====
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function typeLabel(t) {
+  return t==='regular'?'定期便':t==='irregular'?'不定期便':'チャーター';
+}
+function escHTML(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+function updateDateDisplay() {
+  const d = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('nav-date').textContent =
+    `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;
+}
+function setConn(status, text) {
+  const b = document.getElementById('conn-badge');
+  b.className = 'conn-badge ' + status;
+  document.getElementById('conn-text').textContent = text;
+}
+
+// ===== Firebase 書き込み =====
+async function fbSetCarriers(carriers) {
+  await set(ref(db, 'carriers'), carriers);
+}
+async function fbSetRecord(carrierId, rec) {
+  const key = carrierId.replace(/[.#$/[\]]/g, '_');
+  await set(ref(db, `records/${today()}/${key}`), rec);
+}
+
+// ===== リアルタイムリスナー =====
+function startListeners() {
+  // 運送会社マスター
+  onValue(ref(db, 'carriers'), snap => {
+    const val = snap.val();
+    state.carriers = val ? (Array.isArray(val) ? val.filter(Boolean) : Object.values(val)) : [];
+    renderCurrentPage();
+  }, err => {
+    setConn('offline', 'エラー');
+    console.error('carriers listener:', err);
+  });
+
+  // 本日の記録
+  onValue(ref(db, `records/${today()}`), snap => {
+    state.records[today()] = snap.val() || {};
+    renderCurrentPage();
+  }, err => {
+    console.error('records listener:', err);
+  });
+
+  // 接続状態
+  onValue(ref(db, '.info/connected'), snap => {
+    setConn(snap.val() ? 'online' : 'offline', snap.val() ? '接続中' : 'オフライン');
+  });
+}
+
+// ===== 画面切替 =====
+window.showPage = function(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  selectedOfficeCarrier = null;
+  selectedFieldCarrier  = null;
+  if (id==='records') {
+    document.getElementById('records-date').value = today();
+    renderRecords();
+  } else {
+    renderCurrentPage();
+  }
+};
+
+function renderCurrentPage() {
+  const active = document.querySelector('.page.active');
+  if (!active) return;
+  const id = active.id.replace('page-','');
+  if (id==='office')       renderOffice();
+  else if (id==='field')   renderField();
+  else if (id==='records') renderRecords();
+  else if (id==='master')  renderMaster();
+}
+
+// ===== 状態ラベル =====
+function getStatusLabel(rec) {
+  if (!rec)                return { label:'未入場',                          cls:'waiting'  };
+  if (rec.departTime)      return { label:`退場済 ${rec.departTime}`,        cls:'departed' };
+  if (rec.loadEndTime)     return { label:`荷役完了 ${rec.loadEndTime}`,     cls:'done'     };
+  if (rec.loadStartTime)   return { label:`荷役中 ${rec.loadStartTime}〜`,   cls:'loading'  };
+  if (rec.enterTime)       return { label:`入場中 ${rec.enterTime}〜`,       cls:'entered'  };
+  return { label:'未入場', cls:'waiting' };
+}
+function getRecord(carrierId) {
+  const key = carrierId.replace(/[.#$/[\]]/g, '_');
+  return (state.records[today()]||{})[key] || null;
+}
+
+// ===== 事務所 =====
+function renderOffice() {
+  const grid = document.getElementById('office-carrier-grid');
+  grid.innerHTML = '';
+  if (!state.carriers.length) {
+    grid.innerHTML = '<div style="color:var(--text-hint);font-size:14px;padding:8px 0;">マスターに運送会社が登録されていません</div>';
+    return;
+  }
+  state.carriers.forEach(c => {
+    const rec = getRecord(c.id);
+    const st  = getStatusLabel(rec);
+    const btn = document.createElement('button');
+    let cls = 'carrier-btn';
+    if (rec && rec.departTime)      cls += ' has-record';
+    else if (rec && rec.enterTime)  cls += ' active-record';
+    if (selectedOfficeCarrier === c.id) cls += ' selected';
+    btn.className = cls;
+    btn.innerHTML = `<span class="carrier-name">${escHTML(c.short||c.name)}</span><span class="carrier-type">${typeLabel(c.type)}</span><span class="carrier-status ${st.cls}">${st.label}</span>`;
+    btn.onclick = () => { selectedOfficeCarrier = c.id; renderOffice(); updateOfficePanel(); };
+    grid.appendChild(btn);
+  });
+  if (selectedOfficeCarrier) updateOfficePanel();
+}
+
+function updateOfficePanel() {
+  const c = state.carriers.find(x=>x.id===selectedOfficeCarrier);
+  if (!c) {
+    document.getElementById('office-no-selection').style.display = '';
+    document.getElementById('office-selected-panel').style.display = 'none';
+    return;
+  }
+  document.getElementById('office-no-selection').style.display = 'none';
+  document.getElementById('office-selected-panel').style.display = '';
+  const rec = getRecord(c.id);
+  const st  = getStatusLabel(rec);
+  document.getElementById('office-carrier-name').textContent        = c.name;
+  document.getElementById('office-carrier-status-text').textContent = st.label;
+  document.getElementById('btn-enter').disabled  = !!(rec && rec.enterTime);
+  document.getElementById('btn-depart').disabled = !(rec && rec.loadEndTime && !rec.departTime);
+  const tl = document.getElementById('office-timeline');
+  tl.innerHTML = '';
+  if (rec) {
+    if (rec.enterTime)     tl.innerHTML += `<span class="time-chip">入場<span>${rec.enterTime}</span></span>`;
+    if (rec.loadStartTime) tl.innerHTML += `<span class="time-chip">荷役開始<span>${rec.loadStartTime}</span></span>`;
+    if (rec.loadEndTime)   tl.innerHTML += `<span class="time-chip">荷役終了<span>${rec.loadEndTime}</span></span>`;
+    if (rec.departTime)    tl.innerHTML += `<span class="time-chip">退場<span>${rec.departTime}</span></span>`;
+  }
+}
+
+window.doEnter = async function() {
+  const c = state.carriers.find(x=>x.id===selectedOfficeCarrier);
+  if (!c) return;
+  const rec = getRecord(c.id) || {};
+  if (rec.enterTime) return;
+  rec.enterTime = nowTime();
+  await fbSetRecord(c.id, rec);
+  showToast(`${c.short||c.name} 入場: ${rec.enterTime}`);
+};
+
+window.requestDepart = function() {
+  const c = state.carriers.find(x=>x.id===selectedOfficeCarrier);
+  if (!c) return;
+  const rec = getRecord(c.id);
+  if (!rec || !rec.loadEndTime) return;
+  openSign('depart', c.id, `退場確認サイン — ${c.short||c.name}`, 'ドライバーの方はこちらにサインをお願いします');
+};
+
+// ===== 現場 =====
+function renderField() {
+  const grid = document.getElementById('field-carrier-grid');
+  grid.innerHTML = '';
+  const active = state.carriers.filter(c => {
+    const rec = getRecord(c.id);
+    return rec && rec.enterTime && !rec.departTime;
+  });
+  if (!active.length) {
+    grid.innerHTML = '<div style="color:var(--text-hint);font-size:14px;padding:8px 0;">現在入場中の運送会社はありません</div>';
+    document.getElementById('field-no-selection').style.display = '';
+    document.getElementById('field-selected-panel').style.display = 'none';
+    return;
+  }
+  active.forEach(c => {
+    const rec = getRecord(c.id);
+    const st  = getStatusLabel(rec);
+    const btn = document.createElement('button');
+    let cls = 'carrier-btn active-record';
+    if (selectedFieldCarrier === c.id) cls += ' selected';
+    btn.className = cls;
+    btn.innerHTML = `<span class="carrier-name">${escHTML(c.short||c.name)}</span><span class="carrier-type">${typeLabel(c.type)}</span><span class="carrier-status ${st.cls}">${st.label}</span>`;
+    btn.onclick = () => { selectedFieldCarrier = c.id; renderField(); updateFieldPanel(); };
+    grid.appendChild(btn);
+  });
+  if (selectedFieldCarrier) updateFieldPanel();
+}
+
+function updateFieldPanel() {
+  const c   = state.carriers.find(x=>x.id===selectedFieldCarrier);
+  const rec = c ? getRecord(c.id) : null;
+  if (!c || !rec || !rec.enterTime) {
+    document.getElementById('field-no-selection').style.display = '';
+    document.getElementById('field-selected-panel').style.display = 'none';
+    return;
+  }
+  document.getElementById('field-no-selection').style.display = 'none';
+  document.getElementById('field-selected-panel').style.display = '';
+  const st = getStatusLabel(rec);
+  document.getElementById('field-carrier-name').textContent        = c.name;
+  document.getElementById('field-carrier-status-text').textContent = st.label;
+  document.getElementById('btn-start-load').disabled = !!(rec.loadStartTime);
+  document.getElementById('btn-end-load').disabled   = !(rec.loadStartTime && !rec.loadEndTime);
+  const tl = document.getElementById('field-timeline');
+  tl.innerHTML = '';
+  if (rec.enterTime)     tl.innerHTML += `<span class="time-chip">入場<span>${rec.enterTime}</span></span>`;
+  if (rec.loadStartTime) tl.innerHTML += `<span class="time-chip">荷役開始<span>${rec.loadStartTime}</span></span>`;
+  if (rec.loadEndTime)   tl.innerHTML += `<span class="time-chip">荷役終了<span>${rec.loadEndTime}</span></span>`;
+}
+
+window.doStartLoad = async function() {
+  const c = state.carriers.find(x=>x.id===selectedFieldCarrier);
+  if (!c) return;
+  const rec = getRecord(c.id) || {};
+  if (!rec.enterTime || rec.loadStartTime) return;
+  rec.loadStartTime = nowTime();
+  await fbSetRecord(c.id, rec);
+  showToast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
+};
+
+window.requestEndLoad = function() {
+  const c = state.carriers.find(x=>x.id===selectedFieldCarrier);
+  if (!c) return;
+  const rec = getRecord(c.id);
+  if (!rec || !rec.loadStartTime || rec.loadEndTime) return;
+  openSign('endload', c.id, `荷役終了サイン — ${c.short||c.name}`, '現場担当者はこちらにサインをお願いします');
+};
+
+// ===== サインパッド =====
+function openSign(mode, carrierId, title, subtitle) {
+  signMode = mode; signCarrierId = carrierId;
+  document.getElementById('sign-title').textContent    = title;
+  document.getElementById('sign-subtitle').textContent = subtitle;
+  document.getElementById('sign-modal').classList.remove('hidden');
+  initSignCanvas();
+}
+function initSignCanvas() {
+  const canvas = document.getElementById('sign-canvas');
+  const rect   = canvas.getBoundingClientRect();
+  canvas.width  = (rect.width  || 480) * devicePixelRatio;
+  canvas.height = (rect.height || 200) * devicePixelRatio;
+  signCtx = canvas.getContext('2d');
+  signCtx.scale(devicePixelRatio, devicePixelRatio);
+  signCtx.clearRect(0, 0, canvas.width, canvas.height);
+  signCtx.strokeStyle = '#1a1a1a'; signCtx.lineWidth = 2.5;
+  signCtx.lineCap = 'round'; signCtx.lineJoin = 'round';
+  function pt(e) {
+    const r   = canvas.getBoundingClientRect();
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
+  }
+  canvas.onmousedown  = e => { signDrawing=true; const p=pt(e); signCtx.beginPath(); signCtx.moveTo(p.x,p.y); };
+  canvas.onmousemove  = e => { if(!signDrawing) return; const p=pt(e); signCtx.lineTo(p.x,p.y); signCtx.stroke(); };
+  canvas.onmouseup    = ()  => signDrawing = false;
+  canvas.ontouchstart = e => { e.preventDefault(); signDrawing=true; const p=pt(e); signCtx.beginPath(); signCtx.moveTo(p.x,p.y); };
+  canvas.ontouchmove  = e => { e.preventDefault(); if(!signDrawing) return; const p=pt(e); signCtx.lineTo(p.x,p.y); signCtx.stroke(); };
+  canvas.ontouchend   = ()  => signDrawing = false;
+}
+window.clearSign = function() {
+  const c = document.getElementById('sign-canvas');
+  signCtx.clearRect(0, 0, c.width/devicePixelRatio, c.height/devicePixelRatio);
+};
+window.confirmSign = async function() {
+  const canvas = document.getElementById('sign-canvas');
+  const dataURL = canvas.toDataURL('image/png');
+  const c   = state.carriers.find(x=>x.id===signCarrierId);
+  const rec = getRecord(signCarrierId) || {};
+  if (signMode === 'depart') {
+    rec.departTime = nowTime();
+    rec.driverSign = dataURL;
+    await fbSetRecord(signCarrierId, rec);
+    showToast(`${c.short||c.name} 退場完了: ${rec.departTime}`);
+  } else if (signMode === 'endload') {
+    rec.loadEndTime = nowTime();
+    rec.fieldSign   = dataURL;
+    await fbSetRecord(signCarrierId, rec);
+    showToast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);
+  }
+  document.getElementById('sign-modal').classList.add('hidden');
+};
+window.cancelSign = function() {
+  document.getElementById('sign-modal').classList.add('hidden');
+};
+
+// ===== 記録画面 =====
+window.renderRecords = async function() {
+  const date = document.getElementById('records-date').value || today();
+  const container = document.getElementById('records-table-container');
+  // 指定日のデータをFirebaseから取得
+  let dayRecords = {};
+  if (date === today()) {
+    dayRecords = state.records[today()] || {};
+  } else {
+    const snap = await get(ref(db, `records/${date}`));
+    dayRecords = snap.val() || {};
+  }
+  const rows = state.carriers
+    .map(c => {
+      const key = c.id.replace(/[.#$/[\]]/g, '_');
+      return { c, rec: dayRecords[key] };
+    })
+    .filter(x => x.rec);
+  if (!rows.length) {
+    container.innerHTML = '<div class="empty-state">この日の記録はありません</div>';
+    return;
+  }
+  let html = `<table class="records"><thead><tr>
+    <th>会社名</th><th>種別</th><th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th><th>現場サイン</th><th>ドライバーサイン</th>
+  </tr></thead><tbody>`;
+  rows.forEach(({c, rec}) => {
+    const pill = rec.departTime
+      ? `<span class="status-pill complete">完了</span>`
+      : `<span class="status-pill in-progress">進行中</span>`;
+    const fs = rec.fieldSign  ? `<img class="sign-thumb" src="${rec.fieldSign}"  onclick="viewSign('${escHTML(rec.fieldSign)}','現場サイン — ${escHTML(c.short||c.name)}')">` : '—';
+    const ds = rec.driverSign ? `<img class="sign-thumb" src="${rec.driverSign}" onclick="viewSign('${escHTML(rec.driverSign)}','ドライバーサイン — ${escHTML(c.short||c.name)}')">` : '—';
+    html += `<tr>
+      <td><strong>${escHTML(c.name)}</strong></td>
+      <td><span class="type-badge ${c.type}">${typeLabel(c.type)}</span></td>
+      <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
+      <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
+      <td>${pill}</td><td>${fs}</td><td>${ds}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+};
+
+window.viewSign = function(src, title) {
+  document.getElementById('sign-view-title').textContent = title;
+  document.getElementById('sign-view-img').src = src;
+  document.getElementById('sign-view-modal').classList.add('open');
+};
+
+// ===== Excel =====
+window.downloadExcel = async function() {
+  const date = document.getElementById('records-date').value || today();
+  let dayRecords = {};
+  if (date === today()) {
+    dayRecords = state.records[today()] || {};
+  } else {
+    const snap = await get(ref(db, `records/${date}`));
+    dayRecords = snap.val() || {};
+  }
+  const targetRows = state.carriers.map(c => {
+    const key = c.id.replace(/[.#$/[\]]/g, '_');
+    return { c, rec: dayRecords[key] };
+  }).filter(x => x.rec);
+  if (!targetRows.length) { showToast('この日の記録がありません'); return; }
+  showToast('Excelを生成中...');
+  if (!window.JSZip) {
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+  }
+  const zip=new JSZip(), EMU=9525;
+  async function dataURLtoBuffer(u){const r=await fetch(u);return r.arrayBuffer();}
+  const imageFiles=[],drawings=[];
+  for(let i=0;i<targetRows.length;i++){
+    const{rec}=targetRows[i],rowIdx=i+1;
+    for(const[key,col]of[['fieldSign',7],['driverSign',8]]){
+      if(rec[key]){
+        const buf=await dataURLtoBuffer(rec[key]);
+        imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});
+        drawings.push({row:rowIdx,col,imgIdx:imageFiles.length-1});
+      }
+    }
+  }
+  const hasD=drawings.length>0;
+  zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imageFiles.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
+  zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${date}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  const strings=[];
+  function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
+  ['会社名','種別','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','現場サイン','ドライバーサイン'].forEach(h=>si(h));
+  const dm=targetRows.map(({c,rec})=>[c.name,typeLabel(c.type),rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',rec.departTime?'完了':'進行中',rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)']);
+  dm.forEach(r=>r.forEach(v=>si(v)));
+  zip.file('xl/sharedStrings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xmlEsc(s)}</t></si>`).join('')}</sst>`);
+  zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf></cellXfs></styleSheet>`);
+  function cl(n){return String.fromCharCode(65+n);}
+  const CW=[24,10,10,12,12,10,8,18,18];
+  let sr=`<row r="1" ht="20" customHeight="1">${['会社名','種別','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','現場サイン','ドライバーサイン'].map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
+  targetRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
+  zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${CW.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sr}</sheetData>${hasD?'<drawing r:id="rId1"/></worksheet>':'</worksheet>'}`);
+  if(hasD){
+    zip.file('xl/worksheets/_rels/sheet1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
+    zip.file('xl/drawings/_rels/drawing1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${imageFiles.map((f,i)=>`<Relationship Id="rImg${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${f.name}"/>`).join('')}</Relationships>`);
+    zip.file('xl/drawings/drawing1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${drawings.map(({row,col,imgIdx})=>`<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>50000</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>50000</xdr:rowOff></xdr:from><xdr:to><xdr:col>${col+1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row+1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imgIdx+2}" name="Sign${imgIdx}"/><xdr:cNvPicPr><a:picLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" r:embed="rImg${imgIdx}"/><a:stretch xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:off x="0" y="0"/><a:ext cx="${160*EMU}" cy="${70*EMU}"/></a:xfrm><a:prstGeom xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`).join('')}</xdr:wsDr>`);
+    imageFiles.forEach(f=>zip.file(`xl/media/${f.name}`,f.buffer));
+  }
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`物流記録_${date}.xlsx`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('Excelをダウンロードしました');
+};
+
+function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+
+// ===== マスター =====
+window.addCarrier = async function() {
+  const name  = document.getElementById('m-name').value.trim();
+  const short = document.getElementById('m-short').value.trim();
+  const type  = document.getElementById('m-type').value;
+  const note  = document.getElementById('m-note').value.trim();
+  if (!name) { showToast('会社名を入力してください'); return; }
+  const newCarrier = { id:'c'+Date.now(), name, short:short||name, type, note };
+  const updated = [...state.carriers, newCarrier];
+  await fbSetCarriers(updated);
+  document.getElementById('m-name').value  = '';
+  document.getElementById('m-short').value = '';
+  document.getElementById('m-note').value  = '';
+  showToast(`${name} を登録しました`);
+};
+
+window.deleteCarrier = async function(id) {
+  const c = state.carriers.find(x=>x.id===id);
+  if (!c || !confirm(`「${c.name}」を削除しますか？`)) return;
+  await fbSetCarriers(state.carriers.filter(x=>x.id!==id));
+  showToast('削除しました');
+};
+
+function renderMaster() {
+  const list = document.getElementById('master-carrier-list');
+  if (!state.carriers.length) {
+    list.innerHTML = '<div style="color:var(--text-hint);font-size:14px;padding:8px;">登録された運送会社はありません</div>';
+    return;
+  }
+  list.innerHTML = state.carriers.map(c=>`
+    <div class="carrier-item">
+      <div class="carrier-item-info">
+        <div class="carrier-item-name">${escHTML(c.name)}<span class="type-badge ${c.type}">${typeLabel(c.type)}</span></div>
+        <div class="carrier-item-meta">${c.short!==c.name?'略称: '+escHTML(c.short)+'　':''}${escHTML(c.note||'')}</div>
+      </div>
+      <button class="del-btn" onclick="deleteCarrier('${c.id}')">削除</button>
+    </div>`).join('');
+}
+
+// ===== 初期化 =====
+updateDateDisplay();
+setInterval(updateDateDisplay, 60000);
+
+signInAnonymously(auth)
+  .then(() => {
+    startListeners();
+    document.getElementById('loading-overlay').classList.add('hidden');
+  })
+  .catch(err => {
+    console.error('Auth error:', err);
+    // 認証失敗でも接続を試みる
+    startListeners();
+    document.getElementById('loading-overlay').classList.add('hidden');
+    showToast('⚠️ 認証エラー。Authenticationの設定を確認してください。');
+  });
+</script>
+</body>
+</html>
