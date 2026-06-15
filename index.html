@@ -20,20 +20,41 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
+  /* ===== 倉庫選択画面 ===== */
+  .warehouse-select{position:fixed;inset:0;background:var(--blue-800);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
+  .warehouse-select.hidden{display:none;}
+  .ws-logo{font-size:40px;margin-bottom:12px;}
+  .ws-title{font-size:24px;font-weight:700;color:white;margin-bottom:6px;}
+  .ws-sub{font-size:14px;color:rgba(255,255,255,0.65);margin-bottom:40px;}
+  .ws-grid{display:flex;flex-direction:column;gap:14px;width:100%;max-width:360px;}
+  .ws-btn{background:white;border:none;border-radius:var(--radius);padding:22px 24px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:16px;transition:all 0.15s;font-family:inherit;}
+  .ws-btn:hover{background:var(--blue-50);transform:translateY(-1px);}
+  .ws-btn-icon{font-size:28px;}
+  .ws-btn-info{}
+  .ws-btn-name{font-size:18px;font-weight:700;color:var(--text);}
+  .ws-btn-desc{font-size:13px;color:var(--text-hint);margin-top:2px;}
+  .ws-manage{margin-top:24px;}
+  .ws-manage button{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:10px 20px;border-radius:30px;cursor:pointer;font-size:13px;font-family:inherit;}
+  .ws-manage button:hover{background:rgba(255,255,255,0.25);}
+
+  /* ===== NAV ===== */
   .nav{background:var(--blue-800);color:white;display:flex;align-items:center;height:60px;position:sticky;top:0;z-index:100;}
-  .nav-logo{padding:0 14px;font-size:15px;font-weight:600;white-space:nowrap;}
+  .nav-logo{padding:0 12px;font-size:14px;font-weight:600;white-space:nowrap;display:flex;flex-direction:column;line-height:1.2;}
+  .nav-logo .app-name{font-size:11px;color:rgba(255,255,255,0.6);}
+  .nav-logo .wh-name{font-size:15px;color:white;}
   .nav-tabs{display:flex;flex:1;overflow-x:auto;scrollbar-width:none;}
   .nav-tabs::-webkit-scrollbar{display:none;}
-  .nav-tab{padding:0 14px;height:60px;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,0.65);transition:all 0.15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
+  .nav-tab{padding:0 13px;height:60px;display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,0.65);transition:all 0.15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
   .nav-tab:hover{color:white;background:rgba(255,255,255,0.08);}
   .nav-tab.active{color:white;border-bottom:3px solid #85B7EB;background:rgba(255,255,255,0.1);}
-  .nav-right{display:flex;align-items:center;padding-right:8px;flex-shrink:0;}
-  .nav-date{padding:0 10px;font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;border-left:1px solid rgba(255,255,255,0.15);}
-  .conn-badge{display:flex;align-items:center;gap:5px;padding:4px 10px;font-size:11px;font-weight:600;border-left:1px solid rgba(255,255,255,0.15);}
+  .nav-right{display:flex;align-items:center;padding-right:8px;flex-shrink:0;gap:0;}
+  .nav-date{padding:0 8px;font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;border-left:1px solid rgba(255,255,255,0.15);}
+  .conn-badge{display:flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;font-weight:600;border-left:1px solid rgba(255,255,255,0.15);}
   .conn-badge.online{color:#97C459;}
   .conn-badge.offline{color:#F09595;}
-  .conn-badge.syncing{color:#EF9F27;}
   .conn-dot{width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .switch-wh-btn{padding:4px 10px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;border-radius:20px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;margin-left:8px;}
+  .switch-wh-btn:hover{background:rgba(255,255,255,0.25);}
 
   .page{display:none;min-height:calc(100vh - 60px);}
   .page.active{display:block;}
@@ -137,6 +158,16 @@
   .del-btn{background:none;border:1px solid var(--red-200);color:var(--red-600);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;}
   .del-btn:hover{background:var(--red-50);}
 
+  /* 倉庫管理モーダル */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal.hidden{display:none;}
+  .modal-box{background:white;border-radius:var(--radius);padding:24px;width:100%;max-width:480px;}
+  .modal-box h3{font-size:18px;font-weight:600;margin-bottom:16px;}
+  .wh-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:300px;overflow-y:auto;}
+  .wh-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-sm);}
+  .wh-item-name{font-size:15px;font-weight:600;}
+  .modal-close{width:100%;padding:12px;background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:15px;font-family:inherit;margin-top:8px;}
+
   .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap;}
   .toast.show{opacity:1;}
 
@@ -150,13 +181,29 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loading-overlay">
-  <div class="spinner"></div>
-  <p>Firebaseに接続中...</p>
+<!-- ===== 倉庫選択画面 ===== -->
+<div class="warehouse-select" id="warehouse-select">
+  <div class="ws-logo">🏭</div>
+  <div class="ws-title">物流時間管理システム</div>
+  <div class="ws-sub">使用する倉庫を選択してください</div>
+  <div class="ws-grid" id="ws-grid"></div>
+  <div class="ws-manage">
+    <button onclick="openWhManage()">⚙️ 倉庫の追加・管理</button>
+  </div>
 </div>
 
+<!-- ===== LOADING ===== -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner"></div>
+  <p>接続中...</p>
+</div>
+
+<!-- ===== NAV ===== -->
 <nav class="nav">
-  <div class="nav-logo">🚚 物流管理</div>
+  <div class="nav-logo">
+    <span class="app-name">🚚 物流管理</span>
+    <span class="wh-name" id="nav-wh-name">—</span>
+  </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('office')" id="tab-office">🏢 事務所</button>
     <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
@@ -166,6 +213,7 @@
   <div class="nav-right">
     <div class="conn-badge offline" id="conn-badge"><span class="conn-dot"></span><span id="conn-text">接続中...</span></div>
     <div class="nav-date" id="nav-date"></div>
+    <button class="switch-wh-btn" onclick="switchWarehouse()">倉庫切替</button>
   </div>
 </nav>
 
@@ -238,7 +286,7 @@
 <div class="page" id="page-master">
   <div style="padding:20px 20px 0;">
     <h1 style="font-size:22px;font-weight:600;">マスター設定</h1>
-    <p style="font-size:14px;color:var(--text-sub);margin-top:4px;">運送会社の登録・管理を行います</p>
+    <p style="font-size:14px;color:var(--text-sub);margin-top:4px;" id="master-wh-label"></p>
   </div>
   <div class="master-layout">
     <div class="master-card">
@@ -276,6 +324,20 @@
   </div>
 </div>
 
+<!-- 倉庫管理モーダル -->
+<div class="modal hidden" id="wh-modal">
+  <div class="modal-box">
+    <h3>倉庫の管理</h3>
+    <div class="wh-list" id="wh-list"></div>
+    <div class="form-group">
+      <label>新しい倉庫名</label>
+      <input type="text" id="wh-new-name" placeholder="例：283倉庫">
+    </div>
+    <button class="add-btn" onclick="addWarehouse()" style="margin-bottom:8px;">+ 倉庫を追加</button>
+    <button class="modal-close" onclick="closeWhManage()">閉じる</button>
+  </div>
+</div>
+
 <div class="sign-view-modal" id="sign-view-modal">
   <div class="sign-view-inner">
     <h3 id="sign-view-title">サイン確認</h3>
@@ -287,13 +349,12 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { initializeApp }          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, child }
-                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { initializeApp }      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, off }
+                              from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInAnonymously }
-                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+                              from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// ===== Firebase設定 =====
 const firebaseConfig = {
   apiKey:            "AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
   authDomain:        "logitime-86b56.firebaseapp.com",
@@ -309,11 +370,21 @@ const db   = getDatabase(app);
 const auth = getAuth(app);
 
 // ===== STATE =====
+let currentWarehouse = null;  // 選択中の倉庫ID
+let warehouses = [];          // 倉庫一覧
 let state = { carriers: [], records: {} };
 let selectedOfficeCarrier = null;
 let selectedFieldCarrier  = null;
 let signMode = '', signCarrierId = '';
 let signCtx, signDrawing = false;
+let unsubCarriers = null;
+let unsubRecords  = null;
+
+// ===== デフォルト倉庫 =====
+const DEFAULT_WAREHOUSES = [
+  { id: 'wh_280', name: '280倉庫', icon: '🏭' },
+  { id: 'wh_282', name: '282倉庫', icon: '🏗️' },
+];
 
 // ===== UTILS =====
 function today() {
@@ -346,34 +417,124 @@ function setConn(status, text) {
   b.className = 'conn-badge ' + status;
   document.getElementById('conn-text').textContent = text;
 }
+function whPath(path) {
+  return `warehouses/${currentWarehouse}/${path}`;
+}
+
+// ===== 倉庫選択画面 =====
+async function loadWarehouses() {
+  const snap = await get(ref(db, 'warehouses_list'));
+  if (snap.val()) {
+    warehouses = Object.values(snap.val());
+  } else {
+    // 初回：デフォルト倉庫を書き込む
+    warehouses = DEFAULT_WAREHOUSES;
+    const obj = {};
+    warehouses.forEach(w => obj[w.id] = w);
+    await set(ref(db, 'warehouses_list'), obj);
+  }
+  renderWarehouseSelect();
+}
+
+function renderWarehouseSelect() {
+  const grid = document.getElementById('ws-grid');
+  grid.innerHTML = warehouses.map(w => `
+    <button class="ws-btn" onclick="selectWarehouse('${w.id}')">
+      <span class="ws-btn-icon">${w.icon||'🏭'}</span>
+      <div class="ws-btn-info">
+        <div class="ws-btn-name">${escHTML(w.name)}</div>
+        <div class="ws-btn-desc">タップして選択</div>
+      </div>
+    </button>`).join('');
+}
+
+window.selectWarehouse = function(whId) {
+  currentWarehouse = whId;
+  const wh = warehouses.find(w=>w.id===whId);
+  document.getElementById('nav-wh-name').textContent = wh ? wh.name : whId;
+  document.getElementById('master-wh-label').textContent = `対象倉庫：${wh ? wh.name : whId}`;
+  document.getElementById('warehouse-select').classList.add('hidden');
+  document.getElementById('loading-overlay').classList.remove('hidden');
+  startListeners();
+};
+
+window.switchWarehouse = function() {
+  // リスナーを解除
+  if (unsubCarriers) { off(ref(db, whPath('carriers'))); unsubCarriers = null; }
+  if (unsubRecords)  { off(ref(db, whPath(`records/${today()}`))); unsubRecords = null; }
+  state = { carriers: [], records: {} };
+  selectedOfficeCarrier = null;
+  selectedFieldCarrier  = null;
+  currentWarehouse = null;
+  document.getElementById('warehouse-select').classList.remove('hidden');
+  renderWarehouseSelect();
+};
+
+// 倉庫管理モーダル
+window.openWhManage = function() {
+  renderWhList();
+  document.getElementById('wh-modal').classList.remove('hidden');
+};
+window.closeWhManage = function() {
+  document.getElementById('wh-modal').classList.add('hidden');
+};
+function renderWhList() {
+  const list = document.getElementById('wh-list');
+  list.innerHTML = warehouses.map(w => `
+    <div class="wh-item">
+      <span class="wh-item-name">${w.icon||'🏭'} ${escHTML(w.name)}</span>
+      ${warehouses.length > 1 ? `<button class="del-btn" onclick="deleteWarehouse('${w.id}')">削除</button>` : ''}
+    </div>`).join('');
+}
+window.addWarehouse = async function() {
+  const name = document.getElementById('wh-new-name').value.trim();
+  if (!name) { showToast('倉庫名を入力してください'); return; }
+  const id = 'wh_' + Date.now();
+  const wh = { id, name, icon: '🏭' };
+  warehouses.push(wh);
+  const obj = {};
+  warehouses.forEach(w => obj[w.id] = w);
+  await set(ref(db, 'warehouses_list'), obj);
+  document.getElementById('wh-new-name').value = '';
+  renderWhList();
+  renderWarehouseSelect();
+  showToast(`${name} を追加しました`);
+};
+window.deleteWarehouse = async function(id) {
+  const w = warehouses.find(x=>x.id===id);
+  if (!w || !confirm(`「${w.name}」を削除しますか？\n※記録データは残ります`)) return;
+  warehouses = warehouses.filter(x=>x.id!==id);
+  const obj = {};
+  warehouses.forEach(w => obj[w.id] = w);
+  await set(ref(db, 'warehouses_list'), obj);
+  renderWhList();
+  renderWarehouseSelect();
+  showToast('削除しました');
+};
 
 // ===== Firebase 書き込み =====
 async function fbSetCarriers(carriers) {
-  await set(ref(db, 'carriers'), carriers);
+  await set(ref(db, whPath('carriers')), carriers);
 }
 async function fbSetRecord(carrierId, rec) {
   const key = carrierId.replace(/[.#$/[\]]/g, '_');
-  await set(ref(db, `records/${today()}/${key}`), rec);
+  await set(ref(db, whPath(`records/${today()}/${key}`)), rec);
 }
 
-// ===== リアルタイムリスナー =====
+// ===== リスナー =====
 function startListeners() {
   // 運送会社マスター
-  onValue(ref(db, 'carriers'), snap => {
+  onValue(ref(db, whPath('carriers')), snap => {
     const val = snap.val();
     state.carriers = val ? (Array.isArray(val) ? val.filter(Boolean) : Object.values(val)) : [];
+    document.getElementById('loading-overlay').classList.add('hidden');
     renderCurrentPage();
-  }, err => {
-    setConn('offline', 'エラー');
-    console.error('carriers listener:', err);
   });
 
   // 本日の記録
-  onValue(ref(db, `records/${today()}`), snap => {
+  onValue(ref(db, whPath(`records/${today()}`)), snap => {
     state.records[today()] = snap.val() || {};
     renderCurrentPage();
-  }, err => {
-    console.error('records listener:', err);
   });
 
   // 接続状態
@@ -410,11 +571,11 @@ function renderCurrentPage() {
 
 // ===== 状態ラベル =====
 function getStatusLabel(rec) {
-  if (!rec)                return { label:'未入場',                          cls:'waiting'  };
-  if (rec.departTime)      return { label:`退場済 ${rec.departTime}`,        cls:'departed' };
-  if (rec.loadEndTime)     return { label:`荷役完了 ${rec.loadEndTime}`,     cls:'done'     };
-  if (rec.loadStartTime)   return { label:`荷役中 ${rec.loadStartTime}〜`,   cls:'loading'  };
-  if (rec.enterTime)       return { label:`入場中 ${rec.enterTime}〜`,       cls:'entered'  };
+  if (!rec)                return { label:'未入場', cls:'waiting' };
+  if (rec.departTime)      return { label:`退場済 ${rec.departTime}`, cls:'departed' };
+  if (rec.loadEndTime)     return { label:`荷役完了 ${rec.loadEndTime}`, cls:'done' };
+  if (rec.loadStartTime)   return { label:`荷役中 ${rec.loadStartTime}〜`, cls:'loading' };
+  if (rec.enterTime)       return { label:`入場中 ${rec.enterTime}〜`, cls:'entered' };
   return { label:'未入場', cls:'waiting' };
 }
 function getRecord(carrierId) {
@@ -435,8 +596,8 @@ function renderOffice() {
     const st  = getStatusLabel(rec);
     const btn = document.createElement('button');
     let cls = 'carrier-btn';
-    if (rec && rec.departTime)      cls += ' has-record';
-    else if (rec && rec.enterTime)  cls += ' active-record';
+    if (rec && rec.departTime)     cls += ' has-record';
+    else if (rec && rec.enterTime) cls += ' active-record';
     if (selectedOfficeCarrier === c.id) cls += ' selected';
     btn.className = cls;
     btn.innerHTML = `<span class="carrier-name">${escHTML(c.short||c.name)}</span><span class="carrier-type">${typeLabel(c.type)}</span><span class="carrier-status ${st.cls}">${st.label}</span>`;
@@ -480,7 +641,6 @@ window.doEnter = async function() {
   await fbSetRecord(c.id, rec);
   showToast(`${c.short||c.name} 入場: ${rec.enterTime}`);
 };
-
 window.requestDepart = function() {
   const c = state.carriers.find(x=>x.id===selectedOfficeCarrier);
   if (!c) return;
@@ -548,7 +708,6 @@ window.doStartLoad = async function() {
   await fbSetRecord(c.id, rec);
   showToast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
 };
-
 window.requestEndLoad = function() {
   const c = state.carriers.find(x=>x.id===selectedFieldCarrier);
   if (!c) return;
@@ -575,82 +734,61 @@ function initSignCanvas() {
   signCtx.clearRect(0, 0, canvas.width, canvas.height);
   signCtx.strokeStyle = '#1a1a1a'; signCtx.lineWidth = 2.5;
   signCtx.lineCap = 'round'; signCtx.lineJoin = 'round';
-  function pt(e) {
-    const r   = canvas.getBoundingClientRect();
-    const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - r.left, y: src.clientY - r.top };
-  }
+  function pt(e) { const r=canvas.getBoundingClientRect(); const src=e.touches?e.touches[0]:e; return{x:src.clientX-r.left,y:src.clientY-r.top}; }
   canvas.onmousedown  = e => { signDrawing=true; const p=pt(e); signCtx.beginPath(); signCtx.moveTo(p.x,p.y); };
   canvas.onmousemove  = e => { if(!signDrawing) return; const p=pt(e); signCtx.lineTo(p.x,p.y); signCtx.stroke(); };
-  canvas.onmouseup    = ()  => signDrawing = false;
+  canvas.onmouseup    = ()  => signDrawing=false;
   canvas.ontouchstart = e => { e.preventDefault(); signDrawing=true; const p=pt(e); signCtx.beginPath(); signCtx.moveTo(p.x,p.y); };
   canvas.ontouchmove  = e => { e.preventDefault(); if(!signDrawing) return; const p=pt(e); signCtx.lineTo(p.x,p.y); signCtx.stroke(); };
-  canvas.ontouchend   = ()  => signDrawing = false;
+  canvas.ontouchend   = ()  => signDrawing=false;
 }
 window.clearSign = function() {
   const c = document.getElementById('sign-canvas');
-  signCtx.clearRect(0, 0, c.width/devicePixelRatio, c.height/devicePixelRatio);
+  signCtx.clearRect(0,0,c.width/devicePixelRatio,c.height/devicePixelRatio);
 };
 window.confirmSign = async function() {
   const canvas = document.getElementById('sign-canvas');
   const dataURL = canvas.toDataURL('image/png');
   const c   = state.carriers.find(x=>x.id===signCarrierId);
   const rec = getRecord(signCarrierId) || {};
-  if (signMode === 'depart') {
-    rec.departTime = nowTime();
-    rec.driverSign = dataURL;
+  if (signMode==='depart') {
+    rec.departTime = nowTime(); rec.driverSign = dataURL;
     await fbSetRecord(signCarrierId, rec);
     showToast(`${c.short||c.name} 退場完了: ${rec.departTime}`);
-  } else if (signMode === 'endload') {
-    rec.loadEndTime = nowTime();
-    rec.fieldSign   = dataURL;
+  } else if (signMode==='endload') {
+    rec.loadEndTime = nowTime(); rec.fieldSign = dataURL;
     await fbSetRecord(signCarrierId, rec);
     showToast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);
   }
   document.getElementById('sign-modal').classList.add('hidden');
 };
-window.cancelSign = function() {
-  document.getElementById('sign-modal').classList.add('hidden');
-};
+window.cancelSign = function() { document.getElementById('sign-modal').classList.add('hidden'); };
 
 // ===== 記録画面 =====
 window.renderRecords = async function() {
   const date = document.getElementById('records-date').value || today();
   const container = document.getElementById('records-table-container');
-  // 指定日のデータをFirebaseから取得
   let dayRecords = {};
-  if (date === today()) {
+  if (date===today()) {
     dayRecords = state.records[today()] || {};
   } else {
-    const snap = await get(ref(db, `records/${date}`));
+    const snap = await get(ref(db, whPath(`records/${date}`)));
     dayRecords = snap.val() || {};
   }
-  const rows = state.carriers
-    .map(c => {
-      const key = c.id.replace(/[.#$/[\]]/g, '_');
-      return { c, rec: dayRecords[key] };
-    })
-    .filter(x => x.rec);
-  if (!rows.length) {
-    container.innerHTML = '<div class="empty-state">この日の記録はありません</div>';
-    return;
-  }
+  const rows = state.carriers.map(c => {
+    const key = c.id.replace(/[.#$/[\]]/g, '_');
+    return { c, rec: dayRecords[key] };
+  }).filter(x=>x.rec);
+  if (!rows.length) { container.innerHTML='<div class="empty-state">この日の記録はありません</div>'; return; }
+  const wh = warehouses.find(w=>w.id===currentWarehouse);
   let html = `<table class="records"><thead><tr>
     <th>会社名</th><th>種別</th><th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th><th>現場サイン</th><th>ドライバーサイン</th>
   </tr></thead><tbody>`;
-  rows.forEach(({c, rec}) => {
-    const pill = rec.departTime
-      ? `<span class="status-pill complete">完了</span>`
-      : `<span class="status-pill in-progress">進行中</span>`;
+  rows.forEach(({c,rec}) => {
+    const pill = rec.departTime ? `<span class="status-pill complete">完了</span>` : `<span class="status-pill in-progress">進行中</span>`;
     const fs = rec.fieldSign  ? `<img class="sign-thumb" src="${rec.fieldSign}"  onclick="viewSign('${escHTML(rec.fieldSign)}','現場サイン — ${escHTML(c.short||c.name)}')">` : '—';
     const ds = rec.driverSign ? `<img class="sign-thumb" src="${rec.driverSign}" onclick="viewSign('${escHTML(rec.driverSign)}','ドライバーサイン — ${escHTML(c.short||c.name)}')">` : '—';
-    html += `<tr>
-      <td><strong>${escHTML(c.name)}</strong></td>
-      <td><span class="type-badge ${c.type}">${typeLabel(c.type)}</span></td>
-      <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
-      <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
-      <td>${pill}</td><td>${fs}</td><td>${ds}</td>
-    </tr>`;
+    html += `<tr><td><strong>${escHTML(c.name)}</strong></td><td><span class="type-badge ${c.type}">${typeLabel(c.type)}</span></td><td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td><td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td><td>${pill}</td><td>${fs}</td><td>${ds}</td></tr>`;
   });
   html += '</tbody></table>';
   container.innerHTML = html;
@@ -666,43 +804,30 @@ window.viewSign = function(src, title) {
 window.downloadExcel = async function() {
   const date = document.getElementById('records-date').value || today();
   let dayRecords = {};
-  if (date === today()) {
-    dayRecords = state.records[today()] || {};
-  } else {
-    const snap = await get(ref(db, `records/${date}`));
-    dayRecords = snap.val() || {};
-  }
-  const targetRows = state.carriers.map(c => {
-    const key = c.id.replace(/[.#$/[\]]/g, '_');
-    return { c, rec: dayRecords[key] };
-  }).filter(x => x.rec);
+  if (date===today()) { dayRecords=state.records[today()]||{}; }
+  else { const snap=await get(ref(db,whPath(`records/${date}`))); dayRecords=snap.val()||{}; }
+  const targetRows = state.carriers.map(c=>{const key=c.id.replace(/[.#$/[\]]/g,'_');return{c,rec:dayRecords[key]};}).filter(x=>x.rec);
   if (!targetRows.length) { showToast('この日の記録がありません'); return; }
+  const wh = warehouses.find(w=>w.id===currentWarehouse);
   showToast('Excelを生成中...');
   if (!window.JSZip) {
-    await new Promise((res,rej)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-      s.onload=res; s.onerror=rej; document.head.appendChild(s);
-    });
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
-  const zip=new JSZip(), EMU=9525;
+  const zip=new JSZip(),EMU=9525;
   async function dataURLtoBuffer(u){const r=await fetch(u);return r.arrayBuffer();}
   const imageFiles=[],drawings=[];
   for(let i=0;i<targetRows.length;i++){
     const{rec}=targetRows[i],rowIdx=i+1;
     for(const[key,col]of[['fieldSign',7],['driverSign',8]]){
-      if(rec[key]){
-        const buf=await dataURLtoBuffer(rec[key]);
-        imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});
-        drawings.push({row:rowIdx,col,imgIdx:imageFiles.length-1});
-      }
+      if(rec[key]){const buf=await dataURLtoBuffer(rec[key]);imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});drawings.push({row:rowIdx,col,imgIdx:imageFiles.length-1});}
     }
   }
   const hasD=drawings.length>0;
+  const sheetName=`${wh?wh.name:'記録'}_${date}`.slice(0,31);
   zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imageFiles.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
   zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
   zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
-  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${date}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${escHTML(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
   ['会社名','種別','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','現場サイン','ドライバーサイン'].forEach(h=>si(h));
@@ -723,43 +848,36 @@ window.downloadExcel = async function() {
   }
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=`物流記録_${date}.xlsx`;
+  const a=document.createElement('a');a.href=url;a.download=`物流記録_${wh?wh.name:'倉庫'}_${date}.xlsx`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   showToast('Excelをダウンロードしました');
 };
-
 function xmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
 
 // ===== マスター =====
 window.addCarrier = async function() {
-  const name  = document.getElementById('m-name').value.trim();
-  const short = document.getElementById('m-short').value.trim();
-  const type  = document.getElementById('m-type').value;
-  const note  = document.getElementById('m-note').value.trim();
+  const name=document.getElementById('m-name').value.trim();
+  const short=document.getElementById('m-short').value.trim();
+  const type=document.getElementById('m-type').value;
+  const note=document.getElementById('m-note').value.trim();
   if (!name) { showToast('会社名を入力してください'); return; }
-  const newCarrier = { id:'c'+Date.now(), name, short:short||name, type, note };
-  const updated = [...state.carriers, newCarrier];
-  await fbSetCarriers(updated);
-  document.getElementById('m-name').value  = '';
-  document.getElementById('m-short').value = '';
-  document.getElementById('m-note').value  = '';
+  const newCarrier={id:'c'+Date.now(),name,short:short||name,type,note};
+  await fbSetCarriers([...state.carriers,newCarrier]);
+  document.getElementById('m-name').value='';
+  document.getElementById('m-short').value='';
+  document.getElementById('m-note').value='';
   showToast(`${name} を登録しました`);
 };
-
 window.deleteCarrier = async function(id) {
-  const c = state.carriers.find(x=>x.id===id);
-  if (!c || !confirm(`「${c.name}」を削除しますか？`)) return;
+  const c=state.carriers.find(x=>x.id===id);
+  if (!c||!confirm(`「${c.name}」を削除しますか？`)) return;
   await fbSetCarriers(state.carriers.filter(x=>x.id!==id));
   showToast('削除しました');
 };
-
 function renderMaster() {
-  const list = document.getElementById('master-carrier-list');
-  if (!state.carriers.length) {
-    list.innerHTML = '<div style="color:var(--text-hint);font-size:14px;padding:8px;">登録された運送会社はありません</div>';
-    return;
-  }
-  list.innerHTML = state.carriers.map(c=>`
+  const list=document.getElementById('master-carrier-list');
+  if (!state.carriers.length) { list.innerHTML='<div style="color:var(--text-hint);font-size:14px;padding:8px;">登録された運送会社はありません</div>'; return; }
+  list.innerHTML=state.carriers.map(c=>`
     <div class="carrier-item">
       <div class="carrier-item-info">
         <div class="carrier-item-name">${escHTML(c.name)}<span class="type-badge ${c.type}">${typeLabel(c.type)}</span></div>
@@ -773,18 +891,12 @@ function renderMaster() {
 updateDateDisplay();
 setInterval(updateDateDisplay, 60000);
 
-signInAnonymously(auth)
-  .then(() => {
-    startListeners();
-    document.getElementById('loading-overlay').classList.add('hidden');
-  })
-  .catch(err => {
-    console.error('Auth error:', err);
-    // 認証失敗でも接続を試みる
-    startListeners();
-    document.getElementById('loading-overlay').classList.add('hidden');
-    showToast('⚠️ 認証エラー。Authenticationの設定を確認してください。');
-  });
+signInAnonymously(auth).then(() => {
+  loadWarehouses();
+}).catch(err => {
+  console.error(err);
+  loadWarehouses();
+});
 </script>
 </body>
 </html>
