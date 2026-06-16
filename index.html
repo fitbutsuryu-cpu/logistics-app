@@ -178,6 +178,7 @@
   .type-badge.regular{background:var(--blue-50);color:var(--blue-800);}
   .type-badge.irregular{background:var(--amber-50);color:var(--amber-600);}
   .type-badge.charter{background:var(--purple-50);color:var(--purple-600);}
+  .type-badge.spot_charter{background:var(--coral-50,#FAECE7);color:var(--coral-600,#993C1D);}
   .del-btn{background:none;border:1px solid var(--red-200);color:var(--red-600);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;}
   .toggle-btn{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;border:none;}
   .toggle-btn.on{background:var(--green-50);color:var(--green-600);border:1px solid var(--green-200);}
@@ -362,6 +363,7 @@
         <select id="m-type">
           <option value="regular">定期便</option>
           <option value="irregular">不定期便</option>
+          <option value="spot_charter">チャーター</option>
           <option value="charter">専属チャーター</option>
         </select>
       </div>
@@ -372,6 +374,26 @@
       <h2>登録済み運送会社</h2>
       <p style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">「表示」ボタンで本日のタッチ画面への表示/非表示を切替できます</p>
       <div class="carrier-list" id="master-carrier-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- チャーター入場入力モーダル -->
+<div class="sign-modal hidden" id="charter-modal">
+  <div class="sign-box" style="max-width:400px;">
+    <h3>🚚 チャーター入場受付</h3>
+    <p style="font-size:13px;color:var(--text-sub);margin-bottom:18px;">運送会社名と車番を入力してください</p>
+    <div class="form-group">
+      <label style="font-size:13px;font-weight:600;color:var(--text-sub);display:block;margin-bottom:5px;">運送会社名 *</label>
+      <input type="text" id="charter-carrier-name" placeholder="例：山田運輸" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;">
+    </div>
+    <div class="form-group" style="margin-top:12px;">
+      <label style="font-size:13px;font-weight:600;color:var(--text-sub);display:block;margin-bottom:5px;">車番（4桁の数字）*</label>
+      <input type="text" id="charter-car-number" placeholder="例：1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:22px;font-family:inherit;letter-spacing:0.2em;text-align:center;">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button onclick="cancelCharter()" style="flex:1;padding:14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--gray-50);cursor:pointer;font-size:15px;font-family:inherit;">キャンセル</button>
+      <button onclick="confirmCharter()" style="flex:2;padding:14px;border-radius:var(--radius-sm);border:none;background:var(--blue-600);color:white;cursor:pointer;font-size:15px;font-weight:600;font-family:inherit;">入場記録する</button>
     </div>
   </div>
 </div>
@@ -446,7 +468,7 @@ function nowTime() {
   const d=new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
-function typeLabel(t){ return t==='regular'?'定期便':t==='irregular'?'不定期便':'チャーター'; }
+function typeLabel(t){ return t==='regular'?'定期便':t==='irregular'?'不定期便':t==='spot_charter'?'チャーター':'専属チャーター'; }
 function escHTML(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800); }
 function updateDateDisplay(){
@@ -698,13 +720,23 @@ function updateOfficePanel(){
   document.getElementById('office-selected-panel').style.display='';
   const rec=getRecord(c.id),st=getStatusLabel(rec);
   document.getElementById('office-carrier-name').textContent=c.name;
-  document.getElementById('office-carrier-status-text').textContent=st.label;
+  // チャーターの場合は入場済みなら運送会社名・車番を表示
+  const rec=getRecord(c.id),st=getStatusLabel(rec);
+  let statusText=st.label;
+  if(c.type==='spot_charter'&&rec&&rec.charterCarrierName){
+    statusText=`${st.label}　実車：${rec.charterCarrierName} / ${rec.charterCarNumber}`;
+  }
+  document.getElementById('office-carrier-status-text').textContent=statusText;
   document.getElementById('btn-enter').disabled=!!(rec&&rec.enterTime);
   document.getElementById('btn-depart').disabled=!(rec&&rec.loadEndTime&&!rec.departTime);
   renderShipPanel(c.id,'office-ship-panel','office-ship-stats');
   const tl=document.getElementById('office-timeline');tl.innerHTML='';
   if(rec){
-    if(rec.enterTime) tl.innerHTML+=`<span class="time-chip">入場<span>${rec.enterTime}</span></span>`;
+    if(rec.enterTime){
+      let chip=`入場<span>${rec.enterTime}</span>`;
+      if(rec.charterCarrierName) chip+=`<span style="margin-left:6px;font-size:10px;color:var(--purple-600);">${rec.charterCarrierName} / ${rec.charterCarNumber}</span>`;
+      tl.innerHTML+=`<span class="time-chip">${chip}</span>`;
+    }
     if(rec.loadStartTime) tl.innerHTML+=`<span class="time-chip">荷役開始<span>${rec.loadStartTime}</span></span>`;
     if(rec.loadEndTime) tl.innerHTML+=`<span class="time-chip">荷役終了<span>${rec.loadEndTime}</span></span>`;
     if(rec.departTime) tl.innerHTML+=`<span class="time-chip">退場<span>${rec.departTime}</span></span>`;
@@ -716,9 +748,37 @@ window.doEnter=async function(){
   if(!c)return;
   const rec=getRecord(c.id)||{};
   if(rec.enterTime)return;
+  // チャーターの場合はモーダルを開く
+  if(c.type==='spot_charter'){
+    document.getElementById('charter-carrier-name').value='';
+    document.getElementById('charter-car-number').value='';
+    document.getElementById('charter-modal').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('charter-carrier-name').focus(),100);
+    return;
+  }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec);
   showToast(`${c.short||c.name} 入場: ${rec.enterTime}`);
+};
+
+window.confirmCharter=async function(){
+  const carrierName=document.getElementById('charter-carrier-name').value.trim();
+  const carNumber=document.getElementById('charter-car-number').value.trim();
+  if(!carrierName){showToast('運送会社名を入力してください');return;}
+  if(!/^\d{4}$/.test(carNumber)){showToast('車番は4桁の数字で入力してください');return;}
+  const c=state.carriers.find(x=>x.id===selectedOfficeCarrier);
+  if(!c)return;
+  const rec=getRecord(c.id)||{};
+  rec.enterTime=nowTime();
+  rec.charterCarrierName=carrierName;
+  rec.charterCarNumber=carNumber;
+  await fbSetRecord(c.id,rec);
+  document.getElementById('charter-modal').classList.add('hidden');
+  showToast(`${carrierName}（${carNumber}） 入場: ${rec.enterTime}`);
+};
+
+window.cancelCharter=function(){
+  document.getElementById('charter-modal').classList.add('hidden');
 };
 window.requestDepart=function(){
   const c=state.carriers.find(x=>x.id===selectedOfficeCarrier);
@@ -851,7 +911,7 @@ window.renderRecords=async function(){
   }
   if(!allRows.length){container.innerHTML='<div class="empty-state">この期間の記録はありません</div>';return;}
   let html=`<table class="records"><thead><tr>
-    <th>日付</th><th>会社名</th><th>種別</th><th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th><th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
+    <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th><th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship})=>{
     const pill=rec.departTime?`<span class="status-pill complete">完了</span>`:`<span class="status-pill in-progress">進行中</span>`;
@@ -861,6 +921,8 @@ window.renderRecords=async function(){
       <td>${date}</td>
       <td><strong>${escHTML(c.name)}</strong></td>
       <td><span class="type-badge ${c.type}">${typeLabel(c.type)}</span></td>
+      <td>${rec.charterCarrierName?escHTML(rec.charterCarrierName):'—'}</td>
+      <td>${rec.charterCarNumber?escHTML(rec.charterCarNumber):'—'}</td>
       <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
       <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
       <td>${pill}</td>
@@ -905,30 +967,38 @@ window.downloadExcel=async function(){
   }
   const zip=new JSZip(),EMU=9525;
   async function dataURLtoBuffer(u){const r=await fetch(u);return r.arrayBuffer();}
+  const wh=warehouses.find(w=>w.id===currentWarehouse);
+  const sheetName=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
+  const strings=[];
+  function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
+  const headers=['日付','会社名','種別','実車名','車番','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  headers.forEach(h=>si(h));
+  const dm=allRows.map(({date,c,rec,ship})=>[
+    date,c.name,typeLabel(c.type),
+    rec.charterCarrierName||'',rec.charterCarNumber||'',
+    rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',
+    rec.departTime?'完了':'進行中',
+    ship?.count??'',ship?.qty??'',ship?.vol??'',
+    rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
+  ]);
+  dm.forEach(r=>r.forEach(v=>si(v)));
+  // サイン画像収集（N列=index13、O列=index14）
   const imageFiles=[],drawings=[];
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],rowIdx=i+1;
-    for(const[key,col]of[['fieldSign',11],['driverSign',12]]){
+    for(const[key,col]of[['fieldSign',13],['driverSign',14]]){
       if(rec[key]){const buf=await dataURLtoBuffer(rec[key]);imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});drawings.push({row:rowIdx,col,imgIdx:imageFiles.length-1});}
     }
   }
   const hasD=drawings.length>0;
-  const wh=warehouses.find(w=>w.id===currentWarehouse);
-  const sheetName=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imageFiles.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
   zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
   zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${escHTML(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
-  const strings=[];
-  function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
-  headers.forEach(h=>si(h));
-  const dm=allRows.map(({date,c,rec,ship})=>[date,c.name,typeLabel(c.type),rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',rec.departTime?'完了':'進行中',ship?.count??'',ship?.qty??'',ship?.vol??'',rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)']);
-  dm.forEach(r=>r.forEach(v=>si(v)));
   zip.file('xl/sharedStrings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xmlEsc(s)}</t></si>`).join('')}</sst>`);
   zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf></cellXfs></styleSheet>`);
   function cl(n){return String.fromCharCode(65+n);}
-  const CW=[12,24,10,10,12,12,10,8,10,10,10,16,16];
+  const CW=[12,24,10,12,8,10,12,12,10,8,10,10,10,16,16];
   let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
   zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${CW.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sr}</sheetData>${hasD?'<drawing r:id="rId1"/></worksheet>':'</worksheet>'}`);
