@@ -185,9 +185,8 @@
 
   /* 出荷データ編集 */
   .ship-edit-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
-  .ship-edit-row input{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;min-width:0;}
+  .ship-edit-row input{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;min-width:0;transition:border-color 0.3s;}
   .ship-edit-row input::placeholder{font-size:11px;}
-  .ship-save-btn{padding:6px 10px;background:var(--blue-600);color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;}
 
   /* Excel取込 */
   .import-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:0 20px 20px;}
@@ -909,7 +908,7 @@ window.downloadExcel=async function(){
   const imageFiles=[],drawings=[];
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],rowIdx=i+1;
-    for(const[key,col]of[['fieldSign',12],['driverSign',13]]){
+    for(const[key,col]of[['fieldSign',11],['driverSign',12]]){
       if(rec[key]){const buf=await dataURLtoBuffer(rec[key]);imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});drawings.push({row:rowIdx,col,imgIdx:imageFiles.length-1});}
     }
   }
@@ -997,22 +996,40 @@ window.toggleVisibility=async function(carrierId){
   const current=isVisible(carrierId);
   await fbSetVisibility(carrierId,!current);
 };
-window.saveShipEdit=async function(carrierId){
-  const key=carrierId.replace(/[.#$/[\]]/g,'_');
-  const count=document.getElementById(`ship-count-${key}`).value;
-  const qty=document.getElementById(`ship-qty-${key}`).value;
-  const vol=document.getElementById(`ship-vol-${key}`).value;
-  await fbSetShipData(carrierId,{count,qty,vol});
-  showToast('出荷データを保存しました');
+// debounce自動保存（入力後1秒で保存）
+const shipDebounceMap={};
+window.onShipInput=function(carrierId){
+  if(shipDebounceMap[carrierId]) clearTimeout(shipDebounceMap[carrierId]);
+  shipDebounceMap[carrierId]=setTimeout(async()=>{
+    const key=carrierId.replace(/[.#$/[\]]/g,'_');
+    const countEl=document.getElementById(`ship-count-${key}`);
+    const qtyEl=document.getElementById(`ship-qty-${key}`);
+    const volEl=document.getElementById(`ship-vol-${key}`);
+    if(!countEl)return;
+    await fbSetShipData(carrierId,{count:countEl.value,qty:qtyEl.value,vol:volEl.value});
+    // 保存完了を入力欄の枠色で示す
+    [countEl,qtyEl,volEl].forEach(el=>{
+      el.style.borderColor='var(--green-600)';
+      setTimeout(()=>el.style.borderColor='',1500);
+    });
+  },1000);
 };
 
 function renderMaster(){
   const list=document.getElementById('master-carrier-list');
   if(!state.carriers.length){list.innerHTML='<div style="color:var(--text-hint);font-size:13px;padding:8px;">登録された運送会社はありません</div>';return;}
+  // 入力中の値を退避（再描画でリセットされないように）
+  const savedVals={};
+  state.carriers.forEach(c=>{
+    const key=c.id.replace(/[.#$/[\]]/g,'_');
+    const ce=document.getElementById(`ship-count-${key}`);
+    if(ce) savedVals[key]={count:ce.value,qty:document.getElementById(`ship-qty-${key}`).value,vol:document.getElementById(`ship-vol-${key}`).value};
+  });
   list.innerHTML=state.carriers.map(c=>{
     const vis=isVisible(c.id);
-    const sd=getShipData(c.id)||{count:'',qty:'',vol:''};
     const key=c.id.replace(/[.#$/[\]]/g,'_');
+    // 入力中の値があればそちらを優先、なければFirebaseの値
+    const sd=savedVals[key]||(getShipData(c.id)||{count:'',qty:'',vol:''});
     return`<div class="carrier-item">
       <div class="carrier-item-row">
         <div class="carrier-item-info">
@@ -1025,11 +1042,11 @@ function renderMaster(){
         </div>
       </div>
       <div class="ship-edit-row">
-        <input type="number" id="ship-count-${key}" value="${escHTML(String(sd.count))}" placeholder="件数">
-        <input type="number" id="ship-qty-${key}" value="${escHTML(String(sd.qty))}" placeholder="個数">
-        <input type="number" id="ship-vol-${key}" value="${escHTML(String(sd.vol))}" placeholder="才数">
-        <button class="ship-save-btn" onclick="saveShipEdit('${c.id}')">保存</button>
+        <input type="number" id="ship-count-${key}" value="${escHTML(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
+        <input type="number" id="ship-qty-${key}"   value="${escHTML(String(sd.qty??''))}"   placeholder="個数" oninput="onShipInput('${c.id}')">
+        <input type="number" id="ship-vol-${key}"   value="${escHTML(String(sd.vol??''))}"   placeholder="才数" oninput="onShipInput('${c.id}')">
       </div>
+      <div style="font-size:10px;color:var(--text-hint);margin-top:4px;padding-left:2px;">入力後1秒で自動保存されます</div>
     </div>`;
   }).join('');
 }
