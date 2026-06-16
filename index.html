@@ -718,7 +718,6 @@ function updateOfficePanel(){
   if(!c){document.getElementById('office-no-selection').style.display='';document.getElementById('office-selected-panel').style.display='none';return;}
   document.getElementById('office-no-selection').style.display='none';
   document.getElementById('office-selected-panel').style.display='';
-  const rec=getRecord(c.id),st=getStatusLabel(rec);
   document.getElementById('office-carrier-name').textContent=c.name;
   // チャーターの場合は入場済みなら運送会社名・車番を表示
   const rec=getRecord(c.id),st=getStatusLabel(rec);
