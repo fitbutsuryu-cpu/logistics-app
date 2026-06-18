@@ -179,6 +179,8 @@
   .type-badge.irregular{background:var(--amber-50);color:var(--amber-600);}
   .type-badge.charter{background:var(--purple-50);color:var(--purple-600);}
   .type-badge.spot_charter{background:var(--coral-50,#FAECE7);color:var(--coral-600,#993C1D);}
+  .type-badge.truck_in{background:#E8F5E9;color:#2E7D32;}
+  .type-badge.container_in{background:#E3F2FD;color:#1565C0;}
   .del-btn{background:none;border:1px solid var(--red-200);color:var(--red-600);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;}
   .toggle-btn{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;border:none;}
   .toggle-btn.on{background:var(--green-50);color:var(--green-600);border:1px solid var(--green-200);}
@@ -210,6 +212,30 @@
   .sign-view-inner img{width:100%;border:1px solid var(--border);border-radius:6px;}
   .sign-view-inner button{margin-top:10px;width:100%;padding:11px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:inherit;font-weight:600;}
 
+  /* 守衛連絡リスト */
+  .guard-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:0 20px 20px;}
+  .guard-section h3{font-size:16px;font-weight:600;margin-bottom:14px;}
+  .guard-print-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;margin-bottom:16px;}
+  .guard-print-btn:hover{background:var(--blue-800);}
+  .guard-table-wrap{overflow-x:auto;}
+  .guard-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .guard-table th{background:var(--gray-50);padding:8px 10px;border:1px solid var(--border);font-weight:600;text-align:left;font-size:12px;color:var(--text-sub);}
+  .guard-table td{padding:6px 10px;border:1px solid var(--border);}
+  .guard-table td[contenteditable=true]:focus{outline:2px solid var(--blue-200);background:var(--blue-50);}
+  .guard-table-title{font-size:13px;font-weight:600;color:var(--text-sub);margin:14px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--border);}
+
+  @media print {
+    body > *:not(#print-area){display:none !important;}
+    #print-area{display:block !important;}
+    .print-page{page-break-after:always;padding:20px;}
+    .print-page:last-child{page-break-after:auto;}
+    .print-title{font-size:16px;font-weight:700;margin-bottom:6px;}
+    .print-meta{font-size:12px;color:#666;margin-bottom:12px;}
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    th{background:#f0f0f0 !important;padding:6px 8px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
+    td{padding:5px 8px;border:1px solid #999;}
+  }
+  #print-area{display:none;}
   .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:11px 18px;border-radius:30px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap;}
   .toast.show{opacity:1;}
 </style>
@@ -250,6 +276,7 @@
     <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
     <button class="nav-tab" onclick="showPage('records')" id="tab-records">📋 管理・記録</button>
     <button class="nav-tab" onclick="showPage('master')" id="tab-master">⚙️ マスター</button>
+    <button class="nav-tab" onclick="showPage('guard')" id="tab-guard">🛡️ 守衛連絡</button>
   </div>
   <div class="nav-right">
     <div class="conn-badge offline" id="conn-badge"><span class="conn-dot"></span><span id="conn-text">接続中...</span></div>
@@ -365,6 +392,8 @@
           <option value="irregular">不定期便</option>
           <option value="spot_charter">チャーター</option>
           <option value="charter">専属チャーター</option>
+          <option value="truck_in">トラック入庫</option>
+          <option value="container_in">コンテナ入庫</option>
         </select>
       </div>
       <div class="form-group"><label>備考</label><input type="text" id="m-note" placeholder="例：東京ルート 毎日午前"></div>
@@ -377,6 +406,40 @@
     </div>
   </div>
 </div>
+
+<!-- ===== 守衛連絡 ===== -->
+<div class="page" id="page-guard">
+  <div style="padding:20px 20px 0;">
+    <h1 style="font-size:20px;font-weight:600;">守衛連絡リスト</h1>
+    <p style="font-size:13px;color:var(--text-sub);margin-top:3px;" id="guard-wh-label"></p>
+  </div>
+
+  <!-- チャーター出荷 -->
+  <div class="guard-section">
+    <div class="guard-table-title">📦 チャーター出荷（定期便・不定期便・チャーター・専属チャーター）</div>
+    <div id="guard-charter-wrap" class="guard-table-wrap"></div>
+  </div>
+
+  <!-- トラック入庫 -->
+  <div class="guard-section">
+    <div class="guard-table-title">🚛 トラック入庫</div>
+    <div id="guard-truck-wrap" class="guard-table-wrap"></div>
+  </div>
+
+  <!-- コンテナ入庫 -->
+  <div class="guard-section">
+    <div class="guard-table-title">📦 コンテナ入庫</div>
+    <div id="guard-container-wrap" class="guard-table-wrap"></div>
+  </div>
+
+  <div style="padding:0 20px 30px;">
+    <button class="guard-print-btn" onclick="printGuard()">🖨️ 印刷する</button>
+    <p style="font-size:12px;color:var(--text-sub);">各セルをタップして編集できます。編集後に印刷してください。</p>
+  </div>
+</div>
+
+<!-- 印刷エリア（印刷時のみ表示） -->
+<div id="print-area"></div>
 
 <!-- チャーター入場入力モーダル -->
 <div class="sign-modal hidden" id="charter-modal">
@@ -447,7 +510,7 @@ const auth = getAuth(app);
 // ===== STATE =====
 let currentWarehouse = null;
 let warehouses = [];
-let state = { carriers: [], records: {}, shipData: {}, visibility: {} };
+let state = { carriers: [], records: {}, shipData: {}, visibility: {}, guardCheck: {} };
 let selectedOfficeCarrier = null;
 let selectedFieldCarrier  = null;
 let signMode = '', signCarrierId = '';
@@ -468,7 +531,9 @@ function nowTime() {
   const d=new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
-function typeLabel(t){ return t==='regular'?'定期便':t==='irregular'?'不定期便':t==='spot_charter'?'チャーター':'専属チャーター'; }
+function typeLabel(t){
+  return t==='regular'?'定期便':t==='irregular'?'不定期便':t==='spot_charter'?'チャーター':t==='charter'?'専属チャーター':t==='truck_in'?'トラック入庫':t==='container_in'?'コンテナ入庫':'不明';
+}
 function escHTML(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800); }
 function updateDateDisplay(){
@@ -591,6 +656,10 @@ async function fbSetVisibility(carrierId,visible){
   const key=carrierId.replace(/[.#$/[\]]/g,'_');
   await set(ref(db,whPath(`visibility/${today()}/${key}`)),visible);
 }
+async function fbSetGuardCheck(carrierId,checked){
+  const key=carrierId.replace(/[.#$/[\]]/g,'_');
+  await set(ref(db,whPath(`guardCheck/${key}`)),checked);
+}
 
 // ===== リスナー =====
 function startListeners(){
@@ -621,6 +690,10 @@ function startListeners(){
     state.visibility[today()]=snap.val()||{};
     renderCurrentPage();
   });
+  onValue(ref(db,whPath('guardCheck')),snap=>{
+    state.guardCheck=snap.val()||{};
+    renderCurrentPage();
+  });
   onValue(ref(db,'.info/connected'),snap=>{
     setConn(snap.val()?'online':'offline',snap.val()?'接続中':'オフライン');
   });
@@ -638,6 +711,8 @@ window.showPage=function(id){
     document.getElementById('date-from').value=t;
     document.getElementById('date-to').value=t;
     renderRecords();
+  } else if(id==='guard'){
+    renderGuard();
   } else renderCurrentPage();
 };
 
@@ -1061,6 +1136,83 @@ window.deleteCarrier=async function(id){
   await fbSetCarriers(state.carriers.filter(x=>x.id!==id));
   showToast('削除しました');
 };
+// ===== 守衛連絡リスト =====
+function isGuardChecked(carrierId){
+  const key=carrierId.replace(/[.#$/[\]]/g,'_');
+  return !!(state.guardCheck||{})[key];
+}
+
+function makeEditableTable(headers, rows, tableId){
+  const ths=headers.map(h=>`<th>${h}</th>`).join('');
+  const trs=rows.map((row,ri)=>`<tr>${row.map((cell,ci)=>`<td contenteditable="true" data-table="${tableId}" data-row="${ri}" data-col="${ci}">${escHTML(cell)}</td>`).join('')}</tr>`).join('');
+  return `<table class="guard-table" id="${tableId}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+function renderGuard(){
+  const wh=warehouses.find(w=>w.id===currentWarehouse);
+  document.getElementById('guard-wh-label').textContent=`対象倉庫：${wh?wh.name:''}　${today()}`;
+
+  // チャーター出荷対象種別
+  const charterTypes=['regular','irregular','spot_charter','charter'];
+  const charterCarriers=state.carriers.filter(c=>charterTypes.includes(c.type)&&isGuardChecked(c.id));
+  const charterRows=charterCarriers.length
+    ? charterCarriers.map(c=>[c.name,'','',''])
+    : [['（なし）','','','']];
+  document.getElementById('guard-charter-wrap').innerHTML=
+    makeEditableTable(['会社名','行先','住所','t'],charterRows,'tbl-charter');
+
+  // トラック入庫
+  const truckCarriers=state.carriers.filter(c=>c.type==='truck_in'&&isGuardChecked(c.id));
+  const truckRows=truckCarriers.length
+    ? truckCarriers.map(c=>[c.name,'',''])
+    : [['（なし）','','']];
+  document.getElementById('guard-truck-wrap').innerHTML=
+    makeEditableTable(['会社名','入場依頼時間','出荷元'],truckRows,'tbl-truck');
+
+  // コンテナ入庫
+  const containerCarriers=state.carriers.filter(c=>c.type==='container_in'&&isGuardChecked(c.id));
+  const containerRows=containerCarriers.length
+    ? containerCarriers.map(c=>[c.name,''])
+    : [['（なし）','']];
+  document.getElementById('guard-container-wrap').innerHTML=
+    makeEditableTable(['会社名','入場依頼時間'],containerRows,'tbl-container');
+}
+
+window.printGuard=function(){
+  const wh=warehouses.find(w=>w.id===currentWarehouse);
+  const dateStr=today();
+  const whName=wh?wh.name:'';
+
+  function tableToHtml(tableId, title){
+    const tbl=document.getElementById(tableId);
+    if(!tbl) return '';
+    const headers=Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
+    const rows=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>
+      Array.from(tr.querySelectorAll('td')).map(td=>td.textContent)
+    );
+    const ths=headers.map(h=>`<th>${h}</th>`).join('');
+    const trs=rows.map(row=>`<tr>${row.map(c=>`<td>${escHTML(c)}</td>`).join('')}</tr>`).join('');
+    return `<div style="margin-bottom:20px;">
+      <div style="font-size:13px;font-weight:700;margin-bottom:6px;border-bottom:2px solid #333;padding-bottom:4px;">${title}</div>
+      <table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>
+    </div>`;
+  }
+
+  const printArea=document.getElementById('print-area');
+  printArea.innerHTML=`<div class="print-page">
+    <div class="print-title">守衛連絡リスト　${whName}　${dateStr}</div>
+    ${tableToHtml('tbl-charter','📦 チャーター出荷')}
+    ${tableToHtml('tbl-truck','🚛 トラック入庫')}
+    ${tableToHtml('tbl-container','📦 コンテナ入庫')}
+  </div>`;
+  window.print();
+};
+
+window.toggleGuardCheck=async function(carrierId){
+  const checked=!isGuardChecked(carrierId);
+  await fbSetGuardCheck(carrierId,checked);
+};
+
 window.toggleVisibility=async function(carrierId){
   const current=isVisible(carrierId);
   await fbSetVisibility(carrierId,!current);
@@ -1106,6 +1258,10 @@ function renderMaster(){
           <div class="carrier-item-meta">${c.short!==c.name?'略称: '+escHTML(c.short)+'　':''}${escHTML(c.note||'')}</div>
         </div>
         <div class="carrier-item-actions">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-sub);">
+            <input type="checkbox" ${isGuardChecked(c.id)?'checked':''} onchange="toggleGuardCheck('${c.id}')" style="width:14px;height:14px;cursor:pointer;">
+            守衛連絡
+          </label>
           <button class="toggle-btn ${vis?'on':'off'}" onclick="toggleVisibility('${c.id}')">${vis?'表示中':'非表示'}</button>
           <button class="del-btn" onclick="deleteCarrier('${c.id}')">削除</button>
         </div>
