@@ -465,7 +465,7 @@ table.records tr:last-child td{border-bottom:none;}
     <!-- チャーター出荷入力 -->
     <div class="master-section">
       <h2>📦 チャーター出荷入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">チャーター・専属チャーター・定期便・不定期便の当日情報を入力。タッチ画面と守衛連絡に反映されます。</p>
+      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">チャーター・専属チャーター・定期便・不定期便の当日情報を入力。入力欄から離れると次行追加・10秒後にFirebase保存＆タッチ画面反映されます。</p>
       <div id="charter-input-area"></div>
       <button class="reset-btn" style="margin-top:8px;" onclick="resetCharterInputs()">🗑️ リセット</button>
     </div>
@@ -473,7 +473,7 @@ table.records tr:last-child td{border-bottom:none;}
     <!-- トラック入庫入力 -->
     <div class="master-section">
       <h2>🚛 トラック入庫入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">トラック入庫の当日情報を入力。タッチ画面と守衛連絡に反映されます。</p>
+      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">トラック入庫の当日情報を入力。入力欄から離れると次行追加・10秒後に保存＆タッチ画面反映されます。</p>
       <div id="truck-input-area"></div>
       <button class="reset-btn" style="margin-top:8px;" onclick="resetTruckInputs()">🗑️ リセット</button>
     </div>
@@ -481,7 +481,7 @@ table.records tr:last-child td{border-bottom:none;}
     <!-- コンテナ入庫入力 -->
     <div class="master-section">
       <h2>🏗️ コンテナ入庫入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">コンテナ入庫の当日情報を入力。タッチ画面と守衛連絡に反映されます。</p>
+      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">コンテナ入庫の当日情報を入力。入力欄から離れると次行追加・10秒後に保存＆タッチ画面反映されます。</p>
       <div id="container-input-area"></div>
       <button class="reset-btn" style="margin-top:8px;" onclick="resetContainerInputs()">🗑️ リセット</button>
     </div>
@@ -850,7 +850,13 @@ function showPage(id){
   selOffice=null;selField=null;
   if(id==='records'){const t=today();document.getElementById('date-from').value=t;document.getElementById('date-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBusinessDay();renderGuard();}
-  else if(id==='master'){renderMaster();renderCharterInputs();renderTruckInputs();renderContainerInputs();}
+  else if(id==='master'){
+    // 各入力欄に最低1行保証
+    if(!charterRows.length)charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
+    if(!truckRows.length)truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
+    if(!containerRows.length)containerRows=[{containerNo:'',time:''}];
+    renderMaster();renderCharterInputs();renderTruckInputs();renderContainerInputs();
+  }
   else renderCurrentPage();
 }
 function renderCurrentPage(){
@@ -905,44 +911,34 @@ function renderInboundPanel(cid,panelId,infoId){
 // ===== 動的入力欄 =====
 function renderCharterInputs(){
   const area=document.getElementById('charter-input-area');if(!area)return;
-  // 末尾に空行がなければ追加
-  if(!charterRows.length||hasContent(charterRows[charterRows.length-1],'charter')){
-    charterRows.push({carrier:'',carNum:'',dest:'',addr:'',time:''});
-  }
   area.innerHTML=charterRows.map((r,i)=>`
     <div class="inbound-row">
       <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateCharter(${i},'carrier',this.value)">
-      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateCharter(${i},'carNum',this.value)" style="max-width:70px;">
-      <input type="text" placeholder="納品先" value="${escHTML(r.dest||'')}" oninput="updateCharter(${i},'dest',this.value)">
-      <input type="text" placeholder="住所" value="${escHTML(r.addr||'')}" oninput="updateCharter(${i},'addr',this.value)">
-      <input type="text" placeholder="時間" value="${escHTML(r.time||'')}" oninput="updateCharter(${i},'time',this.value)" style="max-width:70px;">
+      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateCharter(${i},'carrier',this.value)" onblur="onBlurCharter(${i})">
+      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateCharter(${i},'carNum',this.value)" onblur="onBlurCharter(${i})" style="max-width:70px;">
+      <input type="text" placeholder="納品先" value="${escHTML(r.dest||'')}" oninput="updateCharter(${i},'dest',this.value)" onblur="onBlurCharter(${i})">
+      <input type="text" placeholder="住所" value="${escHTML(r.addr||'')}" oninput="updateCharter(${i},'addr',this.value)" onblur="onBlurCharter(${i})">
+      <input type="text" placeholder="時間" value="${escHTML(r.time||'')}" oninput="updateCharter(${i},'time',this.value)" onblur="onBlurCharter(${i})" style="max-width:70px;">
     </div>`).join('');
 }
 function renderTruckInputs(){
   const area=document.getElementById('truck-input-area');if(!area)return;
-  if(!truckRows.length||hasContent(truckRows[truckRows.length-1],'truck')){
-    truckRows.push({origin:'',carrier:'',carNum:'',time:''});
-  }
   area.innerHTML=truckRows.map((r,i)=>`
     <div class="inbound-row">
       <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="出荷元" value="${escHTML(r.origin||'')}" oninput="updateTruck(${i},'origin',this.value)">
-      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateTruck(${i},'carrier',this.value)">
-      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateTruck(${i},'carNum',this.value)" style="max-width:70px;">
-      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateTruck(${i},'time',this.value)" style="max-width:75px;">
+      <input type="text" placeholder="出荷元" value="${escHTML(r.origin||'')}" oninput="updateTruck(${i},'origin',this.value)" onblur="onBlurTruck(${i})">
+      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateTruck(${i},'carrier',this.value)" onblur="onBlurTruck(${i})">
+      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateTruck(${i},'carNum',this.value)" onblur="onBlurTruck(${i})" style="max-width:70px;">
+      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateTruck(${i},'time',this.value)" onblur="onBlurTruck(${i})" style="max-width:75px;">
     </div>`).join('');
 }
 function renderContainerInputs(){
   const area=document.getElementById('container-input-area');if(!area)return;
-  if(!containerRows.length||hasContent(containerRows[containerRows.length-1],'container')){
-    containerRows.push({containerNo:'',time:''});
-  }
   area.innerHTML=containerRows.map((r,i)=>`
     <div class="inbound-row">
       <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="コンテナNo" value="${escHTML(r.containerNo||'')}" oninput="updateContainer(${i},'containerNo',this.value)" style="max-width:200px;">
-      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateContainer(${i},'time',this.value)" style="max-width:80px;">
+      <input type="text" placeholder="コンテナNo" value="${escHTML(r.containerNo||'')}" oninput="updateContainer(${i},'containerNo',this.value)" onblur="onBlurContainer(${i})" style="max-width:200px;">
+      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateContainer(${i},'time',this.value)" onblur="onBlurContainer(${i})" style="max-width:80px;">
     </div>`).join('');
 }
 function hasContent(row,type){
@@ -953,36 +949,62 @@ function hasContent(row,type){
 }
 
 const debMap={};
-function debounce(key,fn,delay=800){
+function debounce(key,fn,delay=10000){
   clearTimeout(debMap[key]);debMap[key]=setTimeout(fn,delay);
 }
+
+// フォーカスが外れた時に次行追加チェック
+window.onBlurCharter=function(i){
+  if(i===charterRows.length-1&&hasContent(charterRows[i],'charter')){
+    charterRows.push({carrier:'',carNum:'',dest:'',addr:'',time:''});
+    renderCharterInputs();
+  }
+};
+window.onBlurTruck=function(i){
+  if(i===truckRows.length-1&&hasContent(truckRows[i],'truck')){
+    truckRows.push({origin:'',carrier:'',carNum:'',time:''});
+    renderTruckInputs();
+  }
+};
+window.onBlurContainer=function(i){
+  if(i===containerRows.length-1&&hasContent(containerRows[i],'container')){
+    containerRows.push({containerNo:'',time:''});
+    renderContainerInputs();
+  }
+};
 
 window.updateCharter=function(i,field,val){
   if(!charterRows[i])charterRows[i]={carrier:'',carNum:'',dest:'',addr:'',time:''};
   charterRows[i][field]=val;
-  // 最後の行に入力されたら新しい行を追加
-  if(i===charterRows.length-1&&val)renderCharterInputs();
   debounce('charter',()=>{
     const obj={};charterRows.forEach((r,idx)=>obj[idx]=r);
-    fbSetInbound('charter',null,null).then(()=>set(ref(db,whPath('inboundData/charter')),obj));
+    set(ref(db,whPath('inboundData/charter')),obj).then(()=>{
+      // 事務所・現場タブも更新
+      const active=document.querySelector('.page.active');
+      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
+    });
   });
 };
 window.updateTruck=function(i,field,val){
-  if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:''};
+  if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};
   truckRows[i][field]=val;
-  if(i===truckRows.length-1&&val)renderTruckInputs();
   debounce('truck',()=>{
     const obj={};truckRows.forEach((r,idx)=>obj[idx]=r);
-    set(ref(db,whPath('inboundData/truck')),obj);
+    set(ref(db,whPath('inboundData/truck')),obj).then(()=>{
+      const active=document.querySelector('.page.active');
+      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
+    });
   });
 };
 window.updateContainer=function(i,field,val){
-  if(!containerRows[i])containerRows[i]={containerNo:''};
+  if(!containerRows[i])containerRows[i]={containerNo:'',time:''};
   containerRows[i][field]=val;
-  if(i===containerRows.length-1&&val)renderContainerInputs();
   debounce('container',()=>{
     const obj={};containerRows.forEach((r,idx)=>obj[idx]=r);
-    set(ref(db,whPath('inboundData/container')),obj);
+    set(ref(db,whPath('inboundData/container')),obj).then(()=>{
+      const active=document.querySelector('.page.active');
+      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
+    });
   });
 };
 window.resetCharterInputs=async function(){
