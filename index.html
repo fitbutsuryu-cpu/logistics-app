@@ -6,269 +6,269 @@
 <title>物流時間管理システム</title>
 <style>
 :root{
-  --blue-50:#E6F1FB;--blue-200:#85B7EB;--blue-600:#185FA5;--blue-800:#0C447C;
-  --teal-50:#E1F5EE;--teal-200:#5DCAA5;--teal-600:#0F6E56;--teal-800:#085041;
-  --amber-50:#FAEEDA;--amber-200:#EF9F27;--amber-600:#854F0B;
-  --red-50:#FCEBEB;--red-200:#F09595;--red-600:#A32D2D;
-  --green-50:#EAF3DE;--green-200:#97C459;--green-600:#3B6D11;--green-800:#27500A;
-  --gray-50:#F1EFE8;--gray-100:#D3D1C7;--gray-600:#5F5E5A;
-  --purple-50:#EEEDFE;--purple-600:#534AB7;
-  --coral-50:#FAECE7;--coral-600:#993C1D;
-  --radius:12px;--radius-sm:8px;
-  --bg:#f8f7f4;--surface:#fff;--border:#e0ddd6;
-  --text:#2C2C2A;--text-sub:#5F5E5A;--text-hint:#888780;
+  --bl50:#E6F1FB;--bl200:#85B7EB;--bl600:#185FA5;--bl800:#0C447C;
+  --tl50:#E1F5EE;--tl200:#5DCAA5;--tl600:#0F6E56;--tl800:#085041;
+  --am50:#FAEEDA;--am200:#EF9F27;--am600:#854F0B;
+  --rd50:#FCEBEB;--rd200:#F09595;--rd600:#A32D2D;
+  --gn50:#EAF3DE;--gn200:#97C459;--gn600:#3B6D11;--gn800:#27500A;
+  --gy50:#F1EFE8;--gy100:#D3D1C7;--gy600:#5F5E5A;
+  --pu50:#EEEDFE;--pu600:#534AB7;
+  --co50:#FAECE7;--co600:#993C1D;
+  --tr50:#E8F5E9;--tr600:#2E7D32;
+  --cn50:#E3F2FD;--cn600:#1565C0;
+  --r:12px;--rs:8px;
+  --bg:#f8f7f4;--sf:#fff;--bd:#e0ddd6;
+  --tx:#2C2C2A;--ts:#5F5E5A;--th:#888780;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-
-/* 倉庫選択 */
-.wh-sel{position:fixed;inset:0;background:var(--blue-800);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;overflow-y:auto;}
-.wh-sel.hidden{display:none;}
-.wh-sel-logo{font-size:38px;margin-bottom:10px;}
-.wh-sel-title{font-size:22px;font-weight:700;color:white;margin-bottom:5px;}
-.wh-sel-sub{font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:28px;}
-.wh-grid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;}
-.wh-btn{background:white;border:none;border-radius:var(--radius);padding:18px 20px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;font-family:inherit;}
-.wh-btn:hover{background:var(--blue-50);}
-.wh-btn-icon{font-size:24px;}
-.wh-btn-name{font-size:17px;font-weight:700;color:var(--text);}
-.wh-btn-desc{font-size:11px;color:var(--text-hint);margin-top:2px;}
-.wh-add-area{width:100%;max-width:340px;margin-top:16px;background:rgba(255,255,255,0.1);border-radius:var(--radius);padding:14px;}
-.wh-add-area h3{color:white;font-size:13px;font-weight:600;margin-bottom:8px;}
-.wh-add-row{display:flex;gap:8px;}
-.wh-add-row input{flex:1;padding:9px 11px;border-radius:var(--radius-sm);border:none;font-size:13px;font-family:inherit;}
-.wh-add-row button{padding:9px 14px;background:var(--blue-200);color:var(--blue-800);border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;}
-.wh-manage-list{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
-.wh-manage-item{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 11px;}
-.wh-manage-item span{color:white;font-size:12px;}
-.wh-del-btn{background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:11px;padding:2px 6px;font-family:inherit;}
-
-/* ロック画面 */
-.lock-screen{position:fixed;inset:0;background:var(--blue-800);z-index:900;display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
-.lock-screen.visible{display:flex;}
-.lock-icon{font-size:50px;margin-bottom:14px;}
-.lock-title{font-size:20px;font-weight:600;color:white;margin-bottom:6px;}
-.lock-sub{font-size:13px;color:rgba(255,255,255,0.65);margin-bottom:24px;}
-.lock-input{padding:14px 18px;border-radius:var(--radius-sm);border:none;font-size:18px;font-family:inherit;text-align:center;letter-spacing:0.2em;width:220px;margin-bottom:12px;}
-.lock-btn{padding:12px 32px;background:white;color:var(--blue-800);border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
-.lock-err{color:#F09595;font-size:13px;margin-top:8px;}
+body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;}
 
 /* NAV */
-.nav{background:var(--blue-800);color:white;display:flex;align-items:center;height:58px;position:sticky;top:0;z-index:100;}
-.nav-logo{padding:0 10px;display:flex;flex-direction:column;line-height:1.3;flex-shrink:0;}
-.nav-logo .app-name{font-size:10px;color:rgba(255,255,255,0.6);}
-.nav-logo .wh-name{font-size:14px;font-weight:600;color:white;}
+.nav{background:var(--bl800);color:#fff;display:flex;align-items:center;height:60px;position:sticky;top:0;z-index:100;}
+.nav-logo{padding:0 12px;white-space:nowrap;display:flex;flex-direction:column;line-height:1.3;}
+.nav-logo .app{font-size:10px;color:rgba(255,255,255,.6);}
+.nav-logo .wh{font-size:14px;color:#fff;font-weight:600;}
 .nav-tabs{display:flex;flex:1;overflow-x:auto;scrollbar-width:none;}
 .nav-tabs::-webkit-scrollbar{display:none;}
-.nav-tab{padding:0 11px;height:58px;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,0.65);transition:all 0.15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
-.nav-tab:hover{color:white;background:rgba(255,255,255,0.08);}
-.nav-tab.active{color:white;border-bottom:3px solid #85B7EB;background:rgba(255,255,255,0.1);}
-.nav-tab.locked{color:rgba(255,255,255,0.35);cursor:not-allowed;}
-.nav-right{display:flex;align-items:center;padding-right:6px;flex-shrink:0;}
-.nav-date{padding:0 7px;font-size:10px;color:rgba(255,255,255,0.7);white-space:nowrap;border-left:1px solid rgba(255,255,255,0.15);}
-.conn-badge{display:flex;align-items:center;gap:4px;padding:3px 7px;font-size:10px;font-weight:600;border-left:1px solid rgba(255,255,255,0.15);}
-.conn-badge.online{color:#97C459;} .conn-badge.offline{color:#F09595;}
+.nav-tab{padding:0 12px;height:60px;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,.65);transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
+.nav-tab:hover{color:#fff;background:rgba(255,255,255,.08);}
+.nav-tab.active{color:#fff;border-bottom:3px solid #85B7EB;background:rgba(255,255,255,.1);}
+.nav-r{display:flex;align-items:center;padding-right:8px;flex-shrink:0;}
+.nav-date{padding:0 8px;font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap;border-left:1px solid rgba(255,255,255,.15);}
+.conn{display:flex;align-items:center;gap:4px;padding:4px 8px;font-size:10px;font-weight:600;border-left:1px solid rgba(255,255,255,.15);}
+.conn.on{color:#97C459;}.conn.off{color:#F09595;}
 .conn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
-.switch-wh-btn{padding:3px 8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;border-radius:20px;cursor:pointer;font-size:10px;font-family:inherit;white-space:nowrap;margin-left:6px;}
+.wh-sw{padding:4px 8px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:20px;cursor:pointer;font-size:10px;font-family:inherit;white-space:nowrap;margin-left:6px;}
 
-.page{display:none;min-height:calc(100vh - 58px);}
+/* PAGES */
+.page{display:none;min-height:calc(100vh - 60px);}
 .page.active{display:block;}
 
-.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
-.loading-overlay.hidden{display:none;}
-.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--blue-600);border-radius:50%;animation:spin 0.8s linear infinite;}
+/* OVERLAY */
+.ov{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.ov.h{display:none;}
+.sp{width:40px;height:40px;border:3px solid var(--bd);border-top-color:var(--bl600);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* 通知バナー */
-.notify-banner{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:var(--blue-800);color:white;padding:12px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:400;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,0.25);opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;}
-.notify-banner.show{opacity:1;}
+/* 倉庫選択 */
+.wh-sel{position:fixed;inset:0;background:var(--bl800);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 24px;overflow-y:auto;gap:0;}
+.wh-sel.h{display:none;}
+.wh-logo{font-size:36px;margin-bottom:10px;}
+.wh-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:4px;}
+.wh-sub{font-size:13px;color:rgba(255,255,255,.65);margin-bottom:28px;}
+.wh-grid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;}
+.wh-btn{background:#fff;border:none;border-radius:var(--r);padding:18px 20px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;font-family:inherit;}
+.wh-btn:hover{background:var(--bl50);}
+.wh-btn-icon{font-size:24px;}
+.wh-btn-name{font-size:17px;font-weight:700;color:var(--tx);}
+.wh-btn-desc{font-size:11px;color:var(--th);}
+.wh-add-box{width:100%;max-width:360px;margin-top:18px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:14px;}
+.wh-add-box h3{color:#fff;font-size:13px;font-weight:600;margin-bottom:8px;}
+.wh-add-row{display:flex;gap:8px;}
+.wh-add-row input{flex:1;padding:9px 11px;border-radius:var(--rs);border:none;font-size:14px;font-family:inherit;}
+.wh-add-row button{padding:9px 14px;background:var(--bl200);color:var(--bl800);border:none;border-radius:var(--rs);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;}
+.wh-del-list{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+.wh-del-item{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.1);border-radius:7px;padding:7px 11px;}
+.wh-del-item span{color:#fff;font-size:13px;}
+.wh-del-btn{background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.6);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;}
 
-.touch-header{padding:18px 20px 0;}
-.touch-header h1{font-size:20px;font-weight:600;}
-.touch-header p{font-size:13px;color:var(--text-sub);margin-top:3px;}
+/* TOUCH */
+.touch-hdr{padding:18px 20px 0;}
+.touch-hdr h1{font-size:20px;font-weight:600;}
+.touch-hdr p{font-size:13px;color:var(--ts);margin-top:3px;}
 .mode-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:7px;}
-.mode-badge.office{background:var(--blue-50);color:var(--blue-800);}
-.mode-badge.field{background:var(--teal-50);color:var(--teal-800);}
+.mode-badge.off{background:var(--bl50);color:var(--bl800);}
+.mode-badge.fld{background:var(--tl50);color:var(--tl800);}
 
-.section{padding:14px 20px;}
-.section-title{font-size:12px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;}
-.carrier-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;}
-.carrier-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;text-align:left;transition:all 0.12s;display:flex;flex-direction:column;gap:3px;}
-.carrier-btn.selected{border:2px solid var(--blue-600);background:var(--blue-50);}
-.carrier-btn.has-record{border-color:var(--green-200);background:var(--green-50);}
-.carrier-btn.active-record{border-color:var(--amber-200);background:var(--amber-50);}
-.carrier-name{font-size:14px;font-weight:600;color:var(--text);line-height:1.3;}
-.carrier-type-label{font-size:10px;color:var(--text-hint);}
-.carrier-status{font-size:10px;font-weight:600;margin-top:2px;}
-.carrier-status.waiting{color:var(--text-hint);} .carrier-status.entered{color:var(--amber-600);}
-.carrier-status.loading{color:var(--blue-600);} .carrier-status.done{color:var(--green-600);}
-.carrier-status.departed{color:var(--gray-600);}
-.carrier-extra{font-size:10px;color:var(--purple-600);margin-top:2px;line-height:1.4;}
+/* SECTION */
+.sec{padding:14px 20px;}
+.sec-title{font-size:12px;font-weight:600;color:var(--ts);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.sec-sub{font-size:11px;color:var(--th);margin-bottom:8px;margin-top:-4px;}
 
-.action-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 20px 20px;padding:18px;}
-.action-panel h2{font-size:17px;font-weight:600;margin-bottom:3px;}
-.action-panel .sub{font-size:13px;color:var(--text-sub);margin-bottom:12px;}
-.ship-panel{background:var(--purple-50);border:1px solid rgba(83,74,183,0.2);border-radius:var(--radius-sm);padding:10px;margin-bottom:12px;display:none;}
-.ship-panel.visible{display:block;}
-.ship-panel-title{font-size:11px;font-weight:600;color:var(--purple-600);margin-bottom:6px;}
-.ship-stats{display:flex;gap:12px;flex-wrap:wrap;}
-.ship-stat{text-align:center;}
-.ship-stat-val{font-size:17px;font-weight:700;color:var(--purple-600);}
-.ship-stat-label{font-size:10px;color:var(--text-sub);}
-/* 入庫情報パネル */
-.inbound-panel{background:#E8F5E9;border:1px solid #A5D6A7;border-radius:var(--radius-sm);padding:10px;margin-bottom:12px;display:none;}
-.inbound-panel.visible{display:block;}
-.inbound-panel-title{font-size:11px;font-weight:600;color:#2E7D32;margin-bottom:6px;}
-.inbound-info{font-size:12px;color:#1B5E20;line-height:1.8;}
-.action-btns{display:flex;flex-direction:column;gap:9px;}
-.action-btn{width:100%;padding:15px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-size:15px;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.12s;}
-.action-btn:disabled{opacity:0.35;cursor:not-allowed;}
-.action-btn.enter{background:var(--blue-600);color:white;}
-.action-btn.enter:hover:not(:disabled){background:var(--blue-800);}
-.action-btn.start-load{background:var(--amber-200);color:var(--amber-600);}
-.action-btn.start-load:hover:not(:disabled){background:var(--amber-600);color:white;}
-.action-btn.end-load{background:var(--teal-200);color:var(--teal-800);}
-.action-btn.end-load:hover:not(:disabled){background:var(--teal-600);color:white;}
-.action-btn.depart{background:var(--green-200);color:var(--green-800);}
-.action-btn.depart:hover:not(:disabled){background:var(--green-600);color:white;}
-.timeline{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
-.time-chip{background:var(--gray-50);border:1px solid var(--gray-100);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--text-sub);}
-.time-chip span{font-weight:600;color:var(--text);margin-left:3px;}
+/* CARRIER GRID */
+.c-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;}
+.c-divider{grid-column:1/-1;font-size:11px;font-weight:600;color:var(--ts);padding:6px 0 3px;border-bottom:1px solid var(--bd);margin-bottom:2px;}
+.c-btn{background:var(--sf);border:1.5px solid var(--bd);border-radius:var(--r);padding:11px 10px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:3px;transition:all .12s;}
+.c-btn.sel{border:2px solid var(--bl600);background:var(--bl50);}
+.c-btn.done{border-color:var(--gn200);background:var(--gn50);}
+.c-btn.act{border-color:var(--am200);background:var(--am50);}
+.c-btn.dyn{border-color:var(--pu600);background:var(--pu50);border-style:dashed;}
+.c-name{font-size:14px;font-weight:600;color:var(--tx);line-height:1.3;}
+.c-type{font-size:10px;color:var(--th);}
+.c-st{font-size:10px;font-weight:600;}
+.c-st.w{color:var(--th);} .c-st.e{color:var(--am600);} .c-st.l{color:var(--bl600);} .c-st.d{color:var(--gn600);} .c-st.g{color:var(--gy600);}
+.c-extra{font-size:10px;color:var(--pu600);margin-top:2px;line-height:1.4;}
 
-/* サイン */
-.sign-modal{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
-.sign-modal.hidden{display:none;}
-.sign-box{background:white;border-radius:var(--radius);padding:20px;width:100%;max-width:520px;}
-.sign-box h3{font-size:17px;font-weight:600;margin-bottom:3px;}
-.sign-box p{font-size:13px;color:var(--text-sub);margin-bottom:14px;}
-canvas.sign-canvas{width:100%;height:200px;border:1.5px solid var(--border);border-radius:var(--radius-sm);display:block;cursor:crosshair;touch-action:none;}
-.sign-actions{display:flex;gap:10px;margin-top:10px;}
-.sign-actions button{flex:1;padding:13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
-.sign-actions button.confirm{background:var(--blue-600);color:white;border-color:var(--blue-600);}
+/* ACTION PANEL */
+.a-panel{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);margin:0 20px 20px;padding:18px;}
+.a-panel h2{font-size:17px;font-weight:600;margin-bottom:3px;}
+.a-panel .sub{font-size:12px;color:var(--ts);margin-bottom:12px;}
+.a-btns{display:flex;flex-direction:column;gap:9px;}
+.a-btn{width:100%;padding:16px;border-radius:var(--rs);border:none;cursor:pointer;font-size:15px;font-weight:600;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .12s;}
+.a-btn:disabled{opacity:.35;cursor:not-allowed;}
+.a-btn.enter{background:var(--bl600);color:#fff;}
+.a-btn.enter:hover:not(:disabled){background:var(--bl800);}
+.a-btn.sl{background:var(--am200);color:var(--am600);}
+.a-btn.sl:hover:not(:disabled){background:var(--am600);color:#fff;}
+.a-btn.el{background:var(--tl200);color:var(--tl800);}
+.a-btn.el:hover:not(:disabled){background:var(--tl600);color:#fff;}
+.a-btn.dep{background:var(--gn200);color:var(--gn800);}
+.a-btn.dep:hover:not(:disabled){background:var(--gn600);color:#fff;}
+.tl{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);}
+.tc{background:var(--gy50);border:1px solid var(--gy100);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--ts);}
+.tc span{font-weight:600;color:var(--tx);margin-left:3px;}
 
-/* 管理記録 */
-.records-header{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 0;flex-wrap:wrap;gap:10px;}
-.records-header h1{font-size:20px;font-weight:600;}
-.records-controls{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
-.date-range-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.date-range-row label{font-size:11px;font-weight:600;color:var(--text-sub);}
-.date-range-row input[type=date]{padding:6px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;background:var(--surface);color:var(--text);}
+/* SHIP INFO */
+.ship-info{background:var(--pu50);border:1px solid rgba(83,74,183,.2);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;display:none;}
+.ship-info.v{display:block;}
+.ship-info-title{font-size:11px;font-weight:600;color:var(--pu600);margin-bottom:6px;}
+.ship-stats{display:flex;gap:14px;flex-wrap:wrap;}
+.ship-stat-val{font-size:17px;font-weight:700;color:var(--pu600);}
+.ship-stat-label{font-size:10px;color:var(--ts);}
+
+/* INBOUND INFO */
+.inbound-info{background:var(--tr50);border:1px solid rgba(46,125,50,.2);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;display:none;}
+.inbound-info.v{display:block;}
+.inbound-info-title{font-size:11px;font-weight:600;color:var(--tr600);margin-bottom:5px;}
+.inbound-info-body{font-size:12px;color:var(--tx);white-space:pre-wrap;line-height:1.6;}
+
+/* NOTIFY BANNER */
+.notify{position:fixed;top:68px;left:50%;transform:translateX(-50%);background:var(--bl800);color:#fff;padding:12px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:400;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+.notify.s{opacity:1;}
+
+/* RECORDS */
+.rec-hdr{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 0;flex-wrap:wrap;gap:12px;}
+.rec-hdr h1{font-size:20px;font-weight:600;}
+.rec-ctrl{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.date-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.date-row label{font-size:12px;font-weight:600;color:var(--ts);}
+.date-row input[type=date]{padding:7px 9px;border:1px solid var(--bd);border-radius:var(--rs);font-size:12px;font-family:inherit;background:var(--sf);color:var(--tx);}
 .btn-row{display:flex;gap:7px;}
-.download-btn{display:flex;align-items:center;gap:5px;padding:8px 14px;background:var(--green-600);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
-.view-btn{display:flex;align-items:center;gap:5px;padding:8px 14px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
-.table-wrap{margin:12px 20px 40px;overflow-x:auto;}
-table.records{width:100%;border-collapse:collapse;background:white;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
-table.records th{background:var(--gray-50);font-size:11px;font-weight:600;color:var(--text-sub);text-align:left;padding:8px 11px;border-bottom:1px solid var(--border);white-space:nowrap;}
-table.records td{padding:9px 11px;font-size:12px;border-bottom:0.5px solid var(--border);vertical-align:middle;}
-table.records tr:last-child td{border-bottom:none;}
-.status-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
-.status-pill.complete{background:var(--green-50);color:var(--green-600);}
-.status-pill.in-progress{background:var(--amber-50);color:var(--amber-600);}
-.sign-thumb{width:52px;height:26px;border:1px solid var(--border);border-radius:4px;cursor:pointer;}
-.empty-state{text-align:center;padding:50px 20px;color:var(--text-hint);font-size:14px;}
+.dl-btn{display:flex;align-items:center;gap:5px;padding:8px 14px;background:var(--gn600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.dl-btn:hover{background:var(--gn800);}
+.vw-btn{display:flex;align-items:center;gap:5px;padding:8px 14px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.vw-btn:hover{background:var(--bl800);}
+.tbl-wrap{margin:14px 20px 40px;overflow-x:auto;}
+table.rt{width:100%;border-collapse:collapse;background:#fff;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd);}
+table.rt th{background:var(--gy50);font-size:11px;font-weight:600;color:var(--ts);text-align:left;padding:9px 10px;border-bottom:1px solid var(--bd);white-space:nowrap;}
+table.rt td{padding:9px 10px;font-size:11px;border-bottom:.5px solid var(--bd);vertical-align:middle;}
+table.rt tr:last-child td{border-bottom:none;}
+table.rt tr:hover td{background:var(--gy50);}
+.s-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.s-pill.c{background:var(--gn50);color:var(--gn600);}
+.s-pill.p{background:var(--am50);color:var(--am600);}
+.sign-th{width:50px;height:25px;border:1px solid var(--bd);border-radius:3px;cursor:pointer;}
+.empty{text-align:center;padding:60px 20px;color:var(--th);font-size:13px;}
 
-/* マスター */
-.master-page{padding:0 0 40px;}
-.master-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:14px 20px 0;padding:18px;}
-.master-section h2{font-size:16px;font-weight:600;margin-bottom:12px;}
-.master-section h3{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--text-sub);}
-.form-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
-.form-group{flex:1;min-width:120px;}
-.form-group label{display:block;font-size:11px;font-weight:600;color:var(--text-sub);margin-bottom:4px;}
-.form-group input,.form-group select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;color:var(--text);background:var(--surface);}
-.add-btn{padding:10px 18px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
-.reset-btn{padding:8px 14px;background:var(--red-50);color:var(--red-600);border:1px solid var(--red-200);border-radius:var(--radius-sm);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;}
-.carrier-list{display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto;}
-.carrier-item{background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;}
-.carrier-item-row{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;}
-.carrier-item-info{display:flex;flex-direction:column;gap:2px;flex:1;}
-.carrier-item-name{font-size:13px;font-weight:600;}
-.carrier-item-meta{font-size:11px;color:var(--text-hint);}
-.carrier-item-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
-.type-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 6px;border-radius:12px;margin-left:4px;}
-.type-badge.regular{background:var(--blue-50);color:var(--blue-800);}
-.type-badge.irregular{background:var(--amber-50);color:var(--amber-600);}
-.type-badge.spot_charter{background:var(--coral-50);color:var(--coral-600);}
-.type-badge.charter{background:var(--purple-50);color:var(--purple-600);}
-.type-badge.truck_in{background:#E8F5E9;color:#2E7D32;}
-.type-badge.container_in{background:#E3F2FD;color:#1565C0;}
-.del-btn{background:none;border:1px solid var(--red-200);color:var(--red-600);padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;font-family:inherit;}
-.toggle-btn{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;border:none;}
-.toggle-btn.on{background:var(--green-50);color:var(--green-600);border:1px solid var(--green-200);}
-.toggle-btn.off{background:var(--gray-50);color:var(--gray-600);border:1px solid var(--gray-100);}
-.ship-edit-row{display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);flex-wrap:wrap;}
-.ship-edit-row input{flex:1;min-width:70px;padding:6px 7px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-family:inherit;transition:border-color 0.3s;}
-.ship-edit-row input::placeholder{font-size:10px;}
+/* MASTER */
+.m-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 20px;}
+@media(max-width:700px){.m-layout{grid-template-columns:1fr;}}
+.m-card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px;}
+.m-card h2{font-size:16px;font-weight:600;margin-bottom:12px;}
+.m-card h3{font-size:14px;font-weight:600;color:var(--ts);margin-bottom:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);}
+.fg{margin-bottom:11px;}
+.fg label{display:block;font-size:12px;font-weight:600;color:var(--ts);margin-bottom:4px;}
+.fg input,.fg select{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:var(--rs);font-size:14px;font-family:inherit;color:var(--tx);background:var(--sf);}
+.add-btn{width:100%;padding:11px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+.add-btn:hover{background:var(--bl800);}
+.c-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;}
+.c-item{background:var(--gy50);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 11px;}
+.c-item-row{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.c-item-info{flex:1;}
+.c-item-name{font-size:13px;font-weight:600;}
+.c-item-meta{font-size:11px;color:var(--th);}
+.c-item-acts{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.t-badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:4px;}
+.t-badge.regular{background:var(--bl50);color:var(--bl800);}
+.t-badge.irregular{background:var(--am50);color:var(--am600);}
+.t-badge.spot_charter{background:var(--co50);color:var(--co600);}
+.t-badge.charter{background:var(--pu50);color:var(--pu600);}
+.t-badge.truck_in{background:var(--tr50);color:var(--tr600);}
+.t-badge.container_in{background:var(--cn50);color:var(--cn600);}
+.tog-btn{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;border:none;}
+.tog-btn.on{background:var(--gn50);color:var(--gn600);border:1px solid var(--gn200);}
+.tog-btn.off{background:var(--gy50);color:var(--gy600);border:1px solid var(--gy100);}
+.del-btn{background:none;border:1px solid var(--rd200);color:var(--rd600);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:10px;font-family:inherit;}
+.guard-chk{display:flex;align-items:center;gap:3px;font-size:10px;font-weight:600;cursor:pointer;color:var(--ts);}
+.guard-chk input{width:13px;height:13px;cursor:pointer;}
+.ship-row{display:flex;gap:5px;margin-top:7px;padding-top:7px;border-top:1px solid var(--bd);}
+.ship-row input{flex:1;padding:5px 7px;border:1px solid var(--bd);border-radius:5px;font-size:12px;font-family:inherit;min-width:0;transition:border-color .3s;}
+.ship-row input::placeholder{font-size:10px;}
 
-/* 動的入庫入力欄 */
-.inbound-input-section{margin-top:16px;}
-.inbound-input-title{font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.inbound-row{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap;align-items:center;}
-.inbound-row input{flex:1;min-width:80px;padding:8px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;}
-.inbound-row-num{font-size:12px;font-weight:600;color:var(--text-hint);min-width:18px;}
+/* 動的入力セクション */
+.dyn-sec{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin:0 20px 14px;}
+.dyn-sec-title{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.dyn-sec-desc{font-size:11px;color:var(--th);margin-bottom:10px;}
+.dyn-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
+.dyn-row-num{font-size:12px;font-weight:600;color:var(--th);min-width:18px;}
+.dyn-row input{flex:1;padding:8px 9px;border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-family:inherit;min-width:0;}
+.dyn-row input:focus{outline:2px solid var(--bl200);border-color:var(--bl600);}
+.dyn-row-btns{display:flex;gap:5px;margin-top:6px;}
+.reset-btn{padding:7px 13px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.save-note{font-size:10px;color:var(--th);margin-top:6px;}
 
 /* Excel取込 */
-.import-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:14px 20px 0;}
-.import-section h3{font-size:14px;font-weight:600;margin-bottom:5px;}
-.import-section p{font-size:11px;color:var(--text-sub);margin-bottom:10px;line-height:1.6;}
-.import-btn{display:inline-flex;align-items:center;gap:5px;padding:9px 14px;background:var(--green-50);color:var(--green-600);border:1px solid var(--green-200);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
-.file-input{display:none;}
+.imp-sec{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin:0 20px 14px;}
+.imp-sec h3{font-size:14px;font-weight:600;margin-bottom:5px;}
+.imp-sec p{font-size:11px;color:var(--ts);margin-bottom:10px;line-height:1.6;}
+.imp-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;background:var(--gn50);color:var(--gn600);border:1px solid var(--gn200);border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.file-in{display:none;}
 
 /* 守衛連絡 */
-.guard-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:14px 20px 0;}
-.guard-section h3{font-size:14px;font-weight:600;margin-bottom:10px;}
-.guard-table-wrap{overflow-x:auto;}
-.guard-table{width:100%;border-collapse:collapse;font-size:12px;}
-.guard-table th{background:var(--gray-50);padding:7px 9px;border:1px solid var(--border);font-weight:600;text-align:left;font-size:11px;color:var(--text-sub);}
-.guard-table td{padding:6px 9px;border:1px solid var(--border);}
-.guard-table td[contenteditable=true]:focus{outline:2px solid var(--blue-200);background:var(--blue-50);}
-.guard-date-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
-.guard-date-row label{font-size:12px;font-weight:600;color:var(--text-sub);}
-.guard-date-row input{padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;}
-.guard-print-btn{display:inline-flex;align-items:center;gap:5px;padding:9px 16px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;}
-.guard-section-title{font-size:12px;font-weight:600;color:var(--text-sub);margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--border);}
+.gd-sec{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin:0 20px 14px;}
+.gd-sec-title{font-size:13px;font-weight:600;color:var(--ts);margin-bottom:8px;border-bottom:2px solid var(--bd);padding-bottom:5px;}
+.gd-tbl-wrap{overflow-x:auto;}
+.gd-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.gd-tbl th{background:var(--gy50);padding:7px 9px;border:1px solid var(--bd);font-weight:600;text-align:left;font-size:11px;color:var(--ts);}
+.gd-tbl td{padding:5px 9px;border:1px solid var(--bd);}
+.gd-tbl td[contenteditable=true]:focus{outline:2px solid var(--bl200);background:var(--bl50);}
+.gd-print-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin:0 20px 16px;}
 
-/* パスワード設定 */
-.pw-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin:14px 20px 0;}
-.pw-section h2{font-size:16px;font-weight:600;margin-bottom:6px;}
-.pw-section p{font-size:12px;color:var(--text-sub);margin-bottom:14px;line-height:1.6;}
-.pw-check-row{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
-.pw-check-item{display:flex;align-items:center;gap:8px;font-size:13px;}
-.pw-check-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
-.pw-input-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.pw-input-row input{padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;letter-spacing:0.15em;width:180px;}
-.pw-save-btn{padding:9px 16px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
-.pw-clear-btn{padding:9px 14px;background:var(--red-50);color:var(--red-600);border:1px solid var(--red-200);border-radius:var(--radius-sm);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
-.pw-status{font-size:12px;margin-top:8px;}
-.pw-status.set{color:var(--green-600);}
-.pw-status.unset{color:var(--text-hint);}
+/* サイン */
+.sign-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.sign-modal.h{display:none;}
+.sign-box{background:#fff;border-radius:var(--r);padding:20px;width:100%;max-width:520px;}
+.sign-box h3{font-size:17px;font-weight:600;margin-bottom:3px;}
+.sign-box p{font-size:13px;color:var(--ts);margin-bottom:14px;}
+canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var(--rs);display:block;cursor:crosshair;touch-action:none;}
+.sign-acts{display:flex;gap:10px;margin-top:10px;}
+.sign-acts button{flex:1;padding:13px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--sf);cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+.sign-acts button.ok{background:var(--bl600);color:#fff;border-color:var(--bl600);}
+.cancel-lnk{width:100%;margin-top:7px;padding:9px;border:1px solid var(--bd);background:none;border-radius:var(--rs);cursor:pointer;font-size:13px;color:var(--ts);font-family:inherit;}
 
-/* モーダル */
-.modal{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
-.modal.hidden{display:none;}
-.modal-box{background:white;border-radius:var(--radius);padding:22px;width:100%;max-width:400px;}
-.modal-box h3{font-size:17px;font-weight:600;margin-bottom:14px;}
-.modal-close{width:100%;padding:11px;background:var(--gray-50);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-family:inherit;margin-top:8px;}
+/* チャーター受付モーダル */
+.charter-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.charter-modal.h{display:none;}
+.charter-box{background:#fff;border-radius:var(--r);padding:22px;width:100%;max-width:400px;}
+.charter-box h3{font-size:17px;font-weight:600;margin-bottom:14px;}
 
-.sign-view-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
-.sign-view-modal.open{display:flex;}
-.sign-view-inner{background:white;border-radius:var(--radius);padding:18px;max-width:380px;width:100%;}
-.sign-view-inner h3{font-size:14px;margin-bottom:10px;}
-.sign-view-inner img{width:100%;border:1px solid var(--border);border-radius:6px;}
-.sign-view-inner button{margin-top:10px;width:100%;padding:11px;background:var(--blue-600);color:white;border:none;border-radius:var(--radius-sm);font-size:14px;cursor:pointer;font-family:inherit;font-weight:600;}
+/* パスワードロック */
+.lock-modal{position:fixed;inset:0;background:var(--bl800);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.lock-modal.h{display:none;}
+.lock-box{background:#fff;border-radius:var(--r);padding:28px;width:100%;max-width:360px;text-align:center;}
+.lock-box h2{font-size:20px;font-weight:600;margin-bottom:6px;}
+.lock-box p{font-size:13px;color:var(--ts);margin-bottom:18px;}
+.lock-input{width:100%;padding:14px;border:2px solid var(--bd);border-radius:var(--rs);font-size:22px;text-align:center;letter-spacing:.2em;font-family:inherit;margin-bottom:12px;}
+.lock-input:focus{outline:none;border-color:var(--bl600);}
+.lock-btn{width:100%;padding:13px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:8px;}
+.lock-err{font-size:12px;color:var(--rd600);min-height:18px;}
 
-.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--text);color:white;padding:10px 18px;border-radius:30px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap;}
-.toast.show{opacity:1;}
+/* サインビュー */
+.sv-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.sv-modal.o{display:flex;}
+.sv-inner{background:#fff;border-radius:var(--r);padding:18px;max-width:400px;width:100%;}
+.sv-inner img{width:100%;border:1px solid var(--bd);border-radius:5px;}
+.sv-close{margin-top:10px;width:100%;padding:11px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:14px;cursor:pointer;font-family:inherit;font-weight:600;}
+
+/* トースト */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:11px 18px;border-radius:30px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
+.toast.s{opacity:1;}
 
 @media print{
-  body>*:not(#print-area){display:none!important;}
-  #print-area{display:block!important;}
-  .print-page{padding:16px;}
-  .print-title{font-size:15px;font-weight:700;margin-bottom:4px;}
-  .print-meta{font-size:11px;color:#666;margin-bottom:10px;}
-  .print-section-title{font-size:12px;font-weight:700;margin:10px 0 5px;border-bottom:2px solid #333;padding-bottom:3px;}
-  table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;}
-  th{background:#f0f0f0!important;padding:5px 7px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
+  body>*:not(#print-area){display:none !important;}
+  #print-area{display:block !important;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th{background:#f0f0f0 !important;padding:5px 7px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
   td{padding:4px 7px;border:1px solid #999;}
 }
 #print-area{display:none;}
@@ -278,323 +278,247 @@ table.records tr:last-child td{border-bottom:none;}
 
 <!-- 倉庫選択 -->
 <div class="wh-sel" id="wh-sel">
-  <div class="wh-sel-logo">🏭</div>
-  <div class="wh-sel-title">物流時間管理システム</div>
-  <div class="wh-sel-sub">使用する倉庫を選択してください</div>
+  <div class="wh-logo">🏭</div>
+  <div class="wh-title">物流時間管理システム</div>
+  <div class="wh-sub">倉庫を選択してください</div>
   <div class="wh-grid" id="wh-grid"></div>
-  <div class="wh-add-area">
+  <div class="wh-add-box">
     <h3>⚙️ 倉庫の追加・管理</h3>
     <div class="wh-add-row">
-      <input type="text" id="wh-new-name" placeholder="例：283倉庫">
-      <button onclick="addWarehouse()">+ 追加</button>
+      <input type="text" id="wh-new" placeholder="例：283倉庫">
+      <button onclick="addWh()">+ 追加</button>
     </div>
-    <div class="wh-manage-list" id="wh-manage-list"></div>
+    <div class="wh-del-list" id="wh-del-list"></div>
   </div>
 </div>
 
-<!-- ロック画面 -->
-<div class="lock-screen" id="lock-screen">
-  <div class="lock-icon">🔒</div>
-  <div class="lock-title">パスワードロック</div>
-  <div class="lock-sub" id="lock-sub">このタブはパスワードで保護されています</div>
-  <input type="password" class="lock-input" id="lock-input" placeholder="パスワード" onkeydown="if(event.key==='Enter')unlockTab()">
-  <button class="lock-btn" onclick="unlockTab()">解除する</button>
-  <div class="lock-err hidden" id="lock-err">パスワードが違います</div>
-  <button style="margin-top:16px;background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:12px;font-family:inherit;" onclick="cancelLock()">キャンセル</button>
+<!-- ローディング -->
+<div class="ov h" id="ov"><div class="sp"></div><p>接続中...</p></div>
+
+<!-- 通知バナー -->
+<div class="notify" id="notify">🔔 <span id="notify-txt"></span></div>
+
+<!-- パスワードロック -->
+<div class="lock-modal h" id="lock-modal">
+  <div class="lock-box">
+    <h2>🔒 ロック中</h2>
+    <p id="lock-msg">パスワードを入力してください</p>
+    <input type="password" class="lock-input" id="lock-input" placeholder="●●●●" maxlength="8" onkeydown="if(event.key==='Enter')unlockPage()">
+    <button class="lock-btn" onclick="unlockPage()">解除</button>
+    <div class="lock-err" id="lock-err"></div>
+  </div>
 </div>
 
-<div class="loading-overlay hidden" id="loading-overlay">
-  <div class="spinner"></div><p>接続中...</p>
-</div>
-
-<div class="notify-banner" id="notify-banner">🔔 <span id="notify-text"></span></div>
-
+<!-- NAV -->
 <nav class="nav">
-  <div class="nav-logo">
-    <span class="app-name">🚚 物流管理</span>
-    <span class="wh-name" id="nav-wh-name">—</span>
-  </div>
+  <div class="nav-logo"><span class="app">🚚 物流管理</span><span class="wh" id="nav-wh">—</span></div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="tryShowPage('office')" id="tab-office">🏢 事務所</button>
-    <button class="nav-tab" onclick="tryShowPage('field')" id="tab-field">🔧 現場</button>
-    <button class="nav-tab" onclick="tryShowPage('records')" id="tab-records">📋 管理・記録</button>
-    <button class="nav-tab" onclick="tryShowPage('master')" id="tab-master">⚙️ マスター</button>
-    <button class="nav-tab" onclick="tryShowPage('guard')" id="tab-guard">🛡️ 守衛連絡</button>
-    <button class="nav-tab" onclick="tryShowPage('settings')" id="tab-settings">🔐 設定</button>
+    <button class="nav-tab active" onclick="showPage('office')" id="tab-office">🏢 事務所</button>
+    <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
+    <button class="nav-tab" onclick="showPage('records')" id="tab-records">📋 管理・記録</button>
+    <button class="nav-tab" onclick="showPage('master')" id="tab-master">⚙️ マスター</button>
+    <button class="nav-tab" onclick="showPage('guard')" id="tab-guard">🛡️ 守衛連絡</button>
+    <button class="nav-tab" onclick="showPage('settings')" id="tab-settings">🔐 設定</button>
   </div>
-  <div class="nav-right">
-    <div class="conn-badge offline" id="conn-badge"><span class="conn-dot"></span><span id="conn-text">接続中...</span></div>
+  <div class="nav-r">
+    <div class="conn off" id="conn"><span class="conn-dot"></span><span id="conn-txt">接続中</span></div>
     <div class="nav-date" id="nav-date"></div>
-    <button class="switch-wh-btn" onclick="switchWarehouse()">倉庫切替</button>
+    <button class="wh-sw" onclick="switchWh()">倉庫切替</button>
   </div>
 </nav>
 
 <!-- 事務所 -->
 <div class="page active" id="page-office">
-  <div class="touch-header">
-    <h1>事務所タッチ画面</h1>
-    <p>運送会社を選択して入場・退場を記録します</p>
-    <span class="mode-badge office">🏢 事務所モード</span>
-  </div>
-  <div class="section">
-    <div class="section-title">本日の運送会社（表示中のみ）</div>
-    <div class="carrier-grid" id="office-carrier-grid"></div>
-  </div>
-  <div class="action-panel">
-    <div id="office-no-sel" style="color:var(--text-hint);font-size:14px;text-align:center;padding:8px 0;">運送会社を選択してください</div>
-    <div id="office-sel-panel" style="display:none;">
-      <h2 id="office-carrier-name"></h2>
-      <div class="sub" id="office-carrier-status"></div>
-      <div class="inbound-panel" id="office-inbound-panel">
-        <div class="inbound-panel-title">📋 入庫情報</div>
-        <div class="inbound-info" id="office-inbound-info"></div>
+  <div class="touch-hdr"><h1>事務所タッチ画面</h1><p>運送会社を選択して入場・退場を記録</p><span class="mode-badge off">🏢 事務所モード</span></div>
+  <div class="sec"><div class="sec-title">本日の運送会社</div><div class="c-grid" id="off-grid"></div></div>
+  <div class="a-panel">
+    <div id="off-no-sel" style="color:var(--th);font-size:14px;text-align:center;padding:8px 0;">運送会社を選択してください</div>
+    <div id="off-sel" style="display:none;">
+      <h2 id="off-name"></h2><div class="sub" id="off-status"></div>
+      <div class="ship-info" id="off-ship"><div class="ship-info-title">📦 出荷情報</div><div class="ship-stats" id="off-ship-stats"></div></div>
+      <div class="inbound-info" id="off-inbound"><div class="inbound-info-title">📋 入庫情報</div><div class="inbound-info-body" id="off-inbound-body"></div></div>
+      <div class="a-btns">
+        <button class="a-btn enter" id="btn-enter" onclick="doEnter()">🚪 入場記録</button>
+        <button class="a-btn dep" id="btn-dep" onclick="reqDepart()">🚗 退場記録・サイン</button>
       </div>
-      <div class="ship-panel" id="office-ship-panel">
-        <div class="ship-panel-title">📦 本日の出荷情報</div>
-        <div class="ship-stats" id="office-ship-stats"></div>
-      </div>
-      <div class="action-btns">
-        <button class="action-btn enter" id="btn-enter" onclick="doEnter()">🚪 入場記録</button>
-        <button class="action-btn depart" id="btn-depart" onclick="requestDepart()">🚗 退場記録・サイン</button>
-      </div>
-      <div class="timeline" id="office-timeline"></div>
+      <div class="tl" id="off-tl"></div>
     </div>
   </div>
 </div>
 
 <!-- 現場 -->
 <div class="page" id="page-field">
-  <div class="touch-header">
-    <h1>現場タッチ画面</h1>
-    <p>荷役開始・終了を記録します</p>
-    <span class="mode-badge field">🔧 現場モード</span>
-  </div>
-  <div class="section">
-    <div class="section-title">入場中の運送会社</div>
-    <div class="carrier-grid" id="field-carrier-grid"></div>
-  </div>
-  <div class="action-panel">
-    <div id="field-no-sel" style="color:var(--text-hint);font-size:14px;text-align:center;padding:8px 0;">入場中の運送会社を選択してください</div>
-    <div id="field-sel-panel" style="display:none;">
-      <h2 id="field-carrier-name"></h2>
-      <div class="sub" id="field-carrier-status"></div>
-      <div class="inbound-panel" id="field-inbound-panel">
-        <div class="inbound-panel-title">📋 入庫情報</div>
-        <div class="inbound-info" id="field-inbound-info"></div>
+  <div class="touch-hdr"><h1>現場タッチ画面</h1><p>荷役開始・終了を記録</p><span class="mode-badge fld">🔧 現場モード</span></div>
+  <div class="sec"><div class="sec-title">入場中の運送会社</div><div class="c-grid" id="fld-grid"></div></div>
+  <div class="a-panel">
+    <div id="fld-no-sel" style="color:var(--th);font-size:14px;text-align:center;padding:8px 0;">入場中の運送会社を選択してください</div>
+    <div id="fld-sel" style="display:none;">
+      <h2 id="fld-name"></h2><div class="sub" id="fld-status"></div>
+      <div class="ship-info" id="fld-ship"><div class="ship-info-title">📦 出荷情報</div><div class="ship-stats" id="fld-ship-stats"></div></div>
+      <div class="inbound-info" id="fld-inbound"><div class="inbound-info-title">📋 入庫情報</div><div class="inbound-info-body" id="fld-inbound-body"></div></div>
+      <div class="a-btns">
+        <button class="a-btn sl" id="btn-sl" onclick="doStartLoad()">📦 荷役開始</button>
+        <button class="a-btn el" id="btn-el" onclick="reqEndLoad()">✅ 荷役終了・サイン</button>
       </div>
-      <div class="ship-panel" id="field-ship-panel">
-        <div class="ship-panel-title">📦 本日の出荷情報</div>
-        <div class="ship-stats" id="field-ship-stats"></div>
-      </div>
-      <div class="action-btns">
-        <button class="action-btn start-load" id="btn-start-load" onclick="doStartLoad()">📦 荷役開始</button>
-        <button class="action-btn end-load" id="btn-end-load" onclick="requestEndLoad()">✅ 荷役終了・サイン</button>
-      </div>
-      <div class="timeline" id="field-timeline"></div>
+      <div class="tl" id="fld-tl"></div>
     </div>
   </div>
 </div>
 
 <!-- 管理・記録 -->
 <div class="page" id="page-records">
-  <div class="records-header">
+  <div class="rec-hdr">
     <h1>管理・記録</h1>
-    <div class="records-controls">
-      <div class="date-range-row">
-        <label>開始日：</label><input type="date" id="date-from">
-        <label>終了日：</label><input type="date" id="date-to">
+    <div class="rec-ctrl">
+      <div class="date-row">
+        <label>開始：</label><input type="date" id="dt-from">
+        <label>終了：</label><input type="date" id="dt-to">
       </div>
       <div class="btn-row">
-        <button class="view-btn" onclick="renderRecords()">🔍 表示</button>
-        <button class="download-btn" onclick="downloadExcel()">⬇️ Excel一括DL</button>
+        <button class="vw-btn" onclick="renderRecords()">🔍 表示</button>
+        <button class="dl-btn" onclick="downloadExcel()">⬇️ Excel</button>
       </div>
     </div>
   </div>
-  <div class="table-wrap"><div id="records-table-container"></div></div>
+  <div class="tbl-wrap"><div id="rec-container"></div></div>
 </div>
 
 <!-- マスター -->
 <div class="page" id="page-master">
-  <div class="master-page">
-    <div style="padding:18px 20px 0;">
-      <h1 style="font-size:20px;font-weight:600;">マスター設定</h1>
-      <p style="font-size:12px;color:var(--text-sub);margin-top:3px;" id="master-wh-label"></p>
-    </div>
+  <div style="padding:18px 20px 4px;"><h1 style="font-size:20px;font-weight:600;">マスター設定</h1><p style="font-size:12px;color:var(--ts);margin-top:3px;" id="m-wh-lbl"></p></div>
 
-    <!-- Excel取込 -->
-    <div class="import-section">
-      <h3>📥 出荷データExcel取込</h3>
-      <p>A列：会社名　B列：出荷件数　C列：出荷個数　D列：出荷才数（1行目はヘッダー）</p>
-      <label class="import-btn">📂 Excelを選択
-        <input type="file" class="file-input" id="excel-import" accept=".xlsx,.xls" onchange="importExcel(event)">
-      </label>
-      <span id="import-result" style="font-size:11px;color:var(--green-600);margin-left:8px;"></span>
-    </div>
+  <!-- Excel取込 -->
+  <div class="imp-sec">
+    <h3>📥 出荷データExcel取込</h3>
+    <p>A列：会社名　B列：出荷件数　C列：出荷個数　D列：出荷才数（1行目はヘッダー）</p>
+    <label class="imp-btn">📂 Excelを選択<input type="file" class="file-in" id="excel-imp" accept=".xlsx,.xls" onchange="importExcel(event)"></label>
+    <span id="imp-result" style="font-size:11px;color:var(--gn600);margin-left:8px;"></span>
+  </div>
 
-    <!-- 運送会社追加 -->
-    <div class="master-section">
+  <!-- チャーター出荷入力 -->
+  <div class="dyn-sec">
+    <div class="dyn-sec-title">🚚 チャーター出荷入力</div>
+    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
+    <div id="charter-area"></div>
+    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button></div>
+    <div class="save-note" id="charter-note"></div>
+  </div>
+
+  <!-- トラック入庫入力 -->
+  <div class="dyn-sec">
+    <div class="dyn-sec-title">🛻 トラック入庫入力</div>
+    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
+    <div id="truck-area"></div>
+    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button></div>
+    <div class="save-note" id="truck-note"></div>
+  </div>
+
+  <!-- コンテナ入庫入力 -->
+  <div class="dyn-sec">
+    <div class="dyn-sec-title">📦 コンテナ入庫入力</div>
+    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
+    <div id="container-area"></div>
+    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button></div>
+    <div class="save-note" id="container-note"></div>
+  </div>
+
+  <div class="m-layout">
+    <div class="m-card">
       <h2>運送会社を追加</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label>会社名 *</label>
-          <input type="text" id="m-name" placeholder="例：山田運輸">
-        </div>
-        <div class="form-group">
-          <label>略称</label>
-          <input type="text" id="m-short" placeholder="例：山田">
-        </div>
+      <div class="fg"><label>会社名 *</label><input type="text" id="m-name" placeholder="例：山田運輸"></div>
+      <div class="fg"><label>略称</label><input type="text" id="m-short" placeholder="例：山田運輸"></div>
+      <div class="fg"><label>種別 *</label>
+        <select id="m-type">
+          <option value="regular">定期便</option>
+          <option value="irregular">不定期便</option>
+          <option value="spot_charter">チャーター</option>
+          <option value="charter">専属チャーター</option>
+        </select>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>種別 *</label>
-          <select id="m-type">
-            <option value="regular">定期便</option>
-            <option value="irregular">不定期便</option>
-            <option value="spot_charter">チャーター</option>
-            <option value="charter">専属チャーター</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>備考</label>
-          <input type="text" id="m-note" placeholder="例：東京ルート">
-        </div>
-      </div>
+      <div class="fg"><label>備考</label><input type="text" id="m-note" placeholder="例：東京ルート"></div>
       <button class="add-btn" onclick="addCarrier()">+ 追加する</button>
     </div>
-
-    <!-- チャーター出荷入力 -->
-    <div class="master-section">
-      <h2>📦 チャーター出荷入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">チャーター・専属チャーター・定期便・不定期便の当日情報を入力。入力欄から離れると次行追加・10秒後にFirebase保存＆タッチ画面反映されます。</p>
-      <div id="charter-input-area"></div>
-      <button class="reset-btn" style="margin-top:8px;" onclick="resetCharterInputs()">🗑️ リセット</button>
-    </div>
-
-    <!-- トラック入庫入力 -->
-    <div class="master-section">
-      <h2>🚛 トラック入庫入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">トラック入庫の当日情報を入力。入力欄から離れると次行追加・10秒後に保存＆タッチ画面反映されます。</p>
-      <div id="truck-input-area"></div>
-      <button class="reset-btn" style="margin-top:8px;" onclick="resetTruckInputs()">🗑️ リセット</button>
-    </div>
-
-    <!-- コンテナ入庫入力 -->
-    <div class="master-section">
-      <h2>🏗️ コンテナ入庫入力</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">コンテナ入庫の当日情報を入力。入力欄から離れると次行追加・10秒後に保存＆タッチ画面反映されます。</p>
-      <div id="container-input-area"></div>
-      <button class="reset-btn" style="margin-top:8px;" onclick="resetContainerInputs()">🗑️ リセット</button>
-    </div>
-
-    <!-- 登録済み運送会社 -->
-    <div class="master-section">
+    <div class="m-card">
       <h2>登録済み運送会社</h2>
-      <p style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">守衛連絡チェックで守衛リストに追加。表示/非表示でタッチ画面を制御。</p>
-      <div class="carrier-list" id="master-carrier-list"></div>
+      <p style="font-size:11px;color:var(--th);margin-bottom:10px;">「表示中/非表示」でタッチ画面の表示を切替。件数/個数/才数は1秒後自動保存。</p>
+      <div class="c-list" id="m-list"></div>
     </div>
   </div>
 </div>
 
 <!-- 守衛連絡 -->
 <div class="page" id="page-guard">
-  <div style="padding:18px 20px 0;">
+  <div style="padding:18px 20px 4px;">
     <h1 style="font-size:20px;font-weight:600;">守衛連絡リスト</h1>
-    <p style="font-size:12px;color:var(--text-sub);margin-top:3px;" id="guard-wh-label"></p>
-  </div>
-  <div class="guard-section">
-    <div class="guard-date-row">
-      <label>日付：</label>
-      <input type="date" id="guard-date" onchange="renderGuard()">
-      <button class="guard-print-btn" onclick="printGuard()">🖨️ 印刷する</button>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap;">
+      <label style="font-size:12px;font-weight:600;color:var(--ts);">日付：</label>
+      <input type="date" id="guard-date" style="padding:7px 9px;border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-family:inherit;" onchange="renderGuard()">
     </div>
-    <p style="font-size:11px;color:var(--text-sub);margin-bottom:14px;">各セルをタップして編集できます。編集後に印刷してください。</p>
-    <div class="guard-section-title">📦 チャーター出荷</div>
-    <div id="guard-charter-wrap" class="guard-table-wrap"></div>
-    <div class="guard-section-title" style="margin-top:14px;">🚛 トラック入庫</div>
-    <div id="guard-truck-wrap" class="guard-table-wrap"></div>
-    <div class="guard-section-title" style="margin-top:14px;">🏗️ コンテナ入庫</div>
-    <div id="guard-container-wrap" class="guard-table-wrap"></div>
+    <p style="font-size:11px;color:var(--th);margin-top:5px;">各セルをタップして編集できます。印刷前に内容を確認・修正してください。</p>
   </div>
+  <div class="gd-sec"><div class="gd-sec-title">📦 チャーター出荷</div><div class="gd-tbl-wrap"><div id="gd-charter"></div></div></div>
+  <div class="gd-sec"><div class="gd-sec-title">🛻 トラック入庫</div><div class="gd-tbl-wrap"><div id="gd-truck"></div></div></div>
+  <div class="gd-sec"><div class="gd-sec-title">📦 コンテナ入庫</div><div class="gd-tbl-wrap"><div id="gd-container"></div></div></div>
+  <button class="gd-print-btn" onclick="printGuard()">🖨️ 印刷する</button>
 </div>
 
 <!-- 設定 -->
 <div class="page" id="page-settings">
-  <div style="padding:18px 20px 0;">
-    <h1 style="font-size:20px;font-weight:600;">端末設定</h1>
-    <p style="font-size:12px;color:var(--text-sub);margin-top:3px;">この端末のみに適用される設定です</p>
-  </div>
-  <div class="pw-section">
-    <h2>🔐 タブロック設定</h2>
-    <p>パスワードを設定すると、選択したタブを開く際にパスワード入力が必要になります。設定はこの端末のブラウザに保存されます。</p>
-    <div class="pw-check-row">
-      <label class="pw-check-item"><input type="checkbox" id="lock-records"> 📋 管理・記録をロック</label>
-      <label class="pw-check-item"><input type="checkbox" id="lock-master"> ⚙️ マスターをロック</label>
-      <label class="pw-check-item"><input type="checkbox" id="lock-guard"> 🛡️ 守衛連絡をロック</label>
-      <label class="pw-check-item"><input type="checkbox" id="lock-settings"> 🔐 設定をロック</label>
-    </div>
-    <div class="pw-input-row">
-      <input type="password" id="pw-input" placeholder="パスワード">
-      <button class="pw-save-btn" onclick="savePwSettings()">💾 保存</button>
-      <button class="pw-clear-btn" onclick="clearPwSettings()">解除</button>
-    </div>
-    <div class="pw-status" id="pw-status"></div>
-  </div>
-</div>
-
-<!-- チャーター入場モーダル -->
-<div class="sign-modal hidden" id="charter-modal">
-  <div class="sign-box" style="max-width:400px;">
-    <h3>🚚 チャーター入場受付</h3>
-    <p>運送会社名と車番（4桁）を入力してください</p>
-    <div class="form-group" style="margin-bottom:12px;">
-      <label style="font-size:12px;font-weight:600;color:var(--text-sub);display:block;margin-bottom:4px;">運送会社名 *</label>
-      <input type="text" id="charter-modal-name" placeholder="例：山田運輸" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:15px;font-family:inherit;">
-    </div>
-    <div class="form-group">
-      <label style="font-size:12px;font-weight:600;color:var(--text-sub);display:block;margin-bottom:4px;">車番（4桁数字）*</label>
-      <input type="text" id="charter-modal-num" placeholder="1234" maxlength="4" inputmode="numeric" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:22px;font-family:inherit;letter-spacing:0.3em;text-align:center;">
-    </div>
-    <div style="display:flex;gap:10px;margin-top:16px;">
-      <button onclick="cancelCharter()" style="flex:1;padding:13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--gray-50);cursor:pointer;font-size:14px;font-family:inherit;">キャンセル</button>
-      <button onclick="confirmCharter()" style="flex:2;padding:13px;border-radius:var(--radius-sm);border:none;background:var(--blue-600);color:white;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">入場記録する</button>
+  <div style="padding:18px 20px 0;"><h1 style="font-size:20px;font-weight:600;">端末設定・パスワードロック</h1><p style="font-size:12px;color:var(--ts);margin-top:3px;">この端末のみに適用される設定です</p></div>
+  <div style="padding:16px 20px;">
+    <div class="m-card" style="max-width:480px;">
+      <h2>🔐 タブのパスワードロック</h2>
+      <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">ロックしたいタブを選択してパスワードを設定します。次回からそのタブを開く際にパスワードが求められます。</p>
+      <div class="fg"><label>ロックするタブ（複数選択可）</label>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-records" style="width:16px;height:16px;"> 📋 管理・記録</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-master" style="width:16px;height:16px;"> ⚙️ マスター</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-guard" style="width:16px;height:16px;"> 🛡️ 守衛連絡</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-settings" style="width:16px;height:16px;"> 🔐 設定</label>
+        </div>
+      </div>
+      <div class="fg"><label>パスワード（4〜8文字）</label><input type="password" id="pw-input" placeholder="パスワードを入力" maxlength="8"></div>
+      <div class="fg"><label>パスワード確認</label><input type="password" id="pw-confirm" placeholder="もう一度入力" maxlength="8"></div>
+      <button class="add-btn" onclick="saveLockSettings()">💾 設定を保存</button>
+      <button style="width:100%;margin-top:8px;padding:11px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearLockSettings()">🗑️ ロック設定を解除</button>
     </div>
   </div>
 </div>
 
 <!-- サインモーダル -->
-<div class="sign-modal hidden" id="sign-modal">
+<div class="sign-modal h" id="sign-modal">
   <div class="sign-box">
-    <h3 id="sign-title">サイン</h3>
-    <p id="sign-subtitle">こちらにサインをお願いします</p>
-    <canvas class="sign-canvas" id="sign-canvas" width="480" height="200"></canvas>
-    <div class="sign-actions">
-      <button style="background:var(--gray-50);" onclick="clearSign()">消去</button>
-      <button class="confirm" onclick="confirmSign()">サイン完了</button>
+    <h3 id="sign-title">サイン</h3><p id="sign-sub">こちらにサインをお願いします</p>
+    <canvas class="sc" id="sign-cv" width="480" height="200"></canvas>
+    <div class="sign-acts"><button class="clear" onclick="clearSign()" style="background:var(--gy50);">消去</button><button class="ok" onclick="confirmSign()">サイン完了</button></div>
+    <button class="cancel-lnk" onclick="cancelSign()">キャンセル</button>
+  </div>
+</div>
+
+<!-- チャーター受付モーダル -->
+<div class="charter-modal h" id="charter-modal">
+  <div class="charter-box">
+    <h3>🚚 チャーター入場受付</h3>
+    <div class="fg"><label style="font-size:12px;font-weight:600;color:var(--ts);">実車 運送会社名 *</label><input type="text" id="cm-name" placeholder="例：山田運輸" style="width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:var(--rs);font-size:16px;font-family:inherit;margin-top:4px;"></div>
+    <div class="fg" style="margin-top:10px;"><label style="font-size:12px;font-weight:600;color:var(--ts);">車番（4桁）*</label><input type="text" id="cm-num" placeholder="1234" maxlength="4" inputmode="numeric" style="width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:var(--rs);font-size:22px;text-align:center;letter-spacing:.2em;font-family:inherit;margin-top:4px;"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button onclick="cancelCharterModal()" style="flex:1;padding:13px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--gy50);cursor:pointer;font-size:14px;font-family:inherit;">キャンセル</button>
+      <button onclick="confirmCharterModal()" style="flex:2;padding:13px;border-radius:var(--rs);border:none;background:var(--bl600);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">入場記録する</button>
     </div>
-    <button style="width:100%;margin-top:8px;padding:10px;border:1px solid var(--border);background:none;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text-sub);font-family:inherit;" onclick="cancelSign()">キャンセル</button>
   </div>
 </div>
 
-<div class="sign-view-modal" id="sign-view-modal">
-  <div class="sign-view-inner">
-    <h3 id="sign-view-title">サイン確認</h3>
-    <img id="sign-view-img" src="" alt="サイン">
-    <button onclick="document.getElementById('sign-view-modal').classList.remove('open')">閉じる</button>
-  </div>
-</div>
-
-<div id="print-area"></div>
+<div class="sv-modal" id="sv-modal"><div class="sv-inner"><h3 id="sv-title" style="font-size:15px;margin-bottom:10px;"></h3><img id="sv-img" src="" alt="サイン"><button class="sv-close" onclick="document.getElementById('sv-modal').classList.remove('o')">閉じる</button></div></div>
 <div class="toast" id="toast"></div>
+<div id="print-area"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="module">
-import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue, off }
-                            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInAnonymously }
-                            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {getDatabase,ref,set,get,onValue,off} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const firebaseConfig={
+const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
   authDomain:"logitime-86b56.firebaseapp.com",
   databaseURL:"https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -603,786 +527,710 @@ const firebaseConfig={
   messagingSenderId:"148508185008",
   appId:"1:148508185008:web:bd7a729832528f2fec0675"
 };
-const app=initializeApp(firebaseConfig);
+const app=initializeApp(FB);
 const db=getDatabase(app);
 const auth=getAuth(app);
 
 // ===== STATE =====
-let currentWh=null;
-let warehouses=[];
-let state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inboundData:{}};
-let selOffice=null,selField=null;
-let signMode='',signCarrierId='';
-let signCtx,signDrawing=false;
-let prevEnterSet=new Set();
-
-// ローカル動的入力データ（保存不要）
+let CWH=null; // 現在の倉庫ID
+let WHs=[]; // 倉庫一覧
+let state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
+let selOff=null,selFld=null;
+let signMode='',signCid='';
+let signCtx,signDraw=false;
+let prevEntered=new Set();
+// 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
 let charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
 let truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
 let containerRows=[{containerNo:'',time:''}];
+const debMap={};
+// ロック状態
+let unlockedPages=new Set(['office','field']);
+let pendingPage=null;
 
 const DEFAULT_WH=[{id:'wh_280',name:'280倉庫',icon:'🏭'},{id:'wh_282',name:'282倉庫',icon:'🏗️'}];
 
 // ===== UTILS =====
-function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-function nextBusinessDay(){
+function today(){const d=new Date();return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;}
+function S2(n){return String(n).padStart(2,'0');}
+function nowTime(){const d=new Date();return`${S2(d.getHours())}:${S2(d.getMinutes())}`;}
+function nextBizDay(){
   const d=new Date();d.setDate(d.getDate()+1);
   while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
-  return d.toISOString().slice(0,10);
+  return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
 }
-function nowTime(){const d=new Date();return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
-function typeLabel(t){
-  const m={regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫'};
-  return m[t]||'不明';
-}
-function escHTML(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
-function updateDateDisplay(){
-  const d=new Date(),days=['日','月','火','水','木','金','土'];
-  document.getElementById('nav-date').textContent=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} (${days[d.getDay()]})`;
-}
-function setConn(s,t){const b=document.getElementById('conn-badge');b.className='conn-badge '+s;document.getElementById('conn-text').textContent=t;}
-function whPath(p){return`warehouses/${currentWh}/${p}`;}
-function getRecord(cid){const key=cid.replace(/[.#$/[\]]/g,'_');return(state.records[today()]||{})[key]||null;}
+function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫'}[t]||t;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('s');setTimeout(()=>t.classList.remove('s'),2800);}
+function setConn(on){const b=document.getElementById('conn');b.className='conn '+(on?'on':'off');document.getElementById('conn-txt').textContent=on?'接続中':'オフライン';}
+function whPath(p){return`warehouses/${CWH}/${p}`;}
+function getRecord(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return(state.records[today()]||{})[k]||null;}
 function getShip(cid){return(state.shipData[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')]||null;}
-function isVisible(cid){const v=state.visibility[today()];if(!v||v[cid.replace(/[.#$/[\]]/g,'_')]===undefined)return true;return v[cid.replace(/[.#$/[\]]/g,'_')];}
+function isVis(cid){const v=(state.visibility[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')];return v===undefined?true:v;}
 function isGuard(cid){return!!(state.guardCheck||{})[cid.replace(/[.#$/[\]]/g,'_')];}
-
-// 通知
-function showNotify(msg){
-  const b=document.getElementById('notify-banner');
-  document.getElementById('notify-text').textContent=msg;
-  b.classList.add('show');
-  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=0.3;o.start();o.stop(ctx.currentTime+0.2);}catch(e){}
-  setTimeout(()=>b.classList.remove('show'),4000);
+function updateDate(){
+  const d=new Date(),days=['日','月','火','水','木','金','土'];
+  document.getElementById('nav-date').textContent=`${d.getFullYear()}/${S2(d.getMonth()+1)}/${S2(d.getDate())} (${days[d.getDay()]})`;
+}
+function stLabel(rec){
+  if(!rec)return{l:'未入場',c:'w'};
+  if(rec.departTime)return{l:`退場済 ${rec.departTime}`,c:'g'};
+  if(rec.loadEndTime)return{l:`荷役完了 ${rec.loadEndTime}`,c:'d'};
+  if(rec.loadStartTime)return{l:`荷役中 ${rec.loadStartTime}〜`,c:'l'};
+  if(rec.enterTime)return{l:`入場中 ${rec.enterTime}〜`,c:'e'};
+  return{l:'未入場',c:'w'};
 }
 
 // ===== パスワードロック =====
-let lockedTabs={};
-let devicePw='';
-let pendingTab='';
-
-function loadPwSettings(){
-  const s=localStorage.getItem('pw_settings_v1');
-  if(s){const cfg=JSON.parse(s);lockedTabs=cfg.tabs||{};devicePw=cfg.pw||'';}
-  updatePwUI();
+function getLockCfg(){try{return JSON.parse(localStorage.getItem('lock_cfg_v1')||'{}')}catch(e){return{};}}
+function saveLockCfgLocal(cfg){localStorage.setItem('lock_cfg_v1',JSON.stringify(cfg));}
+function isLocked(pageId){
+  const cfg=getLockCfg();
+  if(!cfg.pw||!cfg.tabs)return false;
+  return cfg.tabs.includes(pageId)&&!unlockedPages.has(pageId);
 }
-function savePwSettings(){
-  const pw=document.getElementById('pw-input').value.trim();
-  if(!pw){showToast('パスワードを入力してください');return;}
-  lockedTabs={
-    records:document.getElementById('lock-records').checked,
-    master:document.getElementById('lock-master').checked,
-    guard:document.getElementById('lock-guard').checked,
-    settings:document.getElementById('lock-settings').checked,
-  };
-  devicePw=pw;
-  localStorage.setItem('pw_settings_v1',JSON.stringify({tabs:lockedTabs,pw:devicePw}));
-  updatePwUI();
-  showToast('パスワードを設定しました');
+window.saveLockSettings=function(){
+  const pw=document.getElementById('pw-input').value;
+  const pc=document.getElementById('pw-confirm').value;
+  if(!pw){toast('パスワードを入力してください');return;}
+  if(pw.length<4){toast('パスワードは4文字以上にしてください');return;}
+  if(pw!==pc){toast('パスワードが一致しません');return;}
+  const tabs=[];
+  if(document.getElementById('lock-records').checked)tabs.push('records');
+  if(document.getElementById('lock-master').checked)tabs.push('master');
+  if(document.getElementById('lock-guard').checked)tabs.push('guard');
+  if(document.getElementById('lock-settings').checked)tabs.push('settings');
+  saveLockCfgLocal({pw,tabs});
+  unlockedPages=new Set(['office','field']);
+  toast('ロック設定を保存しました');
+};
+window.clearLockSettings=function(){
+  if(!confirm('ロック設定を解除しますか？'))return;
+  localStorage.removeItem('lock_cfg_v1');
+  unlockedPages=new Set(['office','field']);
+  toast('ロック設定を解除しました');
+};
+function loadLockUI(){
+  const cfg=getLockCfg();
+  if(cfg.tabs){
+    document.getElementById('lock-records').checked=cfg.tabs.includes('records');
+    document.getElementById('lock-master').checked=cfg.tabs.includes('master');
+    document.getElementById('lock-guard').checked=cfg.tabs.includes('guard');
+    document.getElementById('lock-settings').checked=cfg.tabs.includes('settings');
+  }
 }
-window.savePwSettings=savePwSettings;
-function clearPwSettings(){
-  lockedTabs={};devicePw='';
-  localStorage.removeItem('pw_settings_v1');
-  document.getElementById('pw-input').value='';
-  updatePwUI();
-  showToast('パスワードを解除しました');
-}
-window.clearPwSettings=clearPwSettings;
-function updatePwUI(){
-  document.getElementById('lock-records').checked=!!(lockedTabs.records);
-  document.getElementById('lock-master').checked=!!(lockedTabs.master);
-  document.getElementById('lock-guard').checked=!!(lockedTabs.guard);
-  document.getElementById('lock-settings').checked=!!(lockedTabs.settings);
-  const st=document.getElementById('pw-status');
-  if(devicePw){st.className='pw-status set';st.textContent='✅ パスワード設定済み';}
-  else{st.className='pw-status unset';st.textContent='（パスワード未設定）';}
-  // ナビのロックアイコン
-  ['records','master','guard','settings'].forEach(id=>{
-    const tab=document.getElementById('tab-'+id);
-    if(lockedTabs[id]&&devicePw)tab.classList.add('locked');
-    else tab.classList.remove('locked');
-  });
-}
-window.tryShowPage=function(id){
-  if(lockedTabs[id]&&devicePw){
-    pendingTab=id;
-    document.getElementById('lock-sub').textContent=`「${getTabLabel(id)}」はパスワードで保護されています`;
+window.unlockPage=function(){
+  const cfg=getLockCfg();
+  const input=document.getElementById('lock-input').value;
+  if(input===cfg.pw){
+    if(pendingPage)unlockedPages.add(pendingPage);
+    document.getElementById('lock-modal').classList.add('h');
+    document.getElementById('lock-err').textContent='';
     document.getElementById('lock-input').value='';
-    document.getElementById('lock-err').classList.add('hidden');
-    document.getElementById('lock-screen').classList.add('visible');
-    setTimeout(()=>document.getElementById('lock-input').focus(),100);
+    if(pendingPage){const p=pendingPage;pendingPage=null;showPage(p);}
   } else {
-    showPage(id);
+    document.getElementById('lock-err').textContent='パスワードが違います';
   }
-};
-function getTabLabel(id){
-  const m={office:'事務所',field:'現場',records:'管理・記録',master:'マスター',guard:'守衛連絡',settings:'設定'};
-  return m[id]||id;
-}
-window.unlockTab=function(){
-  const entered=document.getElementById('lock-input').value;
-  if(entered===devicePw){
-    document.getElementById('lock-screen').classList.remove('visible');
-    showPage(pendingTab);
-    document.getElementById('lock-err').classList.add('hidden');
-  } else {
-    document.getElementById('lock-err').classList.remove('hidden');
-  }
-};
-window.cancelLock=function(){
-  document.getElementById('lock-screen').classList.remove('visible');
 };
 
 // ===== 倉庫管理 =====
-async function loadWarehouses(){
+async function loadWHs(){
   const snap=await get(ref(db,'warehouses_list'));
-  if(snap.val()){warehouses=Object.values(snap.val());}
-  else{warehouses=[...DEFAULT_WH];const o={};warehouses.forEach(w=>o[w.id]=w);await set(ref(db,'warehouses_list'),o);}
-  renderWhSelect();
+  if(snap.val()){WHs=Object.values(snap.val());}
+  else{WHs=[...DEFAULT_WH];const o={};WHs.forEach(w=>o[w.id]=w);await set(ref(db,'warehouses_list'),o);}
+  renderWHSel();
 }
-function renderWhSelect(){
-  document.getElementById('wh-grid').innerHTML=warehouses.map(w=>`
-    <button class="wh-btn" onclick="selectWh('${w.id}')">
+function renderWHSel(){
+  document.getElementById('wh-grid').innerHTML=WHs.map(w=>`
+    <button class="wh-btn" onclick="selWH('${w.id}')">
       <span class="wh-btn-icon">${w.icon||'🏭'}</span>
-      <div><div class="wh-btn-name">${escHTML(w.name)}</div><div class="wh-btn-desc">タップして選択</div></div>
+      <div><div class="wh-btn-name">${esc(w.name)}</div><div class="wh-btn-desc">タップして選択</div></div>
     </button>`).join('');
-  document.getElementById('wh-manage-list').innerHTML=warehouses.map(w=>`
-    <div class="wh-manage-item">
-      <span>${w.icon||'🏭'} ${escHTML(w.name)}</span>
-      ${warehouses.length>1?`<button class="wh-del-btn" onclick="deleteWh('${w.id}')">削除</button>`:''}
-    </div>`).join('');
+  document.getElementById('wh-del-list').innerHTML=WHs.map(w=>`
+    <div class="wh-del-item"><span>${w.icon||'🏭'} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${w.id}')">削除</button>`:''}</div>`).join('');
 }
-window.selectWh=function(id){
-  currentWh=id;
-  const wh=warehouses.find(w=>w.id===id);
-  document.getElementById('nav-wh-name').textContent=wh?wh.name:id;
-  document.getElementById('master-wh-label').textContent=`対象倉庫：${wh?wh.name:id}`;
-  document.getElementById('guard-wh-label').textContent=`対象倉庫：${wh?wh.name:id}`;
-  document.getElementById('wh-sel').classList.add('hidden');
-  document.getElementById('loading-overlay').classList.remove('hidden');
+window.selWH=function(id){
+  CWH=id;const w=WHs.find(x=>x.id===id);
+  document.getElementById('nav-wh').textContent=w?w.name:id;
+  document.getElementById('m-wh-lbl').textContent=`対象倉庫：${w?w.name:id}`;
+  document.getElementById('wh-sel').classList.add('h');
+  document.getElementById('ov').classList.remove('h');
   startListeners();
 };
-window.switchWarehouse=function(){
-  ['carriers','shipData','guardCheck','inboundData'].forEach(k=>off(ref(db,whPath(k))));
+window.switchWh=function(){
+  off(ref(db,whPath('carriers')));
   off(ref(db,whPath(`records/${today()}`)));
+  off(ref(db,whPath(`shipData/${today()}`)));
   off(ref(db,whPath(`visibility/${today()}`)));
-  state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inboundData:{}};
-  selOffice=null;selField=null;prevEnterSet=new Set();currentWh=null;
-  document.getElementById('wh-sel').classList.remove('hidden');
-  renderWhSelect();
+  off(ref(db,whPath('guardCheck')));
+  off(ref(db,whPath('inboundData')));
+  state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
+  charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
+  truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
+  containerRows=[{containerNo:'',time:''}];
+  selOff=null;selFld=null;prevEntered=new Set();CWH=null;
+  document.getElementById('wh-sel').classList.remove('h');
+  renderWHSel();
 };
-window.addWarehouse=async function(){
-  const name=document.getElementById('wh-new-name').value.trim();
-  if(!name){showToast('倉庫名を入力してください');return;}
+window.addWh=async function(){
+  const name=document.getElementById('wh-new').value.trim();
+  if(!name){toast('倉庫名を入力してください');return;}
   const wh={id:'wh_'+Date.now(),name,icon:'🏭'};
-  warehouses.push(wh);const o={};warehouses.forEach(w=>o[w.id]=w);
+  WHs.push(wh);const o={};WHs.forEach(w=>o[w.id]=w);
   await set(ref(db,'warehouses_list'),o);
-  document.getElementById('wh-new-name').value='';
-  renderWhSelect();showToast(`${name} を追加しました`);
+  document.getElementById('wh-new').value='';renderWHSel();toast(`${name}を追加しました`);
 };
-window.deleteWh=async function(id){
-  const w=warehouses.find(x=>x.id===id);
+window.delWH=async function(id){
+  const w=WHs.find(x=>x.id===id);
   if(!w||!confirm(`「${w.name}」を削除しますか？`))return;
-  warehouses=warehouses.filter(x=>x.id!==id);
-  const o={};warehouses.forEach(w=>o[w.id]=w);
-  await set(ref(db,'warehouses_list'),o);
-  renderWhSelect();showToast('削除しました');
+  WHs=WHs.filter(x=>x.id!==id);const o={};WHs.forEach(w=>o[w.id]=w);
+  await set(ref(db,'warehouses_list'),o);renderWHSel();toast('削除しました');
 };
 
-// ===== Firebase書き込み =====
-async function fbSetCarriers(c){await set(ref(db,whPath('carriers')),c);}
-async function fbSetRecord(cid,rec){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`records/${today()}/${k}`)),rec);}
-async function fbSetShip(cid,d){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`shipData/${today()}/${k}`)),d);}
-async function fbSetVisibility(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`visibility/${today()}/${k}`)),v);}
+// ===== Firebase =====
+async function fbSetRecord(cid,rec){
+  const k=cid.replace(/[.#$/[\]]/g,'_');
+  await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
+}
+async function fbSetCarriers(carriers){await set(ref(db,whPath('carriers')),carriers);}
+async function fbSetShip(cid,data){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`shipData/${today()}/${k}`)),data);}
+async function fbSetVis(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`visibility/${today()}/${k}`)),v);}
 async function fbSetGuard(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`guardCheck/${k}`)),v);}
-async function fbSetInbound(type,idx,data){await set(ref(db,whPath(`inboundData/${type}/${idx}`)),data);}
-async function fbResetInbound(type){await set(ref(db,whPath(`inboundData/${type}`)),null);}
 
 // ===== リスナー =====
 function startListeners(){
   onValue(ref(db,whPath('carriers')),snap=>{
-    const val=snap.val();
-    state.carriers=val?(Array.isArray(val)?val.filter(Boolean):Object.values(val)):[];
-    document.getElementById('loading-overlay').classList.add('hidden');
-    renderCurrentPage();
+    const v=snap.val();
+    state.carriers=v?(Array.isArray(v)?v.filter(Boolean):Object.values(v)):[];
+    document.getElementById('ov').classList.add('h');
+    renderCurrent();
   });
   onValue(ref(db,whPath(`records/${today()}`)),snap=>{
     const newRec=snap.val()||{};
-    Object.entries(newRec).forEach(([key,rec])=>{
-      if(rec.enterTime&&!prevEnterSet.has(key)){
-        const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===key);
-        if(c)showNotify(`${c.short||c.name} が入場しました (${rec.enterTime})`);
-        prevEnterSet.add(key);
+    // 通知チェック
+    Object.entries(newRec).forEach(([k,r])=>{
+      if(r.enterTime&&!prevEntered.has(k)){
+        const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+        if(c)showNotify(`${c.short||c.name}が入場しました (${r.enterTime})`);
+        prevEntered.add(k);
       }
     });
-    state.records[today()]=newRec;renderCurrentPage();
+    state.records[today()]=newRec;renderCurrent();
   });
-  onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrentPage();});
-  onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrentPage();});
-  onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrentPage();});
+  onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
+  onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrent();});
+  onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('inboundData')),snap=>{
-    state.inboundData=snap.val()||{};
-    if(state.inboundData.charter){
-      charterRows=Object.values(state.inboundData.charter).map(r=>({carrier:r.carrier||'',carNum:r.carNum||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));
-    }
-    if(state.inboundData.truck){
-      truckRows=Object.values(state.inboundData.truck).map(r=>({origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));
-    }
-    if(state.inboundData.container){
-      containerRows=Object.values(state.inboundData.container).map(r=>({containerNo:r.containerNo||'',time:r.time||''}));
-    }
-    renderCurrentPage();
-    if(document.getElementById('page-master').classList.contains('active')){
-      renderCharterInputs();renderTruckInputs();renderContainerInputs();
-    }
+    const d=snap.val()||{};
+    state.inbound=d;
+    if(d.charter){charterRows=Object.values(d.charter).map(r=>({carrier:r.carrier||'',carNum:r.carNum||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
+    if(d.truck){truckRows=Object.values(d.truck).map(r=>({origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
+    if(d.container){containerRows=Object.values(d.container).map(r=>({containerNo:r.containerNo||'',time:r.time||''}));}
+    renderCurrent();
+    const mp=document.getElementById('page-master');
+    if(mp&&mp.classList.contains('active')){renderCharterArea();renderTruckArea();renderContainerArea();}
   });
-  onValue(ref(db,'.info/connected'),snap=>{setConn(snap.val()?'online':'offline',snap.val()?'接続中':'オフライン');});
+  onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
+}
+function showNotify(msg){
+  const b=document.getElementById('notify');document.getElementById('notify-txt').textContent=msg;
+  b.classList.add('s');
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=0.2;o.start();o.stop(ctx.currentTime+0.2);}catch(e){}
+  setTimeout(()=>b.classList.remove('s'),4000);
+}
+
+// ===== 動的キャリア（マスター未登録の当日入力分） =====
+function getDynCarriers(){
+  const res=[];
+  charterRows.forEach((r,i)=>{
+    if(!r.carrier)return;
+    const info=[r.carNum,r.dest,r.addr,r.time].filter(Boolean).join(' / ');
+    res.push({id:`dyn_c_${i}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info});
+  });
+  truckRows.forEach((r,i)=>{
+    if(!r.carrier&&!r.origin)return;
+    const nm=r.carrier||r.origin;
+    const info=[r.origin?`出荷元:${r.origin}`:'',r.carNum?`車番:${r.carNum}`:'',r.time].filter(Boolean).join(' / ');
+    res.push({id:`dyn_t_${i}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info});
+  });
+  containerRows.forEach((r,i)=>{
+    if(!r.containerNo)return;
+    const info=r.time?`入場時間:${r.time}`:'';
+    res.push({id:`dyn_k_${i}`,name:r.containerNo,short:r.containerNo,type:'container_in',_dyn:true,_label:'コンテナ入庫',_info:info});
+  });
+  return res;
 }
 
 // ===== 画面切替 =====
-function showPage(id){
+window.showPage=function(id){
+  // パスワードロックチェック
+  if(isLocked(id)){
+    pendingPage=id;
+    document.getElementById('lock-msg').textContent=`「${getTabLabel(id)}」はロックされています`;
+    document.getElementById('lock-input').value='';
+    document.getElementById('lock-err').textContent='';
+    document.getElementById('lock-modal').classList.remove('h');
+    return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   document.getElementById('tab-'+id).classList.add('active');
-  selOffice=null;selField=null;
-  if(id==='records'){const t=today();document.getElementById('date-from').value=t;document.getElementById('date-to').value=t;renderRecords();}
-  else if(id==='guard'){document.getElementById('guard-date').value=nextBusinessDay();renderGuard();}
+  selOff=null;selFld=null;
+  if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
+  else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='master'){
-    // 各入力欄に最低1行保証
     if(!charterRows.length)charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
     if(!truckRows.length)truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
     if(!containerRows.length)containerRows=[{containerNo:'',time:''}];
-    renderMaster();renderCharterInputs();renderTruckInputs();renderContainerInputs();
+    renderMaster();renderCharterArea();renderTruckArea();renderContainerArea();
   }
-  else renderCurrentPage();
-}
-function renderCurrentPage(){
+  else if(id==='settings'){loadLockUI();}
+  else renderCurrent();
+};
+function getTabLabel(id){return{records:'管理・記録',master:'マスター',guard:'守衛連絡',settings:'設定'}[id]||id;}
+function renderCurrent(){
   const a=document.querySelector('.page.active');if(!a)return;
   const id=a.id.replace('page-','');
   if(id==='office')renderOffice();
   else if(id==='field')renderField();
   else if(id==='records')renderRecords();
   else if(id==='master')renderMaster();
+  else if(id==='guard')renderGuard();
 }
 
-// ===== 状態ラベル =====
-function getStatusLabel(rec){
-  if(!rec)return{label:'未入場',cls:'waiting'};
-  if(rec.departTime)return{label:`退場済 ${rec.departTime}`,cls:'departed'};
-  if(rec.loadEndTime)return{label:`荷役完了 ${rec.loadEndTime}`,cls:'done'};
-  if(rec.loadStartTime)return{label:`荷役中 ${rec.loadStartTime}〜`,cls:'loading'};
-  if(rec.enterTime)return{label:`入場中 ${rec.enterTime}〜`,cls:'entered'};
-  return{label:'未入場',cls:'waiting'};
-}
-
-// 入庫情報テキスト
-function getInboundText(c){
-  if(c.type==='truck_in'){
-    const found=truckRows.filter(r=>r.origin||r.carrier||r.carNum||r.time);
-    if(!found.length)return null;
-    return found.map((r,i)=>`${i+1}. 出荷元:${r.origin||'—'} / ${r.carrier||'—'} / ${r.carNum||'—'}${r.time?' / '+r.time:''}`).join('\n');
-  }
-  if(c.type==='container_in'){
-    const found=containerRows.filter(r=>r.containerNo||r.time);
-    if(!found.length)return null;
-    return found.map((r,i)=>`${i+1}. コンテナNo: ${r.containerNo||'—'}${r.time?' / '+r.time:''}`).join('\n');
-  }
-  if(['spot_charter','charter','regular','irregular'].includes(c.type)){
-    const found=charterRows.filter(r=>r.carrier||r.dest||r.carNum||r.time);
-    if(!found.length)return null;
-    return found.map((r,i)=>`${i+1}. ${r.carrier||'—'} / ${r.carNum||'—'} / ${r.dest||'—'}${r.time?' / '+r.time:''}`).join('\n');
-  }
-  return null;
-}
-
-function renderInboundPanel(cid,panelId,infoId){
-  const c=state.carriers.find(x=>x.id===cid);if(!c)return;
-  const panel=document.getElementById(panelId);
-  const info=document.getElementById(infoId);
-  const text=getInboundText(c);
-  if(!text){panel.classList.remove('visible');return;}
-  panel.classList.add('visible');
-  info.textContent=text;
-}
-
-// ===== 動的入力欄 =====
-function renderCharterInputs(){
-  const area=document.getElementById('charter-input-area');if(!area)return;
-  area.innerHTML=charterRows.map((r,i)=>`
-    <div class="inbound-row">
-      <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateCharter(${i},'carrier',this.value)" onblur="onBlurCharter(${i})">
-      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateCharter(${i},'carNum',this.value)" onblur="onBlurCharter(${i})" style="max-width:70px;">
-      <input type="text" placeholder="納品先" value="${escHTML(r.dest||'')}" oninput="updateCharter(${i},'dest',this.value)" onblur="onBlurCharter(${i})">
-      <input type="text" placeholder="住所" value="${escHTML(r.addr||'')}" oninput="updateCharter(${i},'addr',this.value)" onblur="onBlurCharter(${i})">
-      <input type="text" placeholder="時間" value="${escHTML(r.time||'')}" oninput="updateCharter(${i},'time',this.value)" onblur="onBlurCharter(${i})" style="max-width:70px;">
-    </div>`).join('');
-}
-function renderTruckInputs(){
-  const area=document.getElementById('truck-input-area');if(!area)return;
-  area.innerHTML=truckRows.map((r,i)=>`
-    <div class="inbound-row">
-      <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="出荷元" value="${escHTML(r.origin||'')}" oninput="updateTruck(${i},'origin',this.value)" onblur="onBlurTruck(${i})">
-      <input type="text" placeholder="運送会社" value="${escHTML(r.carrier||'')}" oninput="updateTruck(${i},'carrier',this.value)" onblur="onBlurTruck(${i})">
-      <input type="text" placeholder="車番" value="${escHTML(r.carNum||'')}" oninput="updateTruck(${i},'carNum',this.value)" onblur="onBlurTruck(${i})" style="max-width:70px;">
-      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateTruck(${i},'time',this.value)" onblur="onBlurTruck(${i})" style="max-width:75px;">
-    </div>`).join('');
-}
-function renderContainerInputs(){
-  const area=document.getElementById('container-input-area');if(!area)return;
-  area.innerHTML=containerRows.map((r,i)=>`
-    <div class="inbound-row">
-      <span class="inbound-row-num">${i+1}</span>
-      <input type="text" placeholder="コンテナNo" value="${escHTML(r.containerNo||'')}" oninput="updateContainer(${i},'containerNo',this.value)" onblur="onBlurContainer(${i})" style="max-width:200px;">
-      <input type="text" placeholder="入場時間" value="${escHTML(r.time||'')}" oninput="updateContainer(${i},'time',this.value)" onblur="onBlurContainer(${i})" style="max-width:80px;">
-    </div>`).join('');
-}
-function hasContent(row,type){
-  if(type==='charter')return!!(row.carrier||row.carNum||row.dest||row.addr||row.time);
-  if(type==='truck')return!!(row.origin||row.carrier||row.carNum||row.time);
-  if(type==='container')return!!(row.containerNo||row.time);
-  return false;
-}
-
-const debMap={};
-function debounce(key,fn,delay=10000){
-  clearTimeout(debMap[key]);debMap[key]=setTimeout(fn,delay);
-}
-
-// フォーカスが外れた時に次行追加チェック
-window.onBlurCharter=function(i){
-  if(i===charterRows.length-1&&hasContent(charterRows[i],'charter')){
-    charterRows.push({carrier:'',carNum:'',dest:'',addr:'',time:''});
-    renderCharterInputs();
-  }
-};
-window.onBlurTruck=function(i){
-  if(i===truckRows.length-1&&hasContent(truckRows[i],'truck')){
-    truckRows.push({origin:'',carrier:'',carNum:'',time:''});
-    renderTruckInputs();
-  }
-};
-window.onBlurContainer=function(i){
-  if(i===containerRows.length-1&&hasContent(containerRows[i],'container')){
-    containerRows.push({containerNo:'',time:''});
-    renderContainerInputs();
-  }
-};
-
-window.updateCharter=function(i,field,val){
-  if(!charterRows[i])charterRows[i]={carrier:'',carNum:'',dest:'',addr:'',time:''};
-  charterRows[i][field]=val;
-  debounce('charter',()=>{
-    const obj={};charterRows.forEach((r,idx)=>obj[idx]=r);
-    set(ref(db,whPath('inboundData/charter')),obj).then(()=>{
-      // 事務所・現場タブも更新
-      const active=document.querySelector('.page.active');
-      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
-    });
-  });
-};
-window.updateTruck=function(i,field,val){
-  if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};
-  truckRows[i][field]=val;
-  debounce('truck',()=>{
-    const obj={};truckRows.forEach((r,idx)=>obj[idx]=r);
-    set(ref(db,whPath('inboundData/truck')),obj).then(()=>{
-      const active=document.querySelector('.page.active');
-      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
-    });
-  });
-};
-window.updateContainer=function(i,field,val){
-  if(!containerRows[i])containerRows[i]={containerNo:'',time:''};
-  containerRows[i][field]=val;
-  debounce('container',()=>{
-    const obj={};containerRows.forEach((r,idx)=>obj[idx]=r);
-    set(ref(db,whPath('inboundData/container')),obj).then(()=>{
-      const active=document.querySelector('.page.active');
-      if(active&&(active.id==='page-office'||active.id==='page-field'))renderCurrentPage();
-    });
-  });
-};
-window.resetCharterInputs=async function(){
-  if(!confirm('チャーター出荷データをリセットしますか？'))return;
-  charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
-  await set(ref(db,whPath('inboundData/charter')),null);
-  renderCharterInputs();showToast('リセットしました');
-};
-window.resetTruckInputs=async function(){
-  if(!confirm('トラック入庫データをリセットしますか？'))return;
-  truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
-  await set(ref(db,whPath('inboundData/truck')),null);
-  renderTruckInputs();showToast('リセットしました');
-};
-window.resetContainerInputs=async function(){
-  if(!confirm('コンテナ入庫データをリセットしますか？'))return;
-  containerRows=[{containerNo:'',time:''}];
-  await set(ref(db,whPath('inboundData/container')),null);
-  renderContainerInputs();showToast('リセットしました');
-};
-
-// ===== 事務所 =====
+// ===== OFFICE =====
 function renderOffice(){
-  const grid=document.getElementById('office-carrier-grid');
-  grid.innerHTML='';
-  const vis=state.carriers.filter(c=>isVisible(c.id));
-  if(!vis.length){grid.innerHTML='<div style="color:var(--text-hint);font-size:13px;padding:8px 0;">表示中の運送会社がありません</div>';return;}
-  vis.forEach(c=>{
-    const rec=getRecord(c.id),st=getStatusLabel(rec);
-    const btn=document.createElement('button');
-    let cls='carrier-btn';
-    if(rec&&rec.departTime)cls+=' has-record';
-    else if(rec&&rec.enterTime)cls+=' active-record';
-    if(selOffice===c.id)cls+=' selected';
-    btn.className=cls;
-    const extra=getInboundText(c);
-    btn.innerHTML=`<span class="carrier-name">${escHTML(c.short||c.name)}</span><span class="carrier-type-label">${typeLabel(c.type)}</span><span class="carrier-status ${st.cls}">${st.label}</span>${extra?`<span class="carrier-extra">${escHTML(extra.split('\n')[0])}</span>`:''}`;
-    btn.onclick=()=>{selOffice=c.id;renderOffice();updateOfficePanel();};
-    grid.appendChild(btn);
-  });
-  if(selOffice)updateOfficePanel();
-}
+  const grid=document.getElementById('off-grid');grid.innerHTML='';
+  const vis=state.carriers.filter(c=>isVis(c.id));
+  const dyn=getDynCarriers();
+  if(!vis.length&&!dyn.length){grid.innerHTML='<div style="color:var(--th);font-size:13px;padding:8px 0;">表示中の運送会社がありません</div>';return;}
 
-function updateOfficePanel(){
-  const c=state.carriers.find(x=>x.id===selOffice);
-  if(!c){document.getElementById('office-no-sel').style.display='';document.getElementById('office-sel-panel').style.display='none';return;}
-  document.getElementById('office-no-sel').style.display='none';
-  document.getElementById('office-sel-panel').style.display='';
-  document.getElementById('office-carrier-name').textContent=c.name;
-  const rec=getRecord(c.id),st=getStatusLabel(rec);
-  let statusText=st.label;
-  if(c.type==='spot_charter'&&rec&&rec.charterCarrierName)statusText+=`　実車：${rec.charterCarrierName} / ${rec.charterCarNumber}`;
-  document.getElementById('office-carrier-status').textContent=statusText;
-  document.getElementById('btn-enter').disabled=!!(rec&&rec.enterTime);
-  document.getElementById('btn-depart').disabled=!(rec&&rec.loadEndTime&&!rec.departTime);
-  renderInboundPanel(c.id,'office-inbound-panel','office-inbound-info');
-  renderShipPanel(c.id,'office-ship-panel','office-ship-stats');
-  const tl=document.getElementById('office-timeline');tl.innerHTML='';
+  if(vis.length){
+    const div=document.createElement('div');div.className='c-divider';div.textContent='▼ マスター登録済み';
+    grid.appendChild(div);
+    vis.forEach(c=>grid.appendChild(makeCarrierBtn(c,'off')));
+  }
+  if(dyn.length){
+    const div=document.createElement('div');div.className='c-divider';div.textContent='▼ 当日入力（チャーター・入庫）';
+    grid.appendChild(div);
+    dyn.forEach(c=>grid.appendChild(makeCarrierBtn(c,'off')));
+  }
+  if(selOff)updateOffPanel();
+}
+function makeCarrierBtn(c,mode){
+  const rec=getRecord(c.id);const st=stLabel(rec);
+  const btn=document.createElement('button');
+  let cls='c-btn';
+  if(rec&&rec.departTime)cls+=' done';
+  else if(rec&&rec.enterTime)cls+=' act';
+  if(c._dyn)cls+=' dyn';
+  if((mode==='off'?selOff:selFld)===c.id)cls+=' sel';
+  btn.className=cls;
+  const extra=c._info?`<span class="c-extra">${esc(c._info)}</span>`:'';
+  btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span><span class="c-type">${c._label||tLabel(c.type)}</span><span class="c-st ${st.c}">${st.l}</span>${extra}`;
+  btn.onclick=()=>{
+    if(mode==='off'){selOff=c.id;renderOffice();updateOffPanel();}
+    else{selFld=c.id;renderField();updateFldPanel();}
+  };
+  return btn;
+}
+function getAllCById(id){
+  return state.carriers.find(x=>x.id===id)||getDynCarriers().find(x=>x.id===id)||null;
+}
+function updateOffPanel(){
+  const c=getAllCById(selOff);
+  if(!c){document.getElementById('off-no-sel').style.display='';document.getElementById('off-sel').style.display='none';return;}
+  document.getElementById('off-no-sel').style.display='none';
+  document.getElementById('off-sel').style.display='';
+  const rec=getRecord(c.id);const st=stLabel(rec);
+  document.getElementById('off-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
+  let stxt=st.l;
+  if(!c._dyn&&c.type==='spot_charter'&&rec?.charterCarrierName)stxt+=` 実車:${rec.charterCarrierName}/${rec.charterCarNumber}`;
+  document.getElementById('off-status').textContent=stxt;
+  document.getElementById('btn-enter').disabled=!!(rec?.enterTime);
+  document.getElementById('btn-dep').disabled=!(rec?.loadEndTime&&!rec?.departTime);
+  // 出荷情報
+  renderShipPanel('off-ship','off-ship-stats',c.id,c._dyn);
+  // 入庫情報（動的キャリアのみ）
+  const ib=document.getElementById('off-inbound');
+  if(c._dyn&&c._info){ib.classList.add('v');document.getElementById('off-inbound-body').textContent=c._info;}
+  else ib.classList.remove('v');
+  // タイムライン
+  const tl=document.getElementById('off-tl');tl.innerHTML='';
   if(rec){
-    if(rec.enterTime){let chip=`入場<span>${rec.enterTime}</span>`;if(rec.charterCarrierName)chip+=`<span style="margin-left:5px;font-size:10px;color:var(--purple-600);">${rec.charterCarrierName}/${rec.charterCarNumber}</span>`;tl.innerHTML+=`<span class="time-chip">${chip}</span>`;}
-    if(rec.loadStartTime)tl.innerHTML+=`<span class="time-chip">荷役開始<span>${rec.loadStartTime}</span></span>`;
-    if(rec.loadEndTime)tl.innerHTML+=`<span class="time-chip">荷役終了<span>${rec.loadEndTime}</span></span>`;
-    if(rec.departTime)tl.innerHTML+=`<span class="time-chip">退場<span>${rec.departTime}</span></span>`;
+    if(rec.enterTime){let s=`入場<span>${rec.enterTime}</span>`;if(rec.charterCarrierName)s+=`<span style="margin-left:4px;font-size:10px;color:var(--pu600);">${rec.charterCarrierName}/${rec.charterCarNumber}</span>`;tl.innerHTML+=`<span class="tc">${s}</span>`;}
+    if(rec.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${rec.loadStartTime}</span></span>`;
+    if(rec.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${rec.loadEndTime}</span></span>`;
+    if(rec.departTime)tl.innerHTML+=`<span class="tc">退場<span>${rec.departTime}</span></span>`;
   }
 }
-
-function renderShipPanel(cid,panelId,statsId){
+function renderShipPanel(panelId,statsId,cid,isDyn){
+  const p=document.getElementById(panelId);
+  if(isDyn){p.classList.remove('v');return;}
   const sd=getShip(cid);
-  const panel=document.getElementById(panelId);
-  const stats=document.getElementById(statsId);
-  if(!sd||(sd.count===''&&sd.qty===''&&sd.vol==='')){panel.classList.remove('visible');return;}
-  panel.classList.add('visible');
-  stats.innerHTML=[{label:'出荷件数',val:sd.count,unit:'件'},{label:'出荷個数',val:sd.qty,unit:'個'},{label:'出荷才数',val:sd.vol,unit:'才'}]
-    .filter(x=>x.val!==''&&x.val!==undefined)
-    .map(x=>`<div class="ship-stat"><div class="ship-stat-val">${escHTML(String(x.val))}</div><div class="ship-stat-label">${x.label}（${x.unit}）</div></div>`).join('');
+  if(!sd||(sd.count===''&&sd.qty===''&&sd.vol==='')){p.classList.remove('v');return;}
+  p.classList.add('v');
+  document.getElementById(statsId).innerHTML=[{l:'出荷件数',v:sd.count,u:'件'},{l:'出荷個数',v:sd.qty,u:'個'},{l:'出荷才数',v:sd.vol,u:'才'}]
+    .filter(x=>x.v!==''&&x.v!=null)
+    .map(x=>`<div class="ship-stat"><div class="ship-stat-val">${esc(String(x.v))}</div><div class="ship-stat-label">${x.l}（${x.u}）</div></div>`).join('');
 }
 
 window.doEnter=async function(){
-  const c=state.carriers.find(x=>x.id===selOffice);if(!c)return;
+  const c=getAllCById(selOff);if(!c)return;
   const rec=getRecord(c.id)||{};if(rec.enterTime)return;
-  if(c.type==='spot_charter'){
-    document.getElementById('charter-modal-name').value='';
-    document.getElementById('charter-modal-num').value='';
-    document.getElementById('charter-modal').classList.remove('hidden');
-    setTimeout(()=>document.getElementById('charter-modal-name').focus(),100);
-    return;
+  // 専属チャーター（マスター登録済みのspot_charter）のみ受付モーダル
+  if(!c._dyn&&c.type==='spot_charter'){
+    document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
+    document.getElementById('charter-modal').classList.remove('h');
+    setTimeout(()=>document.getElementById('cm-name').focus(),100);return;
   }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec);
-  showToast(`${c.short||c.name} 入場: ${rec.enterTime}`);
+  toast(`${c.short||c.name} 入場: ${rec.enterTime}`);
 };
-window.confirmCharter=async function(){
-  const name=document.getElementById('charter-modal-name').value.trim();
-  const num=document.getElementById('charter-modal-num').value.trim();
-  if(!name){showToast('運送会社名を入力してください');return;}
-  if(!/^\d{4}$/.test(num)){showToast('車番は4桁の数字で入力してください');return;}
-  const c=state.carriers.find(x=>x.id===selOffice);if(!c)return;
+window.cancelCharterModal=function(){document.getElementById('charter-modal').classList.add('h');};
+window.confirmCharterModal=async function(){
+  const name=document.getElementById('cm-name').value.trim();
+  const num=document.getElementById('cm-num').value.trim();
+  if(!name){toast('運送会社名を入力してください');return;}
+  if(!/^\d{4}$/.test(num)){toast('車番は4桁の数字を入力してください');return;}
+  const c=getAllCById(selOff);if(!c)return;
   const rec=getRecord(c.id)||{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
   await fbSetRecord(c.id,rec);
-  document.getElementById('charter-modal').classList.add('hidden');
-  showToast(`${name}（${num}） 入場: ${rec.enterTime}`);
+  document.getElementById('charter-modal').classList.add('h');
+  toast(`${name}（${num}） 入場: ${rec.enterTime}`);
 };
-window.cancelCharter=function(){document.getElementById('charter-modal').classList.add('hidden');};
-window.requestDepart=function(){
-  const c=state.carriers.find(x=>x.id===selOffice);if(!c)return;
-  const rec=getRecord(c.id);if(!rec||!rec.loadEndTime)return;
-  openSign('depart',c.id,`退場確認サイン — ${c.short||c.name}`,'ドライバーの方はこちらにサインをお願いします');
+window.reqDepart=function(){
+  const c=getAllCById(selOff);if(!c)return;
+  const rec=getRecord(c.id);if(!rec?.loadEndTime)return;
+  openSign('dep',c.id,`退場確認サイン — ${c.short||c.name}`,'ドライバーの方はこちらにサインをお願いします');
 };
 
-// ===== 現場 =====
+// ===== FIELD =====
 function renderField(){
-  const grid=document.getElementById('field-carrier-grid');
-  grid.innerHTML='';
-  const active=state.carriers.filter(c=>{const rec=getRecord(c.id);return rec&&rec.enterTime&&!rec.departTime;});
+  const grid=document.getElementById('fld-grid');grid.innerHTML='';
+  const allC=[...state.carriers,...getDynCarriers()];
+  const active=allC.filter(c=>{const r=getRecord(c.id);return r?.enterTime&&!r?.departTime;});
   if(!active.length){
-    grid.innerHTML='<div style="color:var(--text-hint);font-size:13px;padding:8px 0;">現在入場中の運送会社はありません</div>';
-    document.getElementById('field-no-sel').style.display='';
-    document.getElementById('field-sel-panel').style.display='none';
-    return;
+    grid.innerHTML='<div style="color:var(--th);font-size:13px;padding:8px 0;">現在入場中の運送会社はありません</div>';
+    document.getElementById('fld-no-sel').style.display='';document.getElementById('fld-sel').style.display='none';return;
   }
-  active.forEach(c=>{
-    const rec=getRecord(c.id),st=getStatusLabel(rec);
-    const btn=document.createElement('button');
-    let cls='carrier-btn active-record';
-    if(selField===c.id)cls+=' selected';
-    btn.className=cls;
-    const extra=getInboundText(c);
-    btn.innerHTML=`<span class="carrier-name">${escHTML(c.short||c.name)}</span><span class="carrier-type-label">${typeLabel(c.type)}</span><span class="carrier-status ${st.cls}">${st.label}</span>${extra?`<span class="carrier-extra">${escHTML(extra.split('\n')[0])}</span>`:''}`;
-    btn.onclick=()=>{selField=c.id;renderField();updateFieldPanel();};
-    grid.appendChild(btn);
-  });
-  if(selField)updateFieldPanel();
+  active.forEach(c=>grid.appendChild(makeCarrierBtn(c,'fld')));
+  if(selFld)updateFldPanel();
 }
-
-function updateFieldPanel(){
-  const c=state.carriers.find(x=>x.id===selField);
+function updateFldPanel(){
+  const c=getAllCById(selFld);
   const rec=c?getRecord(c.id):null;
-  if(!c||!rec||!rec.enterTime){document.getElementById('field-no-sel').style.display='';document.getElementById('field-sel-panel').style.display='none';return;}
-  document.getElementById('field-no-sel').style.display='none';
-  document.getElementById('field-sel-panel').style.display='';
-  document.getElementById('field-carrier-name').textContent=c.name;
-  const st=getStatusLabel(rec);
-  document.getElementById('field-carrier-status').textContent=st.label;
-  document.getElementById('btn-start-load').disabled=!!(rec.loadStartTime);
-  document.getElementById('btn-end-load').disabled=!(rec.loadStartTime&&!rec.loadEndTime);
-  renderInboundPanel(c.id,'field-inbound-panel','field-inbound-info');
-  renderShipPanel(c.id,'field-ship-panel','field-ship-stats');
-  const tl=document.getElementById('field-timeline');tl.innerHTML='';
-  if(rec.enterTime)tl.innerHTML+=`<span class="time-chip">入場<span>${rec.enterTime}</span></span>`;
-  if(rec.loadStartTime)tl.innerHTML+=`<span class="time-chip">荷役開始<span>${rec.loadStartTime}</span></span>`;
-  if(rec.loadEndTime)tl.innerHTML+=`<span class="time-chip">荷役終了<span>${rec.loadEndTime}</span></span>`;
+  if(!c||!rec?.enterTime){document.getElementById('fld-no-sel').style.display='';document.getElementById('fld-sel').style.display='none';return;}
+  document.getElementById('fld-no-sel').style.display='none';document.getElementById('fld-sel').style.display='';
+  const st=stLabel(rec);
+  document.getElementById('fld-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
+  document.getElementById('fld-status').textContent=st.l;
+  document.getElementById('btn-sl').disabled=!!(rec.loadStartTime);
+  document.getElementById('btn-el').disabled=!(rec.loadStartTime&&!rec.loadEndTime);
+  renderShipPanel('fld-ship','fld-ship-stats',c.id,c._dyn);
+  const ib=document.getElementById('fld-inbound');
+  if(c._dyn&&c._info){ib.classList.add('v');document.getElementById('fld-inbound-body').textContent=c._info;}
+  else ib.classList.remove('v');
+  const tl=document.getElementById('fld-tl');tl.innerHTML='';
+  if(rec.enterTime)tl.innerHTML+=`<span class="tc">入場<span>${rec.enterTime}</span></span>`;
+  if(rec.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${rec.loadStartTime}</span></span>`;
+  if(rec.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${rec.loadEndTime}</span></span>`;
 }
 window.doStartLoad=async function(){
-  const c=state.carriers.find(x=>x.id===selField);if(!c)return;
+  const c=getAllCById(selFld);if(!c)return;
   const rec=getRecord(c.id)||{};if(!rec.enterTime||rec.loadStartTime)return;
-  rec.loadStartTime=nowTime();await fbSetRecord(c.id,rec);
-  showToast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
+  rec.loadStartTime=nowTime();await fbSetRecord(c.id,rec);toast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
 };
-window.requestEndLoad=function(){
-  const c=state.carriers.find(x=>x.id===selField);if(!c)return;
-  const rec=getRecord(c.id);if(!rec||!rec.loadStartTime||rec.loadEndTime)return;
-  openSign('endload',c.id,`荷役終了サイン — ${c.short||c.name}`,'現場担当者はこちらにサインをお願いします');
+window.reqEndLoad=function(){
+  const c=getAllCById(selFld);if(!c)return;
+  const rec=getRecord(c.id);if(!rec?.loadStartTime||rec?.loadEndTime)return;
+  openSign('el',c.id,`荷役終了サイン — ${c.short||c.name}`,'現場担当者はこちらにサインをお願いします');
 };
 
-// ===== サイン =====
+// ===== SIGN =====
 function openSign(mode,cid,title,sub){
-  signMode=mode;signCarrierId=cid;
-  document.getElementById('sign-title').textContent=title;
-  document.getElementById('sign-subtitle').textContent=sub;
-  document.getElementById('sign-modal').classList.remove('hidden');
-  initSignCanvas();
+  signMode=mode;signCid=cid;
+  document.getElementById('sign-title').textContent=title;document.getElementById('sign-sub').textContent=sub;
+  document.getElementById('sign-modal').classList.remove('h');initSign();
 }
-function initSignCanvas(){
-  const cv=document.getElementById('sign-canvas');
-  const r=cv.getBoundingClientRect();
+function initSign(){
+  const cv=document.getElementById('sign-cv');const r=cv.getBoundingClientRect();
   cv.width=(r.width||480)*devicePixelRatio;cv.height=(r.height||200)*devicePixelRatio;
   signCtx=cv.getContext('2d');signCtx.scale(devicePixelRatio,devicePixelRatio);
   signCtx.clearRect(0,0,cv.width,cv.height);
   signCtx.strokeStyle='#1a1a1a';signCtx.lineWidth=2.5;signCtx.lineCap='round';signCtx.lineJoin='round';
   function pt(e){const r=cv.getBoundingClientRect();const s=e.touches?e.touches[0]:e;return{x:s.clientX-r.left,y:s.clientY-r.top};}
-  cv.onmousedown=e=>{signDrawing=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
-  cv.onmousemove=e=>{if(!signDrawing)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
-  cv.onmouseup=()=>signDrawing=false;
-  cv.ontouchstart=e=>{e.preventDefault();signDrawing=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
-  cv.ontouchmove=e=>{e.preventDefault();if(!signDrawing)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
-  cv.ontouchend=()=>signDrawing=false;
+  cv.onmousedown=e=>{signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
+  cv.onmousemove=e=>{if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
+  cv.onmouseup=()=>signDraw=false;
+  cv.ontouchstart=e=>{e.preventDefault();signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
+  cv.ontouchmove=e=>{e.preventDefault();if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
+  cv.ontouchend=()=>signDraw=false;
 }
-window.clearSign=function(){const c=document.getElementById('sign-canvas');signCtx.clearRect(0,0,c.width/devicePixelRatio,c.height/devicePixelRatio);};
+window.clearSign=function(){const cv=document.getElementById('sign-cv');signCtx.clearRect(0,0,cv.width/devicePixelRatio,cv.height/devicePixelRatio);};
 window.confirmSign=async function(){
-  const cv=document.getElementById('sign-canvas');const dataURL=cv.toDataURL('image/png');
-  const c=state.carriers.find(x=>x.id===signCarrierId);const rec=getRecord(signCarrierId)||{};
-  if(signMode==='depart'){rec.departTime=nowTime();rec.driverSign=dataURL;await fbSetRecord(signCarrierId,rec);showToast(`${c.short||c.name} 退場完了: ${rec.departTime}`);}
-  else if(signMode==='endload'){rec.loadEndTime=nowTime();rec.fieldSign=dataURL;await fbSetRecord(signCarrierId,rec);showToast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
-  document.getElementById('sign-modal').classList.add('hidden');
+  const cv=document.getElementById('sign-cv');const img=cv.toDataURL('image/png');
+  const c=getAllCById(signCid);const rec=getRecord(signCid)||{};
+  if(signMode==='dep'){rec.departTime=nowTime();rec.driverSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);}
+  else if(signMode==='el'){rec.loadEndTime=nowTime();rec.fieldSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
+  document.getElementById('sign-modal').classList.add('h');
 };
-window.cancelSign=function(){document.getElementById('sign-modal').classList.add('hidden');};
+window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
+window.viewSign=function(src,t){document.getElementById('sv-title').textContent=t;document.getElementById('sv-img').src=src;document.getElementById('sv-modal').classList.add('o');};
 
-// ===== 記録 =====
+// ===== RECORDS =====
+async function fetchDayRecords(date){
+  if(date===today())return state.records[today()]||{};
+  const snap=await get(ref(db,whPath(`records/${date}`)));return snap.val()||{};
+}
+async function fetchDayShip(date){
+  if(date===today())return state.shipData[today()]||{};
+  const snap=await get(ref(db,whPath(`shipData/${date}`)));return snap.val()||{};
+}
+
+// 動的キャリアのIDは日次データとして保存されるので、すべてのキャリア（マスター＋動的）をそのまま参照
+async function getAllRecordRows(date){
+  const dayRec=await fetchDayRecords(date);
+  const dayShip=await fetchDayShip(date);
+  const rows=[];
+  // キーから逆引き（マスター＋動的）
+  Object.entries(dayRec).forEach(([k,rec])=>{
+    // マスターから探す
+    let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+    if(!c){
+      // 動的キャリアから探す（IDのkeyを復元して探す）
+      const allDyn=getDynCarriers();
+      c=allDyn.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+    }
+    if(!c){
+      // 不明キャリア（動的キャリアが変更されても記録は残す）
+      c={id:k,name:k,short:k,type:'unknown',_dyn:false};
+    }
+    const ship=dayShip[k]||null;
+    rows.push({date,c,rec,ship});
+  });
+  return rows;
+}
+
 window.renderRecords=async function(){
-  const from=document.getElementById('date-from').value||today();
-  const to=document.getElementById('date-to').value||today();
-  if(from>to){showToast('開始日は終了日以前にしてください');return;}
-  const container=document.getElementById('records-table-container');
-  container.innerHTML='<div class="empty-state">読込中...</div>';
+  const from=document.getElementById('dt-from').value||today();
+  const to=document.getElementById('dt-to').value||today();
+  if(from>to){toast('開始日は終了日以前にしてください');return;}
+  const container=document.getElementById('rec-container');
+  container.innerHTML='<div class="empty">読込中...</div>';
   const dates=[];let cur=new Date(from);const end=new Date(to);
   while(cur<=end){dates.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
   const allRows=[];
-  for(const date of dates){
-    const snap=await get(ref(db,whPath(`records/${date}`)));const dayRec=snap.val()||{};
-    const snapS=await get(ref(db,whPath(`shipData/${date}`)));const dayShip=snapS.val()||{};
-    state.carriers.forEach(c=>{
-      const key=c.id.replace(/[.#$/[\]]/g,'_');const rec=dayRec[key];
-      if(rec)allRows.push({date,c,rec,ship:dayShip[key]||null});
-    });
+  for(const d of dates){
+    const rows=await getAllRecordRows(d);
+    allRows.push(...rows);
   }
-  if(!allRows.length){container.innerHTML='<div class="empty-state">この期間の記録はありません</div>';return;}
-  let html=`<table class="records"><thead><tr>
-    <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th><th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
+  if(!allRows.length){container.innerHTML='<div class="empty">この期間の記録はありません</div>';return;}
+  let html=`<table class="rt"><thead><tr>
+    <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th>
+    <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
+    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship})=>{
-    const pill=rec.departTime?`<span class="status-pill complete">完了</span>`:`<span class="status-pill in-progress">進行中</span>`;
-    const fs=rec.fieldSign?`<img class="sign-thumb" src="${rec.fieldSign}" onclick="viewSign('${escHTML(rec.fieldSign)}','現場サイン — ${escHTML(c.short||c.name)}')">` :'—';
-    const ds=rec.driverSign?`<img class="sign-thumb" src="${rec.driverSign}" onclick="viewSign('${escHTML(rec.driverSign)}','ドライバーサイン — ${escHTML(c.short||c.name)}')">` :'—';
-    html+=`<tr><td>${date}</td><td><strong>${escHTML(c.name)}</strong></td><td><span class="type-badge ${c.type}">${typeLabel(c.type)}</span></td><td>${rec.charterCarrierName?escHTML(rec.charterCarrierName):'—'}</td><td>${rec.charterCarNumber?escHTML(rec.charterCarNumber):'—'}</td><td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td><td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td><td>${pill}</td><td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td><td>${fs}</td><td>${ds}</td></tr>`;
+    const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
+    const fs=rec.fieldSign?`<img class="sign-th" src="${rec.fieldSign}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
+    const ds=rec.driverSign?`<img class="sign-th" src="${rec.driverSign}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
+    html+=`<tr>
+      <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
+      <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
+      <td>${esc(rec.charterCarrierName||'')||'—'}</td><td>${esc(rec.charterCarNumber||'')|| '—'}</td>
+      <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
+      <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
+      <td>${pill}</td>
+      <td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td>
+      <td>${fs}</td><td>${ds}</td>
+    </tr>`;
   });
   html+='</tbody></table>';container.innerHTML=html;
 };
-window.viewSign=function(src,title){document.getElementById('sign-view-title').textContent=title;document.getElementById('sign-view-img').src=src;document.getElementById('sign-view-modal').classList.add('open');};
 
-// ===== Excelダウンロード =====
+// ===== EXCEL =====
 window.downloadExcel=async function(){
-  const from=document.getElementById('date-from').value||today();
-  const to=document.getElementById('date-to').value||today();
-  if(from>to){showToast('開始日は終了日以前にしてください');return;}
+  const from=document.getElementById('dt-from').value||today();
+  const to=document.getElementById('dt-to').value||today();
+  if(from>to){toast('開始日は終了日以前にしてください');return;}
   const dates=[];let cur=new Date(from);const end=new Date(to);
   while(cur<=end){dates.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
   const allRows=[];
-  for(const date of dates){
-    const snap=await get(ref(db,whPath(`records/${date}`)));const dayRec=snap.val()||{};
-    const snapS=await get(ref(db,whPath(`shipData/${date}`)));const dayShip=snapS.val()||{};
-    state.carriers.forEach(c=>{const key=c.id.replace(/[.#$/[\]]/g,'_');const rec=dayRec[key];if(rec)allRows.push({date,c,rec,ship:dayShip[key]||null});});
+  for(const d of dates){const rows=await getAllRecordRows(d);allRows.push(...rows);}
+  if(!allRows.length){toast('この期間の記録がありません');return;}
+  toast('Excelを生成中...');
+  if(!window.JSZip){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
-  if(!allRows.length){showToast('この期間の記録がありません');return;}
-  showToast('Excelを生成中...');
-  if(!window.JSZip){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
   const zip=new JSZip(),EMU=9525;
-  async function d2b(u){const r=await fetch(u);return r.arrayBuffer();}
-  const imageFiles=[],drawings=[];
+  async function buf(u){const r=await fetch(u);return r.arrayBuffer();}
+  const imgs=[],draws=[];
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],ri=i+1;
-    for(const[key,col]of[['fieldSign',13],['driverSign',14]]){
-      if(rec[key]){const buf=await d2b(rec[key]);imageFiles.push({name:`img${imageFiles.length}.png`,buffer:buf});drawings.push({row:ri,col,imgIdx:imageFiles.length-1});}
+    for(const[k,col]of[['fieldSign',13],['driverSign',14]]){
+      if(rec[k]){const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}
     }
   }
-  const hasD=drawings.length>0;
-  const wh=warehouses.find(w=>w.id===currentWh);
+  const hasD=draws.length>0;
+  const wh=WHs.find(w=>w.id===CWH);
   const sn=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','実車名','車番','入場時間','荷役開始時間','荷役終了時間','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  const headers=['日付','会社名','種別','実車名','車番','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
   headers.forEach(h=>si(h));
-  const dm=allRows.map(({date,c,rec,ship})=>[date,c.name,typeLabel(c.type),rec.charterCarrierName||'',rec.charterCarNumber||'',rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',rec.departTime?'完了':'進行中',ship?.count??'',ship?.qty??'',ship?.vol??'',rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)']);
+  const dm=allRows.map(({date,c,rec,ship})=>[date,c.name,tLabel(c.type),rec.charterCarrierName||'',rec.charterCarNumber||'',rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',rec.departTime?'完了':'進行中',ship?.count??'',ship?.qty??'',ship?.vol??'',rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)']);
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
-  function cl(n){return String.fromCharCode(65+n);}
-  const CW=[12,24,10,12,8,10,12,12,10,8,10,10,10,16,16];
-  let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
-  allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
-  zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imageFiles.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
+  zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imgs.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
   zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
   zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xe(sn)}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   zip.file('xl/sharedStrings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join('')}</sst>`);
   zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf></cellXfs></styleSheet>`);
+  function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
+  const CW=[12,24,10,12,8,10,10,10,10,8,9,9,9,16,16];
+  let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
+  allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
   zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${CW.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sr}</sheetData>${hasD?'<drawing r:id="rId1"/></worksheet>':'</worksheet>'}`);
   if(hasD){
     zip.file('xl/worksheets/_rels/sheet1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
-    zip.file('xl/drawings/_rels/drawing1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${imageFiles.map((f,i)=>`<Relationship Id="rImg${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${f.name}"/>`).join('')}</Relationships>`);
-    zip.file('xl/drawings/drawing1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${drawings.map(({row,col,imgIdx})=>`<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>50000</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>50000</xdr:rowOff></xdr:from><xdr:to><xdr:col>${col+1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row+1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${imgIdx+2}" name="Sign${imgIdx}"/><xdr:cNvPicPr><a:picLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" r:embed="rImg${imgIdx}"/><a:stretch xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:off x="0" y="0"/><a:ext cx="${150*EMU}" cy="${65*EMU}"/></a:xfrm><a:prstGeom xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`).join('')}</xdr:wsDr>`);
-    imageFiles.forEach(f=>zip.file(`xl/media/${f.name}`,f.buffer));
+    zip.file('xl/drawings/_rels/drawing1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${imgs.map((f,i)=>`<Relationship Id="r${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${f.name}"/>`).join('')}</Relationships>`);
+    zip.file('xl/drawings/drawing1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${draws.map(({row,col,idx})=>`<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>${col}</xdr:col><xdr:colOff>50000</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>50000</xdr:rowOff></xdr:from><xdr:to><xdr:col>${col+1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row+1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${idx+2}" name="s${idx}"/><xdr:cNvPicPr><a:picLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" r:embed="r${idx}"/><a:stretch xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:off x="0" y="0"/><a:ext cx="${140*EMU}" cy="${60*EMU}"/></a:xfrm><a:prstGeom xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`).join('')}</xdr:wsDr>`);
+    imgs.forEach(f=>zip.file(`xl/media/${f.name}`,f.buffer));
   }
   const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`物流記録_${wh?wh.name:'倉庫'}_${from}${from!==to?'〜'+to:''}.xlsx`;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-  showToast('Excelをダウンロードしました');
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`物流記録_${wh?wh.name:''}${from!==to?`_${from}〜${to}`:`_${from}`}.xlsx`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);toast('Excelをダウンロードしました');
 };
 
-// ===== 守衛連絡 =====
-function renderGuard(){
-  const wh=warehouses.find(w=>w.id===currentWh);
-  // チャーター出荷：動的入力データ＋守衛チェック会社
-  const charterData=charterRows.filter(r=>r.carrier||r.dest||r.carNum||r.addr||r.time);
-  // 守衛チェックされた定期便等（会社名のみ、他は空）
-  const guardCharterTypes=['regular','irregular','spot_charter','charter'];
-  const guardCharterCarriers=state.carriers.filter(c=>guardCharterTypes.includes(c.type)&&isGuard(c.id));
-  const charterExtra=guardCharterCarriers.map(c=>({carrier:c.name,carNum:'',dest:'',addr:'',time:''}));
-  const charterAll=[...charterData,...charterExtra];
-  document.getElementById('guard-charter-wrap').innerHTML=makeEditableTable(
-    ['会社名／運送会社','行先','住所','入場依頼時間'],
-    charterAll.length?charterAll.map(r=>[r.carrier||'',r.dest||'',r.addr||'',r.time||'']):[['（なし）','','','']]
-  ,'tbl-charter');
-
-  // トラック入庫：動的入力データ＋守衛チェック会社
-  const truckData=truckRows.filter(r=>r.origin||r.carrier||r.carNum);
-  const guardTruckCarriers=state.carriers.filter(c=>c.type==='truck_in'&&isGuard(c.id));
-  const truckExtra=guardTruckCarriers.map(c=>({origin:'',carrier:c.name,carNum:''}));
-  const truckAll=[...truckData,...truckExtra];
-  document.getElementById('guard-truck-wrap').innerHTML=makeEditableTable(
-    ['出荷元','運送会社','車番','入場依頼時間'],
-    truckAll.length?truckAll.map(r=>[r.origin||'',r.carrier||'',r.carNum||'',r.time||'']):[['（なし）','','','']]
-  ,'tbl-truck');
-
-  // コンテナ入庫：動的入力データのみ（コンテナNoが主役）
-  const contData=containerRows.filter(r=>r.containerNo);
-  document.getElementById('guard-container-wrap').innerHTML=makeEditableTable(
-    ['コンテナNo','入場依頼時間'],
-    contData.length?contData.map(r=>[r.containerNo||'',r.time||'']):[['（なし）','']]
-  ,'tbl-container');
-}
-
-function makeEditableTable(headers,rows,tableId){
-  const ths=headers.map(h=>`<th>${h}</th>`).join('');
-  const trs=rows.map((row,ri)=>`<tr>${row.map((cell,ci)=>`<td contenteditable="true">${escHTML(cell)}</td>`).join('')}</tr>`).join('');
-  return`<table class="guard-table" id="${tableId}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
-}
-
-window.printGuard=function(){
-  const wh=warehouses.find(w=>w.id===currentWh);
-  const dateStr=document.getElementById('guard-date').value||nextBusinessDay();
-  function t2h(tableId,title){
-    const tbl=document.getElementById(tableId);if(!tbl)return'';
-    const hs=Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
-    const rows=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>Array.from(tr.querySelectorAll('td')).map(td=>td.textContent));
-    return`<div><div class="print-section-title">${title}</div><table><thead><tr>${hs.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${escHTML(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-  }
-  document.getElementById('print-area').innerHTML=`<div class="print-page">
-    <div class="print-title">守衛連絡リスト　${wh?wh.name:''}　${dateStr}</div>
-    ${t2h('tbl-charter','📦 チャーター出荷')}
-    ${t2h('tbl-truck','🚛 トラック入庫')}
-    ${t2h('tbl-container','🏗️ コンテナ入庫')}
-  </div>`;
-  window.print();
-};
-
-// ===== マスター =====
+// ===== MASTER =====
 window.addCarrier=async function(){
   const name=document.getElementById('m-name').value.trim();
   const short=document.getElementById('m-short').value.trim();
   const type=document.getElementById('m-type').value;
   const note=document.getElementById('m-note').value.trim();
-  if(!name){showToast('会社名を入力してください');return;}
+  if(!name){toast('会社名を入力してください');return;}
   await fbSetCarriers([...state.carriers,{id:'c'+Date.now(),name,short:short||name,type,note}]);
   document.getElementById('m-name').value='';document.getElementById('m-short').value='';document.getElementById('m-note').value='';
-  showToast(`${name} を登録しました`);
+  toast(`${name}を登録しました`);
 };
 window.deleteCarrier=async function(id){
-  const c=state.carriers.find(x=>x.id===id);
-  if(!c||!confirm(`「${c.name}」を削除しますか？`))return;
-  await fbSetCarriers(state.carriers.filter(x=>x.id!==id));showToast('削除しました');
+  const c=state.carriers.find(x=>x.id===id);if(!c||!confirm(`「${c.name}」を削除しますか？`))return;
+  await fbSetCarriers(state.carriers.filter(x=>x.id!==id));toast('削除しました');
 };
-window.toggleVisibility=async function(cid){await fbSetVisibility(cid,!isVisible(cid));};
+window.toggleVis=async function(cid){await fbSetVis(cid,!isVis(cid));};
 window.toggleGuard=async function(cid){await fbSetGuard(cid,!isGuard(cid));};
 
-const shipDebMap={};
+const shipDeb={};
 window.onShipInput=function(cid){
-  clearTimeout(shipDebMap[cid]);
-  shipDebMap[cid]=setTimeout(async()=>{
-    const key=cid.replace(/[.#$/[\]]/g,'_');
-    const ce=document.getElementById(`sc-${key}`);const qe=document.getElementById(`sq-${key}`);const ve=document.getElementById(`sv-${key}`);
+  clearTimeout(shipDeb[cid]);
+  shipDeb[cid]=setTimeout(async()=>{
+    const k=cid.replace(/[.#$/[\]]/g,'_');
+    const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
     if(!ce)return;
     await fbSetShip(cid,{count:ce.value,qty:qe.value,vol:ve.value});
-    [ce,qe,ve].forEach(el=>{el.style.borderColor='var(--green-600)';setTimeout(()=>el.style.borderColor='',1500);});
+    [ce,qe,ve].forEach(e=>{e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);});
   },1000);
 };
 
-window.importExcel=function(event){
-  const file=event.target.files[0];if(!file)return;
+function renderMaster(){
+  const list=document.getElementById('m-list');
+  if(!state.carriers.length){list.innerHTML='<div style="color:var(--th);font-size:13px;padding:6px;">登録された運送会社はありません</div>';return;}
+  // 入力中の値を退避
+  const saved={};
+  state.carriers.forEach(c=>{
+    const k=c.id.replace(/[.#$/[\]]/g,'_');
+    const ce=document.getElementById(`sc-${k}`);
+    if(ce)saved[k]={count:ce.value,qty:document.getElementById(`sq-${k}`).value,vol:document.getElementById(`sv-${k}`).value};
+  });
+  list.innerHTML=state.carriers.map(c=>{
+    const k=c.id.replace(/[.#$/[\]]/g,'_');
+    const vis=isVis(c.id);const gd=isGuard(c.id);
+    const sd=saved[k]||(getShip(c.id)||{count:'',qty:'',vol:''});
+    return`<div class="c-item">
+      <div class="c-item-row">
+        <div class="c-item-info">
+          <div class="c-item-name">${esc(c.name)}<span class="t-badge ${c.type}">${tLabel(c.type)}</span></div>
+          <div class="c-item-meta">${c.short!==c.name?'略称:'+esc(c.short)+'　':''}${esc(c.note||'')}</div>
+        </div>
+        <div class="c-item-acts">
+          <label class="guard-chk"><input type="checkbox" ${gd?'checked':''} onchange="toggleGuard('${c.id}')">守衛</label>
+          <button class="tog-btn ${vis?'on':'off'}" onclick="toggleVis('${c.id}')">${vis?'表示中':'非表示'}</button>
+          <button class="del-btn" onclick="deleteCarrier('${c.id}')">削除</button>
+        </div>
+      </div>
+      <div class="ship-row">
+        <input type="number" id="sc-${k}" value="${esc(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
+        <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
+        <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
+      </div>
+      <div style="font-size:10px;color:var(--th);margin-top:3px;">件数/個数/才数 入力後1秒で自動保存</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== 動的入力エリア =====
+function debSave(key,fn){clearTimeout(debMap[key]);debMap[key]=setTimeout(fn,10000);}
+
+function renderCharterArea(){
+  const a=document.getElementById('charter-area');if(!a)return;
+  a.innerHTML=charterRows.map((r,i)=>`
+    <div class="dyn-row">
+      <span class="dyn-row-num">${i+1}</span>
+      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updC(${i},'carrier',this.value)" onblur="blurC(${i})">
+      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updC(${i},'carNum',this.value)" onblur="blurC(${i})" style="max-width:65px;">
+      <input type="text" placeholder="納品先" value="${esc(r.dest||'')}" oninput="updC(${i},'dest',this.value)" onblur="blurC(${i})">
+      <input type="text" placeholder="住所" value="${esc(r.addr||'')}" oninput="updC(${i},'addr',this.value)" onblur="blurC(${i})">
+      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updC(${i},'time',this.value)" onblur="blurC(${i})" style="max-width:65px;">
+    </div>`).join('');
+}
+function renderTruckArea(){
+  const a=document.getElementById('truck-area');if(!a)return;
+  a.innerHTML=truckRows.map((r,i)=>`
+    <div class="dyn-row">
+      <span class="dyn-row-num">${i+1}</span>
+      <input type="text" placeholder="出荷元" value="${esc(r.origin||'')}" oninput="updT(${i},'origin',this.value)" onblur="blurT(${i})">
+      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updT(${i},'carrier',this.value)" onblur="blurT(${i})">
+      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updT(${i},'carNum',this.value)" onblur="blurT(${i})" style="max-width:65px;">
+      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updT(${i},'time',this.value)" onblur="blurT(${i})" style="max-width:65px;">
+    </div>`).join('');
+}
+function renderContainerArea(){
+  const a=document.getElementById('container-area');if(!a)return;
+  a.innerHTML=containerRows.map((r,i)=>`
+    <div class="dyn-row">
+      <span class="dyn-row-num">${i+1}</span>
+      <input type="text" placeholder="コンテナNo" value="${esc(r.containerNo||'')}" oninput="updK(${i},'containerNo',this.value)" onblur="blurK(${i})" style="max-width:200px;">
+      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updK(${i},'time',this.value)" onblur="blurK(${i})" style="max-width:80px;">
+    </div>`).join('');
+}
+
+function hasCont(row,t){
+  if(t==='c')return!!(row.carrier||row.carNum||row.dest||row.addr||row.time);
+  if(t==='t')return!!(row.origin||row.carrier||row.carNum||row.time);
+  if(t==='k')return!!(row.containerNo||row.time);
+}
+function saveCharter(){debSave('c',async()=>{const o={};charterRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/charter')),o);document.getElementById('charter-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('charter-note').textContent='',3000);});}
+function saveTruck(){debSave('t',async()=>{const o={};truckRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/truck')),o);document.getElementById('truck-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('truck-note').textContent='',3000);});}
+function saveContainer(){debSave('k',async()=>{const o={};containerRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/container')),o);document.getElementById('container-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('container-note').textContent='',3000);});}
+
+window.updC=function(i,f,v){if(!charterRows[i])charterRows[i]={carrier:'',carNum:'',dest:'',addr:'',time:''};charterRows[i][f]=v;saveCharter();};
+window.updT=function(i,f,v){if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};truckRows[i][f]=v;saveTruck();};
+window.updK=function(i,f,v){if(!containerRows[i])containerRows[i]={containerNo:'',time:''};containerRows[i][f]=v;saveContainer();};
+window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({carrier:'',carNum:'',dest:'',addr:'',time:''});renderCharterArea();}};
+window.blurT=function(i){if(i===truckRows.length-1&&hasCont(truckRows[i],'t')){truckRows.push({origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
+window.blurK=function(i){if(i===containerRows.length-1&&hasCont(containerRows[i],'k')){containerRows.push({containerNo:'',time:''});renderContainerArea();}};
+window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
+window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,whPath('inboundData/truck')),null);renderTruckArea();toast('リセットしました');};
+window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{containerNo:'',time:''}];await set(ref(db,whPath('inboundData/container')),null);renderContainerArea();toast('リセットしました');};
+
+// Excel取込
+window.importExcel=function(ev){
+  const file=ev.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=async function(e){
     const data=new Uint8Array(e.target.result);
@@ -1395,54 +1243,58 @@ window.importExcel=function(event){
       const c=state.carriers.find(x=>x.name===name||x.short===name);if(!c)continue;
       await fbSetShip(c.id,{count:row[1]??'',qty:row[2]??'',vol:row[3]??''});cnt++;
     }
-    document.getElementById('import-result').textContent=`✅ ${cnt}社分取込完了`;
-    event.target.value='';setTimeout(()=>document.getElementById('import-result').textContent='',4000);
+    document.getElementById('imp-result').textContent=`✅ ${cnt}社分取込完了`;
+    ev.target.value='';setTimeout(()=>document.getElementById('imp-result').textContent='',4000);
   };
   reader.readAsArrayBuffer(file);
 };
 
-function renderMaster(){
-  const list=document.getElementById('master-carrier-list');
-  if(!state.carriers.length){list.innerHTML='<div style="color:var(--text-hint);font-size:13px;padding:8px;">登録された運送会社はありません</div>';return;}
-  const savedVals={};
-  state.carriers.forEach(c=>{
-    const key=c.id.replace(/[.#$/[\]]/g,'_');
-    const ce=document.getElementById(`sc-${key}`);
-    if(ce)savedVals[key]={count:ce.value,qty:document.getElementById(`sq-${key}`).value,vol:document.getElementById(`sv-${key}`).value};
-  });
-  list.innerHTML=state.carriers.map(c=>{
-    const vis=isVisible(c.id),guard=isGuard(c.id);
-    const key=c.id.replace(/[.#$/[\]]/g,'_');
-    const sd=savedVals[key]||(getShip(c.id)||{count:'',qty:'',vol:''});
-    return`<div class="carrier-item">
-      <div class="carrier-item-row">
-        <div class="carrier-item-info">
-          <div class="carrier-item-name">${escHTML(c.name)}<span class="type-badge ${c.type}">${typeLabel(c.type)}</span></div>
-          <div class="carrier-item-meta">${c.short!==c.name?'略称: '+escHTML(c.short)+'　':''}${escHTML(c.note||'')}</div>
-        </div>
-        <div class="carrier-item-actions">
-          <label style="display:flex;align-items:center;gap:3px;font-size:10px;font-weight:600;cursor:pointer;color:var(--text-sub);">
-            <input type="checkbox" ${guard?'checked':''} onchange="toggleGuard('${c.id}')" style="width:13px;height:13px;">守衛
-          </label>
-          <button class="toggle-btn ${vis?'on':'off'}" onclick="toggleVisibility('${c.id}')">${vis?'表示':'非表示'}</button>
-          <button class="del-btn" onclick="deleteCarrier('${c.id}')">削除</button>
-        </div>
-      </div>
-      <div class="ship-edit-row">
-        <input type="number" id="sc-${key}" value="${escHTML(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
-        <input type="number" id="sq-${key}" value="${escHTML(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
-        <input type="number" id="sv-${key}" value="${escHTML(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
-        <span style="font-size:10px;color:var(--text-hint);align-self:center;">入力後自動保存</span>
-      </div>
-    </div>`;
-  }).join('');
+// ===== 守衛連絡 =====
+function makeGdTable(headers,rows,id){
+  const ths=headers.map(h=>`<th>${h}</th>`).join('');
+  const trs=rows.map(row=>`<tr>${row.map((c,ci)=>`<td contenteditable="true">${esc(c)}</td>`).join('')}</tr>`).join('');
+  return`<table class="gd-tbl" id="${id}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
 }
 
+window.renderGuard=function(){
+  const wh=WHs.find(w=>w.id===CWH);
+  // チャーター出荷（守衛チェック済みの出荷系＋動的入力）
+  const charterTypes=['regular','irregular','spot_charter','charter'];
+  const gdCharter=state.carriers.filter(c=>charterTypes.includes(c.type)&&isGuard(c.id)).map(c=>([c.name,'','','','']));
+  const dynCharter=charterRows.filter(r=>r.carrier).map(r=>([r.carrier,r.dest||'',r.addr||'',r.time||'']));
+  const charterAll=[...gdCharter.map(r=>[r[0],r[1],r[2],r[3]]),...dynCharter];
+  document.getElementById('gd-charter').innerHTML=makeGdTable(['会社名／運送会社','行先','住所','入場依頼時間'],charterAll.length?charterAll:[['（なし）','','','']],'tbl-c');
+
+  // トラック入庫
+  const gdTruck=state.carriers.filter(c=>c.type==='truck_in'&&isGuard(c.id)).map(c=>([c.name,'','','']));
+  const dynTruck=truckRows.filter(r=>r.carrier||r.origin).map(r=>([r.origin||'',r.carrier||'',r.carNum||'',r.time||'']));
+  const truckAll=[...gdTruck,...dynTruck];
+  document.getElementById('gd-truck').innerHTML=makeGdTable(['出荷元','運送会社','車番','入場依頼時間'],truckAll.length?truckAll:[['（なし）','','','']],'tbl-t');
+
+  // コンテナ入庫
+  const dynCont=containerRows.filter(r=>r.containerNo).map(r=>([r.containerNo,r.time||'']));
+  document.getElementById('gd-container').innerHTML=makeGdTable(['コンテナNo','入場依頼時間'],dynCont.length?dynCont:[['（なし）','']],'tbl-k');
+};
+
+window.printGuard=function(){
+  const date=document.getElementById('guard-date').value;
+  const wh=WHs.find(w=>w.id===CWH);
+  function tblHtml(id,title){
+    const tbl=document.getElementById(id);if(!tbl)return'';
+    const ths=Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
+    const trs=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>Array.from(tr.querySelectorAll('td')).map(td=>td.textContent));
+    return`<div style="margin-bottom:18px;"><div style="font-size:13px;font-weight:700;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:6px;">${title}</div><table><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  }
+  document.getElementById('print-area').innerHTML=`<div style="padding:20px;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
+    ${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
+  </div>`;
+  window.print();
+};
+
 // ===== 初期化 =====
-updateDateDisplay();
-setInterval(updateDateDisplay,60000);
-loadPwSettings();
-signInAnonymously(auth).then(()=>loadWarehouses()).catch(()=>loadWarehouses());
+updateDate();setInterval(updateDate,60000);
+signInAnonymously(auth).then(()=>loadWHs()).catch(()=>loadWHs());
 </script>
 </body>
 </html>
