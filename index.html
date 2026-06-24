@@ -431,8 +431,6 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
         <select id="m-type">
           <option value="regular">定期便</option>
           <option value="irregular">不定期便</option>
-          <option value="spot_charter">チャーター</option>
-          <option value="charter">専属チャーター</option>
         </select>
       </div>
       <div class="fg"><label>備考</label><input type="text" id="m-note" placeholder="例：東京ルート"></div>
@@ -440,7 +438,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     </div>
     <div class="m-card">
       <h2>登録済み運送会社</h2>
-      <p style="font-size:11px;color:var(--th);margin-bottom:10px;">「表示中/非表示」でタッチ画面の表示を切替。件数/個数/才数は1秒後自動保存。</p>
+      <p style="font-size:11px;color:var(--th);margin-bottom:10px;">「表示中/非表示」でタッチ画面の表示を切替。件数/個数/才数・入場依頼時間は自動保存。</p>
       <div class="c-list" id="m-list"></div>
     </div>
   </div>
@@ -534,13 +532,13 @@ const auth=getAuth(app);
 // ===== STATE =====
 let CWH=null; // 現在の倉庫ID
 let WHs=[]; // 倉庫一覧
-let state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
+let state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}},reqTime:{}};
 let selOff=null,selFld=null;
 let signMode='',signCid='';
 let signCtx,signDraw=false;
 let prevEntered=new Set();
 // 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
-let charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
+let charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
 let truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
 let containerRows=[{containerNo:'',time:''}];
 const debMap={};
@@ -694,6 +692,8 @@ async function fbSetRecord(cid,rec){
 }
 async function fbSetCarriers(carriers){await set(ref(db,whPath('carriers')),carriers);}
 async function fbSetShip(cid,data){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`shipData/${today()}/${k}`)),data);}
+async function fbSetReqTime(cid,t){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`reqTime/${k}`)),t);}
+function getReqTime(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return(state.reqTime||{})[k]||'15:30';}
 async function fbSetVis(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`visibility/${today()}/${k}`)),v);}
 async function fbSetGuard(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`guardCheck/${k}`)),v);}
 
@@ -720,10 +720,11 @@ function startListeners(){
   onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
+  onValue(ref(db,whPath('reqTime')),snap=>{state.reqTime=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('inboundData')),snap=>{
     const d=snap.val()||{};
     state.inbound=d;
-    if(d.charter){charterRows=Object.values(d.charter).map(r=>({carrier:r.carrier||'',carNum:r.carNum||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
+    if(d.charter){charterRows=Object.values(d.charter).map(r=>({carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
     if(d.truck){truckRows=Object.values(d.truck).map(r=>({origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
     if(d.container){containerRows=Object.values(d.container).map(r=>({containerNo:r.containerNo||'',time:r.time||''}));}
     renderCurrent();
@@ -744,19 +745,19 @@ function getDynCarriers(){
   const res=[];
   charterRows.forEach((r,i)=>{
     if(!r.carrier)return;
-    const info=[r.carNum,r.dest,r.addr,r.time].filter(Boolean).join(' / ');
-    res.push({id:`dyn_c_${i}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info});
+    const info=[r.realCarrier?`実車:${r.realCarrier}`:'',r.carNum?`車番:${r.carNum}`:'',r.carType?`車種:${r.carType}`:'',r.dest,r.addr,r.time].filter(Boolean).join(' / ');
+    res.push({id:`dyn_c_${i}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info,_realCarrier:r.realCarrier||'',_carNum:r.carNum||'',_carType:r.carType||'',_time:r.time||''});
   });
   truckRows.forEach((r,i)=>{
     if(!r.carrier&&!r.origin)return;
     const nm=r.carrier||r.origin;
     const info=[r.origin?`出荷元:${r.origin}`:'',r.carNum?`車番:${r.carNum}`:'',r.time].filter(Boolean).join(' / ');
-    res.push({id:`dyn_t_${i}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info});
+    res.push({id:`dyn_t_${i}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||''});
   });
   containerRows.forEach((r,i)=>{
     if(!r.containerNo)return;
     const info=r.time?`入場時間:${r.time}`:'';
-    res.push({id:`dyn_k_${i}`,name:r.containerNo,short:r.containerNo,type:'container_in',_dyn:true,_label:'コンテナ入庫',_info:info});
+    res.push({id:`dyn_k_${i}`,name:r.containerNo,short:r.containerNo,type:'container_in',_dyn:true,_label:'コンテナ入庫',_info:info,_time:r.time||''});
   });
   return res;
 }
@@ -995,22 +996,28 @@ async function fetchDayShip(date){
 async function getAllRecordRows(date){
   const dayRec=await fetchDayRecords(date);
   const dayShip=await fetchDayShip(date);
+  // reqTimeはFirebaseから取得
+  const reqTimeSnap=await get(ref(db,whPath('reqTime')));
+  const reqTimeData=reqTimeSnap.val()||{};
   const rows=[];
-  // キーから逆引き（マスター＋動的）
   Object.entries(dayRec).forEach(([k,rec])=>{
-    // マスターから探す
     let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+    let dynInfo={};
     if(!c){
-      // 動的キャリアから探す（IDのkeyを復元して探す）
       const allDyn=getDynCarriers();
       c=allDyn.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+      if(c){dynInfo={realCarrier:c._realCarrier||'',carNum:c._carNum||'',reqTime:c._time||''};}
     }
-    if(!c){
-      // 不明キャリア（動的キャリアが変更されても記録は残す）
-      c={id:k,name:k,short:k,type:'unknown',_dyn:false};
+    if(!c){c={id:k,name:k,short:k,type:'unknown',_dyn:false};}
+    // マスター登録会社の依頼時間
+    if(!c._dyn){
+      const rtKey=c.id.replace(/[.#$/[\]]/g,'_');
+      dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
+      // 実車名・車番はチャーター入力欄から（IDが一致する行を探す）
+      dynInfo.realCarrier='';dynInfo.carNum='';
     }
     const ship=dayShip[k]||null;
-    rows.push({date,c,rec,ship});
+    rows.push({date,c,rec,ship,dynInfo});
   });
   return rows;
 }
@@ -1030,18 +1037,21 @@ window.renderRecords=async function(){
   }
   if(!allRows.length){container.innerHTML='<div class="empty">この期間の記録はありません</div>';return;}
   let html=`<table class="rt"><thead><tr>
-    <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th>
+    <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>依頼時間</th>
     <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
     <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
   </tr></thead><tbody>`;
-  allRows.forEach(({date,c,rec,ship})=>{
+  allRows.forEach(({date,c,rec,ship,dynInfo})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
     const fs=rec.fieldSign?`<img class="sign-th" src="${rec.fieldSign}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
     const ds=rec.driverSign?`<img class="sign-th" src="${rec.driverSign}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
+    const realC=dynInfo?.realCarrier||'—';
+    const carN=dynInfo?.carNum||'—';
+    const reqT=dynInfo?.reqTime||'—';
     html+=`<tr>
       <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
       <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
-      <td>${esc(rec.charterCarrierName||'')||'—'}</td><td>${esc(rec.charterCarNumber||'')|| '—'}</td>
+      <td>${esc(realC)}</td><td>${esc(carN)}</td><td>${esc(reqT)}</td>
       <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
       <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
       <td>${pill}</td>
@@ -1069,20 +1079,20 @@ window.downloadExcel=async function(){
   const zip=new JSZip(),EMU=9525;
   async function buf(u){const r=await fetch(u);return r.arrayBuffer();}
   const imgs=[],draws=[];
-  for(let i=0;i<allRows.length;i++){
-    const{rec}=allRows[i],ri=i+1;
-    for(const[k,col]of[['fieldSign',13],['driverSign',14]]){
-      if(rec[k]){const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}
-    }
-  }
-  const hasD=draws.length>0;
   const wh=WHs.find(w=>w.id===CWH);
   const sn=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','実車名','車番','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  const headers=['日付','会社名','種別','実車名','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
   headers.forEach(h=>si(h));
-  const dm=allRows.map(({date,c,rec,ship})=>[date,c.name,tLabel(c.type),rec.charterCarrierName||'',rec.charterCarNumber||'',rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',rec.departTime?'完了':'進行中',ship?.count??'',ship?.qty??'',ship?.vol??'',rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)']);
+  const dm=allRows.map(({date,c,rec,ship,dynInfo})=>[
+    date,c.name,tLabel(c.type),
+    dynInfo?.realCarrier||'',dynInfo?.carNum||'',dynInfo?.reqTime||'',
+    rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',
+    rec.departTime?'完了':'進行中',
+    ship?.count??'',ship?.qty??'',ship?.vol??'',
+    rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
+  ]);
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${hasD?'<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>':''}${imgs.map(f=>`<Override PartName="/xl/media/${f.name}" ContentType="image/png"/>`).join('')}</Types>`);
@@ -1092,9 +1102,17 @@ window.downloadExcel=async function(){
   zip.file('xl/sharedStrings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join('')}</sst>`);
   zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf></cellXfs></styleSheet>`);
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
-  const CW=[12,24,10,12,8,10,10,10,10,8,9,9,9,16,16];
+  const CW=[12,24,10,12,8,8,10,10,10,8,9,9,9,9,16,16];
   let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
+  // サイン列：現場サイン=index14(O列)、ドライバーサイン=index15(P列)
+  for(let i=0;i<allRows.length;i++){
+    const{rec}=allRows[i],ri=i+1;
+    for(const[k,col]of[['fieldSign',14],['driverSign',15]]){
+      if(rec[k]){const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}
+    }
+  }
+  const hasD=draws.length>0;
   zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${CW.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sr}</sheetData>${hasD?'<drawing r:id="rId1"/></worksheet>':'</worksheet>'}`);
   if(hasD){
     zip.file('xl/worksheets/_rels/sheet1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
@@ -1136,6 +1154,13 @@ window.onShipInput=function(cid){
     [ce,qe,ve].forEach(e=>{e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);});
   },1000);
 };
+const reqDeb={};
+window.onReqTimeInput=function(cid,val){
+  clearTimeout(reqDeb[cid]);
+  reqDeb[cid]=setTimeout(async()=>{
+    await fbSetReqTime(cid,val);
+  },1000);
+};
 
 function renderMaster(){
   const list=document.getElementById('m-list');
@@ -1145,12 +1170,14 @@ function renderMaster(){
   state.carriers.forEach(c=>{
     const k=c.id.replace(/[.#$/[\]]/g,'_');
     const ce=document.getElementById(`sc-${k}`);
-    if(ce)saved[k]={count:ce.value,qty:document.getElementById(`sq-${k}`).value,vol:document.getElementById(`sv-${k}`).value};
+    const rt=document.getElementById(`rt-${k}`);
+    if(ce)saved[k]={count:ce.value,qty:document.getElementById(`sq-${k}`).value,vol:document.getElementById(`sv-${k}`).value,reqTime:rt?rt.value:null};
   });
   list.innerHTML=state.carriers.map(c=>{
     const k=c.id.replace(/[.#$/[\]]/g,'_');
     const vis=isVis(c.id);const gd=isGuard(c.id);
     const sd=saved[k]||(getShip(c.id)||{count:'',qty:'',vol:''});
+    const rt=saved[k]?.reqTime??getReqTime(c.id);
     return`<div class="c-item">
       <div class="c-item-row">
         <div class="c-item-info">
@@ -1167,8 +1194,9 @@ function renderMaster(){
         <input type="number" id="sc-${k}" value="${esc(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
         <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
         <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
+        <input type="text" id="rt-${k}" value="${esc(rt)}" placeholder="依頼時間" style="max-width:70px;background:#FFF9C4;" oninput="onReqTimeInput('${c.id}',this.value)" title="入場依頼時間">
       </div>
-      <div style="font-size:10px;color:var(--th);margin-top:3px;">件数/個数/才数 入力後1秒で自動保存</div>
+      <div style="font-size:10px;color:var(--th);margin-top:3px;">件数/個数/才数/依頼時間 入力後1秒で自動保存</div>
     </div>`;
   }).join('');
 }
@@ -1179,13 +1207,15 @@ function debSave(key,fn){clearTimeout(debMap[key]);debMap[key]=setTimeout(fn,100
 function renderCharterArea(){
   const a=document.getElementById('charter-area');if(!a)return;
   a.innerHTML=charterRows.map((r,i)=>`
-    <div class="dyn-row">
+    <div class="dyn-row" style="flex-wrap:wrap;gap:5px;">
       <span class="dyn-row-num">${i+1}</span>
-      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updC(${i},'carrier',this.value)" onblur="blurC(${i})">
-      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updC(${i},'carNum',this.value)" onblur="blurC(${i})" style="max-width:65px;">
-      <input type="text" placeholder="納品先" value="${esc(r.dest||'')}" oninput="updC(${i},'dest',this.value)" onblur="blurC(${i})">
-      <input type="text" placeholder="住所" value="${esc(r.addr||'')}" oninput="updC(${i},'addr',this.value)" onblur="blurC(${i})">
-      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updC(${i},'time',this.value)" onblur="blurC(${i})" style="max-width:65px;">
+      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updC(${i},'carrier',this.value)" onblur="blurC(${i})" style="min-width:90px;flex:2;">
+      <input type="text" placeholder="実車名" value="${esc(r.realCarrier||'')}" oninput="updC(${i},'realCarrier',this.value)" onblur="blurC(${i})" style="min-width:80px;flex:2;">
+      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updC(${i},'carNum',this.value)" onblur="blurC(${i})" style="max-width:60px;flex:1;">
+      <input type="text" placeholder="車種" value="${esc(r.carType||'')}" oninput="updC(${i},'carType',this.value)" onblur="blurC(${i})" style="max-width:60px;flex:1;">
+      <input type="text" placeholder="納品先" value="${esc(r.dest||'')}" oninput="updC(${i},'dest',this.value)" onblur="blurC(${i})" style="min-width:80px;flex:2;">
+      <input type="text" placeholder="○○市" value="${esc(r.addr||'')}" oninput="updC(${i},'addr',this.value)" onblur="blurC(${i})" style="max-width:70px;flex:1;">
+      <input type="text" placeholder="依頼時間" value="${esc(r.time||'')}" oninput="updC(${i},'time',this.value)" onblur="blurC(${i})" style="max-width:65px;flex:1;">
     </div>`).join('');
 }
 function renderTruckArea(){
@@ -1210,7 +1240,7 @@ function renderContainerArea(){
 }
 
 function hasCont(row,t){
-  if(t==='c')return!!(row.carrier||row.carNum||row.dest||row.addr||row.time);
+  if(t==='c')return!!(row.carrier||row.realCarrier||row.carNum||row.carType||row.dest||row.addr||row.time);
   if(t==='t')return!!(row.origin||row.carrier||row.carNum||row.time);
   if(t==='k')return!!(row.containerNo||row.time);
 }
@@ -1218,13 +1248,13 @@ function saveCharter(){debSave('c',async()=>{const o={};charterRows.forEach((r,i
 function saveTruck(){debSave('t',async()=>{const o={};truckRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/truck')),o);document.getElementById('truck-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('truck-note').textContent='',3000);});}
 function saveContainer(){debSave('k',async()=>{const o={};containerRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/container')),o);document.getElementById('container-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('container-note').textContent='',3000);});}
 
-window.updC=function(i,f,v){if(!charterRows[i])charterRows[i]={carrier:'',carNum:'',dest:'',addr:'',time:''};charterRows[i][f]=v;saveCharter();};
+window.updC=function(i,f,v){if(!charterRows[i])charterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};charterRows[i][f]=v;saveCharter();};
 window.updT=function(i,f,v){if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};truckRows[i][f]=v;saveTruck();};
 window.updK=function(i,f,v){if(!containerRows[i])containerRows[i]={containerNo:'',time:''};containerRows[i][f]=v;saveContainer();};
-window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({carrier:'',carNum:'',dest:'',addr:'',time:''});renderCharterArea();}};
+window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
 window.blurT=function(i){if(i===truckRows.length-1&&hasCont(truckRows[i],'t')){truckRows.push({origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
 window.blurK=function(i){if(i===containerRows.length-1&&hasCont(containerRows[i],'k')){containerRows.push({containerNo:'',time:''});renderContainerArea();}};
-window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
+window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
 window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,whPath('inboundData/truck')),null);renderTruckArea();toast('リセットしました');};
 window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{containerNo:'',time:''}];await set(ref(db,whPath('inboundData/container')),null);renderContainerArea();toast('リセットしました');};
 
@@ -1257,19 +1287,20 @@ function makeGdTable(headers,rows,id){
 }
 
 window.renderGuard=function(){
-  const wh=WHs.find(w=>w.id===CWH);
-  // チャーター出荷（守衛チェック済みの出荷系＋動的入力）
-  const charterTypes=['regular','irregular','spot_charter','charter'];
-  const gdCharter=state.carriers.filter(c=>charterTypes.includes(c.type)&&isGuard(c.id)).map(c=>([c.name,'','','','']));
-  const dynCharter=charterRows.filter(r=>r.carrier).map(r=>([r.carrier,r.dest||'',r.addr||'',r.time||'']));
-  const charterAll=[...gdCharter.map(r=>[r[0],r[1],r[2],r[3]]),...dynCharter];
-  document.getElementById('gd-charter').innerHTML=makeGdTable(['会社名／運送会社','行先','住所','入場依頼時間'],charterAll.length?charterAll:[['（なし）','','','']],'tbl-c');
+  // チャーター出荷（守衛チェック済みの定期・不定期＋動的チャーター入力）
+  const gdTypes=['regular','irregular'];
+  const gdCharter=state.carriers.filter(c=>gdTypes.includes(c.type)&&isGuard(c.id)).map(c=>{
+    const rt=getReqTime(c.id);return[c.name,'','','',rt,''];
+  });
+  const dynCharter=charterRows.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'']);
+  const charterAll=[...gdCharter,...dynCharter];
+  document.getElementById('gd-charter').innerHTML=makeGdTable(
+    ['会社名','実車名','行先','住所','入場依頼時間','車種'],
+    charterAll.length?charterAll:[['（なし）','','','','','']],'tbl-c');
 
   // トラック入庫
-  const gdTruck=state.carriers.filter(c=>c.type==='truck_in'&&isGuard(c.id)).map(c=>([c.name,'','','']));
   const dynTruck=truckRows.filter(r=>r.carrier||r.origin).map(r=>([r.origin||'',r.carrier||'',r.carNum||'',r.time||'']));
-  const truckAll=[...gdTruck,...dynTruck];
-  document.getElementById('gd-truck').innerHTML=makeGdTable(['出荷元','運送会社','車番','入場依頼時間'],truckAll.length?truckAll:[['（なし）','','','']],'tbl-t');
+  document.getElementById('gd-truck').innerHTML=makeGdTable(['出荷元','運送会社','車番','入場依頼時間'],dynTruck.length?dynTruck:[['（なし）','','','']],'tbl-t');
 
   // コンテナ入庫
   const dynCont=containerRows.filter(r=>r.containerNo).map(r=>([r.containerNo,r.time||'']));
