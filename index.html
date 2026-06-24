@@ -829,7 +829,13 @@ function makeCarrierBtn(c,mode){
   if((mode==='off'?selOff:selFld)===c.id)cls+=' sel';
   btn.className=cls;
   const extra=c._info?`<span class="c-extra">${esc(c._info)}</span>`:'';
-  btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span><span class="c-type">${c._label||tLabel(c.type)}</span><span class="c-st ${st.c}">${st.l}</span>${extra}`;
+  // 定期便・不定期便は種別非表示、代わりに依頼時間を表示
+  const hideType=!c._dyn&&(c.type==='regular'||c.type==='irregular');
+  const typeHtml=hideType?'':
+    `<span class="c-type">${c._label||tLabel(c.type)}</span>`;
+  const reqHtml=(!c._dyn&&(c.type==='regular'||c.type==='irregular'))
+    ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${getReqTime(c.id)}</span>`:'';
+  btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span>${typeHtml}${reqHtml}<span class="c-st ${st.c}">${st.l}</span>${extra}`;
   btn.onclick=()=>{
     if(mode==='off'){selOff=c.id;renderOffice();updateOffPanel();}
     else{selFld=c.id;renderField();updateFldPanel();}
@@ -847,6 +853,7 @@ function updateOffPanel(){
   const rec=getRecord(c.id);const st=stLabel(rec);
   document.getElementById('off-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
   let stxt=st.l;
+  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'))stxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
   if(!c._dyn&&c.type==='spot_charter'&&rec?.charterCarrierName)stxt+=` 実車:${rec.charterCarrierName}/${rec.charterCarNumber}`;
   document.getElementById('off-status').textContent=stxt;
   document.getElementById('btn-enter').disabled=!!(rec?.enterTime);
@@ -928,7 +935,9 @@ function updateFldPanel(){
   document.getElementById('fld-no-sel').style.display='none';document.getElementById('fld-sel').style.display='';
   const st=stLabel(rec);
   document.getElementById('fld-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
-  document.getElementById('fld-status').textContent=st.l;
+  let fstxt=st.l;
+  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'))fstxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
+  document.getElementById('fld-status').textContent=fstxt;
   document.getElementById('btn-sl').disabled=!!(rec.loadStartTime);
   document.getElementById('btn-el').disabled=!(rec.loadStartTime&&!rec.loadEndTime);
   renderShipPanel('fld-ship','fld-ship-stats',c.id,c._dyn);
