@@ -379,7 +379,6 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div class="btn-row">
         <button class="vw-btn" onclick="renderRecords()">🔍 表示</button>
         <button class="dl-btn" onclick="downloadExcel()">⬇️ Excel</button>
-        <button class="dl-btn" style="background:var(--pu600);" onclick="downloadYesterday()">📅 昨日分DL</button>
       </div>
     </div>
   </div>
@@ -689,7 +688,7 @@ window.switchWh=function(){
   off(ref(db,whPath('guardCheck')));
   off(ref(db,whPath('inboundData')));
   state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
-  charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
+  charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
   truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
   containerRows=[{containerNo:'',time:''}];
   selOff=null;selFld=null;prevEntered=new Set();CWH=null;
@@ -714,10 +713,26 @@ window.delWH=async function(id){
 // ===== Firebase =====
 async function fbSetRecord(cid,rec){
   const k=cid.replace(/[.#$/[\]]/g,'_');
-  // 会社名・種別をスナップショットとして記録に保存（マスター削除後も表示名が残るように）
+  // 会社名・種別・実車情報をスナップショットとして保存（マスター/動的入力削除後も残るように）
   if(!rec._name){
     const c=getAllCById(cid);
-    if(c){rec._name=c.name;rec._type=c.type;}
+    if(c){
+      rec._name=c.name;
+      rec._type=c.type;
+      // 動的キャリアの場合は実車名・車番・コンテナNoも保存
+      if(c._dyn){
+        if(c.type==='spot_charter'){
+          rec._realCarrier=c._realCarrier||'';
+          rec._carNum=c._carNum||'';
+          rec._carType=c._carType||'';
+        } else if(c.type==='truck_in'){
+          rec._carNum=c._carNum||'';
+        } else if(c.type==='container_in'){
+          // コンテナNoは会社名として保存済み、車番列にも格納
+          rec._carNum=c.name||''; // コンテナNoを車番として保存
+        }
+      }
+    }
   }
   await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
 }
@@ -814,7 +829,7 @@ window.showPage=function(id){
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='master'){
-    if(!charterRows.length)charterRows=[{carrier:'',carNum:'',dest:'',addr:'',time:''}];
+    if(!charterRows.length)charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
     if(!truckRows.length)truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
     if(!containerRows.length)containerRows=[{containerNo:'',time:''}];
     renderMaster();renderCharterArea();renderTruckArea();renderContainerArea();
@@ -1043,23 +1058,44 @@ async function getAllRecordRows(date){
   const rows=[];
   Object.entries(dayRec).forEach(([k,rec])=>{
     let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
-    let dynInfo={};
+    let dynInfo={realCarrier:'',carNum:'',reqTime:''};
+
     if(!c){
+      // 動的キャリアから探す
       const allDyn=getDynCarriers();
       c=allDyn.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
-      if(c){dynInfo={realCarrier:c._realCarrier||'',carNum:c._carNum||'',reqTime:c._time||''};}
+      if(c){
+        dynInfo.realCarrier=c._realCarrier||'';
+        dynInfo.carNum=c._carNum||'';
+        dynInfo.reqTime=c._time||'';
+      }
     }
+
     if(!c){
-      // マスター・動的どちらにもない場合→記録のスナップショットから復元
+      // マスター・動的どちらにもない→記録のスナップショットから復元
       const savedName=rec._name||k;
       const savedType=rec._type||'unknown';
       c={id:k,name:savedName,short:savedName,type:savedType,_dyn:false};
+      // スナップショットから実車情報を復元
+      dynInfo.realCarrier=rec._realCarrier||'';
+      // コンテナ入庫はコンテナNoを車番欄に表示
+      if(savedType==='container_in'){
+        dynInfo.carNum=rec._carNum||savedName;
+      } else {
+        dynInfo.carNum=rec._carNum||'';
+      }
+      dynInfo.reqTime='';
     }
-    if(!c._dyn){
+
+    // マスター登録会社の依頼時間
+    if(c&&!c._dyn){
       const rtKey=c.id.replace(/[.#$/[\]]/g,'_');
       dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
-      dynInfo.realCarrier='';dynInfo.carNum='';
+      // コンテナ入庫でスナップショットから復元した場合はそのまま
+      if(!dynInfo.realCarrier)dynInfo.realCarrier='';
+      if(!dynInfo.carNum)dynInfo.carNum='';
     }
+
     const ship=dayShip[k]||null;
     rows.push({date,c,rec,ship,dynInfo});
   });
