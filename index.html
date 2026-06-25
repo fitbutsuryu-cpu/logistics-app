@@ -542,9 +542,9 @@ let signMode='',signCid='';
 let signCtx,signDraw=false;
 let prevEntered=new Set();
 // 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
-let charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-let truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
-let containerRows=[{containerNo:'',time:''}];
+let charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+let truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+let containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
 const debMap={};
 // ロック状態
 let unlockedPages=new Set(['office','field']);
@@ -688,9 +688,9 @@ window.switchWh=function(){
   off(ref(db,whPath('guardCheck')));
   off(ref(db,whPath('inboundData')));
   state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
-  charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-  truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
-  containerRows=[{containerNo:'',time:''}];
+  charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+  truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+  containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
   selOff=null;selFld=null;prevEntered=new Set();CWH=null;
   document.getElementById('wh-sel').classList.remove('h');
   renderWHSel();
@@ -772,9 +772,9 @@ function startListeners(){
   onValue(ref(db,whPath('inboundData')),snap=>{
     const d=snap.val()||{};
     state.inbound=d;
-    if(d.charter){charterRows=Object.values(d.charter).map(r=>({carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
-    if(d.truck){truckRows=Object.values(d.truck).map(r=>({origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
-    if(d.container){containerRows=Object.values(d.container).map(r=>({containerNo:r.containerNo||'',time:r.time||''}));}
+    if(d.charter){charterRows=Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
+    if(d.truck){truckRows=Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
+    if(d.container){containerRows=Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''}));}
     renderCurrent();
     const mp=document.getElementById('page-master');
     if(mp&&mp.classList.contains('active')){renderCharterArea();renderTruckArea();renderContainerArea();}
@@ -791,21 +791,24 @@ function showNotify(msg){
 // ===== 動的キャリア（マスター未登録の当日入力分） =====
 function getDynCarriers(){
   const res=[];
-  charterRows.forEach((r,i)=>{
+  charterRows.forEach(r=>{
     if(!r.carrier)return;
+    const uid=r._uid||('c'+Date.now());
     const info=[r.realCarrier?`実車:${r.realCarrier}`:'',r.carNum?`車番:${r.carNum}`:'',r.carType?`車種:${r.carType}`:'',r.dest,r.addr,r.time].filter(Boolean).join(' / ');
-    res.push({id:`dyn_c_${i}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info,_realCarrier:r.realCarrier||'',_carNum:r.carNum||'',_carType:r.carType||'',_time:r.time||''});
+    res.push({id:`dyn_${uid}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info,_realCarrier:r.realCarrier||'',_carNum:r.carNum||'',_carType:r.carType||'',_time:r.time||''});
   });
-  truckRows.forEach((r,i)=>{
+  truckRows.forEach(r=>{
     if(!r.carrier&&!r.origin)return;
+    const uid=r._uid||('t'+Date.now());
     const nm=r.carrier||r.origin;
     const info=[r.origin?`出荷元:${r.origin}`:'',r.carNum?`車番:${r.carNum}`:'',r.time].filter(Boolean).join(' / ');
-    res.push({id:`dyn_t_${i}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||''});
+    res.push({id:`dyn_${uid}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||''});
   });
-  containerRows.forEach((r,i)=>{
+  containerRows.forEach(r=>{
     if(!r.containerNo)return;
+    const uid=r._uid||('k'+Date.now());
     const info=r.time?`入場時間:${r.time}`:'';
-    res.push({id:`dyn_k_${i}`,name:r.containerNo,short:r.containerNo,type:'container_in',_dyn:true,_label:'コンテナ入庫',_info:info,_time:r.time||''});
+    res.push({id:`dyn_${uid}`,name:r.containerNo,short:r.containerNo,type:'container_in',_dyn:true,_label:'コンテナ入庫',_info:info,_time:r.time||''});
   });
   return res;
 }
@@ -829,9 +832,9 @@ window.showPage=function(id){
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='master'){
-    if(!charterRows.length)charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-    if(!truckRows.length)truckRows=[{origin:'',carrier:'',carNum:'',time:''}];
-    if(!containerRows.length)containerRows=[{containerNo:'',time:''}];
+    if(!charterRows.length)charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+    if(!truckRows.length)truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+    if(!containerRows.length)containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
     renderMaster();renderCharterArea();renderTruckArea();renderContainerArea();
   }
   else if(id==='settings'){loadLockUI();}
@@ -1331,12 +1334,12 @@ function saveContainer(){debSave('k',async()=>{const o={};containerRows.forEach(
 window.updC=function(i,f,v){if(!charterRows[i])charterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};charterRows[i][f]=v;saveCharter();};
 window.updT=function(i,f,v){if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};truckRows[i][f]=v;saveTruck();};
 window.updK=function(i,f,v){if(!containerRows[i])containerRows[i]={containerNo:'',time:''};containerRows[i][f]=v;saveContainer();};
-window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
-window.blurT=function(i){if(i===truckRows.length-1&&hasCont(truckRows[i],'t')){truckRows.push({origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
-window.blurK=function(i){if(i===containerRows.length-1&&hasCont(containerRows[i],'k')){containerRows.push({containerNo:'',time:''});renderContainerArea();}};
-window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
-window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,whPath('inboundData/truck')),null);renderTruckArea();toast('リセットしました');};
-window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{containerNo:'',time:''}];await set(ref(db,whPath('inboundData/container')),null);renderContainerArea();toast('リセットしました');};
+window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
+window.blurT=function(i){if(i===truckRows.length-1&&hasCont(truckRows[i],'t')){truckRows.push({_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
+window.blurK=function(i){if(i===containerRows.length-1&&hasCont(containerRows[i],'k')){containerRows.push({_uid:'k'+Date.now(),containerNo:'',time:''});renderContainerArea();}};
+window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
+window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,whPath('inboundData/truck')),null);renderTruckArea();toast('リセットしました');};
+window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];await set(ref(db,whPath('inboundData/container')),null);renderContainerArea();toast('リセットしました');};
 
 // Excel取込
 window.importExcel=function(ev){
