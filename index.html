@@ -242,8 +242,8 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .charter-box{background:#fff;border-radius:var(--r);padding:22px;width:100%;max-width:400px;}
 .charter-box h3{font-size:17px;font-weight:600;margin-bottom:14px;}
 
-/* パスワードロック */
-.lock-modal{position:fixed;inset:0;background:var(--bl800);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
+/* パスワードロック（NAV下に表示、タブは見える） */
+.lock-modal{position:fixed;top:60px;left:0;right:0;bottom:0;background:rgba(12,68,124,0.97);z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;}
 .lock-modal.h{display:none;}
 .lock-box{background:#fff;border-radius:var(--r);padding:28px;width:100%;max-width:360px;text-align:center;}
 .lock-box h2{font-size:20px;font-weight:600;margin-bottom:6px;}
@@ -251,6 +251,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .lock-input{width:100%;padding:14px;border:2px solid var(--bd);border-radius:var(--rs);font-size:22px;text-align:center;letter-spacing:.2em;font-family:inherit;margin-bottom:12px;}
 .lock-input:focus{outline:none;border-color:var(--bl600);}
 .lock-btn{width:100%;padding:13px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:8px;}
+.lock-back{width:100%;padding:10px;background:var(--gy50);color:var(--ts);border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:6px;}
 .lock-err{font-size:12px;color:var(--rd600);min-height:18px;}
 
 /* サインビュー */
@@ -298,13 +299,14 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 <!-- 通知バナー -->
 <div class="notify" id="notify">🔔 <span id="notify-txt"></span></div>
 
-<!-- パスワードロック -->
+<!-- パスワードロック（NAV下・タブは見える） -->
 <div class="lock-modal h" id="lock-modal">
   <div class="lock-box">
     <h2>🔒 ロック中</h2>
     <p id="lock-msg">パスワードを入力してください</p>
     <input type="password" class="lock-input" id="lock-input" placeholder="●●●●" maxlength="8" onkeydown="if(event.key==='Enter')unlockPage()">
-    <button class="lock-btn" onclick="unlockPage()">解除</button>
+    <button class="lock-btn" onclick="unlockPage()">🔓 解除する</button>
+    <button class="lock-back" onclick="closeLockModal()">← 戻る（事務所画面へ）</button>
     <div class="lock-err" id="lock-err"></div>
   </div>
 </div>
@@ -377,6 +379,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div class="btn-row">
         <button class="vw-btn" onclick="renderRecords()">🔍 表示</button>
         <button class="dl-btn" onclick="downloadExcel()">⬇️ Excel</button>
+        <button class="dl-btn" style="background:var(--pu600);" onclick="downloadYesterday()">📅 昨日分DL</button>
       </div>
     </div>
   </div>
@@ -469,6 +472,8 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">ロックしたいタブを選択してパスワードを設定します。次回からそのタブを開く際にパスワードが求められます。</p>
       <div class="fg"><label>ロックするタブ（複数選択可）</label>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-office" style="width:16px;height:16px;"> 🏢 事務所</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-field" style="width:16px;height:16px;"> 🔧 現場</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-records" style="width:16px;height:16px;"> 📋 管理・記録</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-master" style="width:16px;height:16px;"> ⚙️ マスター</label>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-guard" style="width:16px;height:16px;"> 🛡️ 守衛連絡</label>
@@ -594,27 +599,29 @@ window.saveLockSettings=function(){
   if(pw.length<4){toast('パスワードは4文字以上にしてください');return;}
   if(pw!==pc){toast('パスワードが一致しません');return;}
   const tabs=[];
+  if(document.getElementById('lock-office').checked)tabs.push('office');
+  if(document.getElementById('lock-field').checked)tabs.push('field');
   if(document.getElementById('lock-records').checked)tabs.push('records');
   if(document.getElementById('lock-master').checked)tabs.push('master');
   if(document.getElementById('lock-guard').checked)tabs.push('guard');
   if(document.getElementById('lock-settings').checked)tabs.push('settings');
   saveLockCfgLocal({pw,tabs});
-  unlockedPages=new Set(['office','field']);
+  unlockedPages=new Set();
   toast('ロック設定を保存しました');
 };
 window.clearLockSettings=function(){
   if(!confirm('ロック設定を解除しますか？'))return;
   localStorage.removeItem('lock_cfg_v1');
-  unlockedPages=new Set(['office','field']);
+  unlockedPages=new Set();
   toast('ロック設定を解除しました');
 };
 function loadLockUI(){
   const cfg=getLockCfg();
   if(cfg.tabs){
-    document.getElementById('lock-records').checked=cfg.tabs.includes('records');
-    document.getElementById('lock-master').checked=cfg.tabs.includes('master');
-    document.getElementById('lock-guard').checked=cfg.tabs.includes('guard');
-    document.getElementById('lock-settings').checked=cfg.tabs.includes('settings');
+    ['office','field','records','master','guard','settings'].forEach(id=>{
+      const el=document.getElementById('lock-'+id);
+      if(el)el.checked=cfg.tabs.includes(id);
+    });
   }
 }
 window.unlockPage=function(){
@@ -628,7 +635,26 @@ window.unlockPage=function(){
     if(pendingPage){const p=pendingPage;pendingPage=null;showPage(p);}
   } else {
     document.getElementById('lock-err').textContent='パスワードが違います';
+    document.getElementById('lock-input').value='';
+    setTimeout(()=>document.getElementById('lock-input').focus(),100);
   }
+};
+window.closeLockModal=function(){
+  document.getElementById('lock-modal').classList.add('h');
+  document.getElementById('lock-input').value='';
+  document.getElementById('lock-err').textContent='';
+  pendingPage=null;
+  // ロック前に表示していたページに戻る（事務所をデフォルトに）
+  const safePages=['office','field'];
+  const cfg=getLockCfg();
+  // ロックされていないページを探して遷移
+  const goTo=safePages.find(p=>!(cfg.tabs||[]).includes(p))||'office';
+  // ロックを経由せず直接ページ切替
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+goTo).classList.add('active');
+  document.getElementById('tab-'+goTo).classList.add('active');
+  renderCurrent();
 };
 
 // ===== 倉庫管理 =====
@@ -688,6 +714,11 @@ window.delWH=async function(id){
 // ===== Firebase =====
 async function fbSetRecord(cid,rec){
   const k=cid.replace(/[.#$/[\]]/g,'_');
+  // 会社名・種別をスナップショットとして記録に保存（マスター削除後も表示名が残るように）
+  if(!rec._name){
+    const c=getAllCById(cid);
+    if(c){rec._name=c.name;rec._type=c.type;}
+  }
   await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
 }
 async function fbSetCarriers(carriers){await set(ref(db,whPath('carriers')),carriers);}
@@ -704,6 +735,8 @@ function startListeners(){
     state.carriers=v?(Array.isArray(v)?v.filter(Boolean):Object.values(v)):[];
     document.getElementById('ov').classList.add('h');
     renderCurrent();
+    // 最初のデータ受信後に90日削除実行
+    cleanOldRecords();
   });
   onValue(ref(db,whPath(`records/${today()}`)),snap=>{
     const newRec=snap.val()||{};
@@ -1005,7 +1038,6 @@ async function fetchDayShip(date){
 async function getAllRecordRows(date){
   const dayRec=await fetchDayRecords(date);
   const dayShip=await fetchDayShip(date);
-  // reqTimeはFirebaseから取得
   const reqTimeSnap=await get(ref(db,whPath('reqTime')));
   const reqTimeData=reqTimeSnap.val()||{};
   const rows=[];
@@ -1017,12 +1049,15 @@ async function getAllRecordRows(date){
       c=allDyn.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
       if(c){dynInfo={realCarrier:c._realCarrier||'',carNum:c._carNum||'',reqTime:c._time||''};}
     }
-    if(!c){c={id:k,name:k,short:k,type:'unknown',_dyn:false};}
-    // マスター登録会社の依頼時間
+    if(!c){
+      // マスター・動的どちらにもない場合→記録のスナップショットから復元
+      const savedName=rec._name||k;
+      const savedType=rec._type||'unknown';
+      c={id:k,name:savedName,short:savedName,type:savedType,_dyn:false};
+    }
     if(!c._dyn){
       const rtKey=c.id.replace(/[.#$/[\]]/g,'_');
       dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
-      // 実車名・車番はチャーター入力欄から（IDが一致する行を探す）
       dynInfo.realCarrier='';dynInfo.carNum='';
     }
     const ship=dayShip[k]||null;
@@ -1332,9 +1367,42 @@ window.printGuard=function(){
   window.print();
 };
 
+// ===== 昨日分ダウンロード =====
+window.downloadYesterday=async function(){
+  const d=new Date();d.setDate(d.getDate()-1);
+  const yest=`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
+  document.getElementById('dt-from').value=yest;
+  document.getElementById('dt-to').value=yest;
+  await downloadExcel();
+};
+
+// ===== 90日自動削除 =====
+async function cleanOldRecords(){
+  try{
+    const snap=await get(ref(db,whPath('records')));
+    if(!snap.val())return;
+    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-90);
+    const cutoffStr=`${cutoff.getFullYear()}-${S2(cutoff.getMonth()+1)}-${S2(cutoff.getDate())}`;
+    const promises=[];
+    Object.keys(snap.val()).forEach(dateKey=>{
+      if(dateKey<cutoffStr){
+        promises.push(set(ref(db,whPath(`records/${dateKey}`)),null));
+      }
+    });
+    if(promises.length){
+      await Promise.all(promises);
+      console.log(`90日超えデータ削除: ${promises.length}日分`);
+    }
+  }catch(e){console.error('自動削除エラー:',e);}
+}
+
 // ===== 初期化 =====
 updateDate();setInterval(updateDate,60000);
-signInAnonymously(auth).then(()=>loadWHs()).catch(()=>loadWHs());
+signInAnonymously(auth).then(()=>{
+  loadWHs();
+  // 起動時に90日超えデータを削除（倉庫選択後に実行）
+  setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
+}).catch(()=>loadWHs());
 </script>
 </body>
 </html>
