@@ -261,6 +261,27 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .sv-inner img{width:100%;border:1px solid var(--bd);border-radius:5px;}
 .sv-close{margin-top:10px;width:100%;padding:11px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:14px;cursor:pointer;font-family:inherit;font-weight:600;}
 
+/* 記録修正モーダル */
+.edit-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.edit-modal.h{display:none;}
+.edit-box{background:#fff;border-radius:var(--r);padding:22px;width:100%;max-width:480px;}
+.edit-box h3{font-size:17px;font-weight:600;margin-bottom:4px;}
+.edit-box .edit-sub{font-size:12px;color:var(--ts);margin-bottom:16px;}
+.edit-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.edit-row label{font-size:12px;font-weight:600;color:var(--ts);min-width:80px;}
+.edit-row input[type=time]{padding:8px 10px;border:1px solid var(--bd);border-radius:var(--rs);font-size:15px;font-family:inherit;flex:1;}
+.edit-row input[type=time]:focus{outline:2px solid var(--bl200);border-color:var(--bl600);}
+.reset-link{font-size:11px;color:var(--rd600);cursor:pointer;text-decoration:underline;white-space:nowrap;}
+.edit-divider{border:none;border-top:1px solid var(--bd);margin:12px 0;}
+.edit-acts{display:flex;gap:10px;margin-top:16px;}
+.edit-acts button{flex:1;padding:12px;border-radius:var(--rs);border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+.edit-save{background:var(--bl600);color:#fff;}
+.edit-save:hover{background:var(--bl800);}
+.edit-cancel{background:var(--gy50);color:var(--ts);border:1px solid var(--bd) !important;}
+.edit-del{background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200) !important;}
+.edit-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:var(--bl50);color:var(--bl600);border:1px solid var(--bl200);border-radius:5px;cursor:pointer;font-size:10px;font-family:inherit;font-weight:600;}
+.edit-btn:hover{background:var(--bl200);}
+
 /* トースト */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:11px 18px;border-radius:30px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
 .toast.s{opacity:1;}
@@ -483,6 +504,44 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div class="fg"><label>パスワード確認</label><input type="password" id="pw-confirm" placeholder="もう一度入力" maxlength="8"></div>
       <button class="add-btn" onclick="saveLockSettings()">💾 設定を保存</button>
       <button style="width:100%;margin-top:8px;padding:11px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearLockSettings()">🗑️ ロック設定を解除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 記録修正モーダル -->
+<div class="edit-modal h" id="edit-modal">
+  <div class="edit-box">
+    <h3>📝 記録の修正</h3>
+    <div class="edit-sub" id="edit-sub"></div>
+
+    <div class="edit-row">
+      <label>入場時刻</label>
+      <input type="time" id="edit-enter">
+      <span class="reset-link" onclick="resetEditField('enter')">リセット</span>
+    </div>
+    <div class="edit-row">
+      <label>荷役開始</label>
+      <input type="time" id="edit-load-start">
+      <span class="reset-link" onclick="resetEditField('loadStart')">リセット</span>
+    </div>
+    <div class="edit-row">
+      <label>荷役終了</label>
+      <input type="time" id="edit-load-end">
+      <span class="reset-link" onclick="resetEditField('loadEnd')">リセット</span>
+    </div>
+    <div class="edit-row">
+      <label>退場時刻</label>
+      <input type="time" id="edit-depart">
+      <span class="reset-link" onclick="resetEditField('depart')">リセット</span>
+    </div>
+
+    <hr class="edit-divider">
+    <p style="font-size:11px;color:var(--th);">※「リセット」を押すと該当時刻を削除し、以降の記録も連動してリセットされます。<br>※「記録を完全削除」はその運送会社のその日の記録をすべて削除します。</p>
+
+    <div class="edit-acts">
+      <button class="edit-cancel" onclick="closeEditModal()">キャンセル</button>
+      <button class="edit-del" onclick="deleteRecord()">🗑️ 記録を完全削除</button>
+      <button class="edit-save" onclick="saveEdit()">💾 保存</button>
     </div>
   </div>
 </div>
@@ -1122,7 +1181,7 @@ window.renderRecords=async function(){
   let html=`<table class="rt"><thead><tr>
     <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>依頼時間</th>
     <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
-    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th>
+    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>修正</th>
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
@@ -1131,6 +1190,7 @@ window.renderRecords=async function(){
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
+    const cid=c.id.replace(/[.#$/[\]]/g,'_');
     html+=`<tr>
       <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
       <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
@@ -1140,6 +1200,7 @@ window.renderRecords=async function(){
       <td>${pill}</td>
       <td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td>
       <td>${fs}</td><td>${ds}</td>
+      <td><button class="edit-btn" onclick="openEditModal('${esc(date)}','${esc(cid)}','${esc(c.name)}')">✏️ 修正</button></td>
     </tr>`;
   });
   html+='</tbody></table>';container.innerHTML=html;
@@ -1406,7 +1467,91 @@ window.printGuard=function(){
   window.print();
 };
 
-// ===== 昨日分ダウンロード =====
+// ===== 記録修正 =====
+let editDate='', editCid='';
+
+window.openEditModal=async function(date, cid, name){
+  editDate=date; editCid=cid;
+  document.getElementById('edit-sub').textContent=`${name}　${date}`;
+  // Firebaseから最新データを取得
+  const snap=await get(ref(db,whPath(`records/${date}/${cid}`)));
+  const rec=snap.val()||{};
+  document.getElementById('edit-enter').value     = rec.enterTime||'';
+  document.getElementById('edit-load-start').value= rec.loadStartTime||'';
+  document.getElementById('edit-load-end').value  = rec.loadEndTime||'';
+  document.getElementById('edit-depart').value    = rec.departTime||'';
+  document.getElementById('edit-modal').classList.remove('h');
+};
+
+window.closeEditModal=function(){
+  document.getElementById('edit-modal').classList.add('h');
+  editDate=''; editCid='';
+};
+
+// フィールドリセット（連動リセット）
+window.resetEditField=function(field){
+  if(field==='enter'){
+    // 入場リセット → 以降すべてリセット
+    if(!confirm('入場時刻をリセットすると、荷役・退場の記録もすべてリセットされます。よろしいですか？'))return;
+    document.getElementById('edit-enter').value='';
+    document.getElementById('edit-load-start').value='';
+    document.getElementById('edit-load-end').value='';
+    document.getElementById('edit-depart').value='';
+  } else if(field==='loadStart'){
+    // 荷役開始リセット → 荷役終了・退場もリセット
+    if(!confirm('荷役開始時刻をリセットすると、荷役終了・退場の記録もリセットされます。よろしいですか？'))return;
+    document.getElementById('edit-load-start').value='';
+    document.getElementById('edit-load-end').value='';
+    document.getElementById('edit-depart').value='';
+  } else if(field==='loadEnd'){
+    // 荷役終了リセット → 退場もリセット
+    if(!confirm('荷役終了時刻をリセットすると、退場の記録もリセットされます。よろしいですか？'))return;
+    document.getElementById('edit-load-end').value='';
+    document.getElementById('edit-depart').value='';
+  } else if(field==='depart'){
+    if(!confirm('退場時刻をリセットしますか？'))return;
+    document.getElementById('edit-depart').value='';
+  }
+};
+
+window.saveEdit=async function(){
+  if(!editDate||!editCid){closeEditModal();return;}
+  // 既存データを取得してサイン画像等を保持
+  const snap=await get(ref(db,whPath(`records/${editDate}/${editCid}`)));
+  const existing=snap.val()||{};
+  const enterTime    = document.getElementById('edit-enter').value;
+  const loadStartTime= document.getElementById('edit-load-start').value;
+  const loadEndTime  = document.getElementById('edit-load-end').value;
+  const departTime   = document.getElementById('edit-depart').value;
+  // バリデーション：時刻の前後関係チェック
+  if(enterTime&&loadStartTime&&enterTime>loadStartTime){toast('⚠️ 荷役開始は入場より後の時刻にしてください');return;}
+  if(loadStartTime&&loadEndTime&&loadStartTime>loadEndTime){toast('⚠️ 荷役終了は荷役開始より後の時刻にしてください');return;}
+  if(loadEndTime&&departTime&&loadEndTime>departTime){toast('⚠️ 退場は荷役終了より後の時刻にしてください');return;}
+  // 更新データ（サイン・スナップショット等は保持）
+  const updated={...existing};
+  if(enterTime)     updated.enterTime=enterTime;      else delete updated.enterTime;
+  if(loadStartTime) updated.loadStartTime=loadStartTime; else delete updated.loadStartTime;
+  if(loadEndTime)   updated.loadEndTime=loadEndTime;  else delete updated.loadEndTime;
+  if(departTime)    updated.departTime=departTime;    else delete updated.departTime;
+  // サインは入場リセット時に削除
+  if(!enterTime){
+    delete updated.fieldSign; delete updated.driverSign;
+    delete updated.charterCarrierName; delete updated.charterCarNumber;
+  }
+  await set(ref(db,whPath(`records/${editDate}/${editCid}`)),updated);
+  toast('記録を修正しました');
+  closeEditModal();
+  renderRecords();
+};
+
+window.deleteRecord=async function(){
+  if(!editDate||!editCid)return;
+  if(!confirm('この運送会社のこの日の記録をすべて削除しますか？\nサインデータも含めて完全に削除されます。'))return;
+  await set(ref(db,whPath(`records/${editDate}/${editCid}`)),null);
+  toast('記録を削除しました');
+  closeEditModal();
+  renderRecords();
+};
 window.downloadYesterday=async function(){
   const d=new Date();d.setDate(d.getDate()-1);
   const yest=`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
