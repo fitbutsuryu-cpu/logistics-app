@@ -1294,9 +1294,19 @@ window.onShipInput=function(cid){
     const k=cid.replace(/[.#$/[\]]/g,'_');
     const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
     if(!ce)return;
-    await fbSetShip(cid,{count:ce.value,qty:qe.value,vol:ve.value});
-    [ce,qe,ve].forEach(e=>{e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);});
-  },1000);
+    // 既存のFirebase値をベースに上書き（空欄のままの場合は既存値を保持）
+    const existing=(state.shipData[today()]||{})[k]||{};
+    const updated={
+      count: ce.value!==''?ce.value:(existing.count??''),
+      qty:   qe.value!==''?qe.value:(existing.qty??''),
+      vol:   ve.value!==''?ve.value:(existing.vol??''),
+    };
+    await fbSetShip(cid,updated);
+    // stateも更新
+    if(!state.shipData[today()])state.shipData[today()]={};
+    state.shipData[today()][k]=updated;
+    [ce,qe,ve].forEach(e=>{if(e){e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);}});
+  },3000);
 };
 const reqDeb={};
 window.onReqTimeInput=function(cid,val){
@@ -1413,12 +1423,28 @@ window.importExcel=function(ev){
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
     let cnt=0;
     for(let i=1;i<rows.length;i++){
-      const row=rows[i];const name=String(row[0]||'').trim();if(!name)continue;
+      const row=rows[i];
+      const name=String(row[0]||'').trim();if(!name)continue;
       const c=state.carriers.find(x=>x.name===name||x.short===name);if(!c)continue;
-      await fbSetShip(c.id,{count:row[1]??'',qty:row[2]??'',vol:row[3]??''});cnt++;
+      const sd={count:String(row[1]??''),qty:String(row[2]??''),vol:String(row[3]??'')};
+      // Firebaseに保存
+      await fbSetShip(c.id,sd);
+      // stateにも反映（onShipInputが古い値で上書きしないように）
+      if(!state.shipData[today()])state.shipData[today()]={};
+      const k=c.id.replace(/[.#$/[\]]/g,'_');
+      state.shipData[today()][k]=sd;
+      // マスター画面の入力欄が表示中なら直接セット
+      const ce=document.getElementById(`sc-${k}`);
+      const qe=document.getElementById(`sq-${k}`);
+      const ve=document.getElementById(`sv-${k}`);
+      if(ce)ce.value=sd.count;
+      if(qe)qe.value=sd.qty;
+      if(ve)ve.value=sd.vol;
+      cnt++;
     }
     document.getElementById('imp-result').textContent=`✅ ${cnt}社分取込完了`;
-    ev.target.value='';setTimeout(()=>document.getElementById('imp-result').textContent='',4000);
+    ev.target.value='';
+    setTimeout(()=>document.getElementById('imp-result').textContent='',4000);
   };
   reader.readAsArrayBuffer(file);
 };
