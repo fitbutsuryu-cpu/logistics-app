@@ -282,6 +282,21 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .edit-btn{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;background:var(--bl50);color:var(--bl600);border:1px solid var(--bl200);border-radius:5px;cursor:pointer;font-size:10px;font-family:inherit;font-weight:600;}
 .edit-btn:hover{background:var(--bl200);}
 
+/* 動的入力日付タブ */
+.inbound-date-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
+.inbound-date-tab{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1.5px solid var(--bd);background:var(--sf);color:var(--ts);transition:all .12s;white-space:nowrap;}
+.inbound-date-tab.active{background:var(--bl600);color:#fff;border-color:var(--bl600);}
+.inbound-date-tab.today{border-color:var(--am600);}
+.inbound-date-tab.today.active{background:var(--am600);border-color:var(--am600);}
+.inbound-date-tab.has-data{position:relative;}
+.inbound-date-tab.has-data::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--gn600);}
+
+/* サイン追加ボタン */
+.sign-add-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:var(--bl50);color:var(--bl600);border:1px solid var(--bl200);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;}
+.sign-add-btn:hover{background:var(--bl200);}
+.sign-done-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:var(--gn50);color:var(--gn600);border:1px solid var(--gn200);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;}
+.sign-thumb-wrap{display:flex;align-items:center;gap:6px;}
+
 /* トースト */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--tx);color:#fff;padding:11px 18px;border-radius:30px;font-size:13px;font-weight:500;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;}
 .toast.s{opacity:1;}
@@ -418,31 +433,33 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     <span id="imp-result" style="font-size:11px;color:var(--gn600);margin-left:8px;"></span>
   </div>
 
-  <!-- チャーター出荷入力 -->
-  <div class="dyn-sec">
-    <div class="dyn-sec-title">🚚 チャーター出荷入力</div>
-    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
-    <div id="charter-area"></div>
-    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button></div>
-    <div class="save-note" id="charter-note"></div>
-  </div>
-
-  <!-- トラック入庫入力 -->
-  <div class="dyn-sec">
-    <div class="dyn-sec-title">🛻 トラック入庫入力</div>
-    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
-    <div id="truck-area"></div>
-    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button></div>
-    <div class="save-note" id="truck-note"></div>
-  </div>
-
-  <!-- コンテナ入庫入力 -->
-  <div class="dyn-sec">
-    <div class="dyn-sec-title">📦 コンテナ入庫入力</div>
-    <div class="dyn-sec-desc">入力後フォーカスを外すと次行追加・10秒後に保存＆タッチ画面に追加されます</div>
-    <div id="container-area"></div>
-    <div class="dyn-row-btns"><button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button></div>
-    <div class="save-note" id="container-note"></div>
+  <!-- 日付タブ付き統合入力セクション -->
+  <div class="dyn-sec" style="padding-bottom:8px;">
+    <div class="dyn-sec-title">📅 チャーター出荷 / トラック入庫 / コンテナ入庫</div>
+    <div class="dyn-sec-desc">日付を選択して入力してください。当日分のみタッチ画面に反映されます。</div>
+    <!-- 日付タブ -->
+    <div class="inbound-date-tabs" id="inbound-date-tabs"></div>
+    <!-- チャーター出荷 -->
+    <div style="margin-top:12px;">
+      <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🚚 チャーター出荷入力</div>
+      <div id="charter-area"></div>
+      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button></div>
+      <div class="save-note" id="charter-note"></div>
+    </div>
+    <!-- トラック入庫 -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);">
+      <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🛻 トラック入庫入力</div>
+      <div id="truck-area"></div>
+      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button></div>
+      <div class="save-note" id="truck-note"></div>
+    </div>
+    <!-- コンテナ入庫 -->
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);">
+      <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">📦 コンテナ入庫入力</div>
+      <div id="container-area"></div>
+      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button></div>
+      <div class="save-note" id="container-note"></div>
+    </div>
   </div>
 
   <div class="m-layout">
@@ -536,6 +553,19 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     </div>
 
     <hr class="edit-divider">
+    <!-- サイン追加 -->
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:600;color:var(--ts);margin-bottom:8px;">サイン</div>
+      <div class="edit-row" style="align-items:center;">
+        <label style="min-width:80px;">現場サイン</label>
+        <div class="sign-thumb-wrap" id="edit-field-sign-wrap"></div>
+      </div>
+      <div class="edit-row" style="align-items:center;margin-top:6px;">
+        <label style="min-width:80px;">ドライバーサイン</label>
+        <div class="sign-thumb-wrap" id="edit-driver-sign-wrap"></div>
+      </div>
+    </div>
+    <hr class="edit-divider">
     <p style="font-size:11px;color:var(--th);">※「リセット」を押すと該当時刻を削除し、以降の記録も連動してリセットされます。<br>※「記録を完全削除」はその運送会社のその日の記録をすべて削除します。</p>
 
     <div class="edit-acts">
@@ -600,6 +630,7 @@ let selOff=null,selFld=null;
 let signMode='',signCid='';
 let signCtx,signDraw=false;
 let prevEntered=new Set();
+let selectedInboundDate=today(); // マスターで選択中の日付
 // 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
 let charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
 let truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
@@ -828,15 +859,19 @@ function startListeners(){
   onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('reqTime')),snap=>{state.reqTime=snap.val()||{};renderCurrent();});
-  onValue(ref(db,whPath('inboundData')),snap=>{
+  onValue(ref(db,whPath(`inboundData/${today()}`)),snap=>{
     const d=snap.val()||{};
-    state.inbound=d;
-    if(d.charter){charterRows=Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
-    if(d.truck){truckRows=Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
-    if(d.container){containerRows=Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''}));}
+    // 今日分のみをcharterRows/truckRows/containerRowsに反映（タッチ画面用）
+    if(selectedInboundDate===today()){
+      if(d.charter){charterRows=Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
+      if(d.truck){truckRows=Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
+      if(d.container){containerRows=Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''}));}
+    }
     renderCurrent();
     const mp=document.getElementById('page-master');
-    if(mp&&mp.classList.contains('active')){renderCharterArea();renderTruckArea();renderContainerArea();}
+    if(mp&&mp.classList.contains('active')&&selectedInboundDate===today()){
+      renderCharterArea();renderTruckArea();renderContainerArea();
+    }
   });
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
@@ -847,7 +882,63 @@ function showNotify(msg){
   setTimeout(()=>b.classList.remove('s'),4000);
 }
 
-// ===== 動的キャリア（マスター未登録の当日入力分） =====
+// ===== 1週間分の日付タブ =====
+function get7Days(){
+  const days=[];
+  const d=new Date();
+  for(let i=0;i<7;i++){
+    const dd=new Date(d);dd.setDate(d.getDate()+i);
+    days.push(dd.toISOString().slice(0,10));
+  }
+  return days;
+}
+
+async function renderInboundDateTabs(){
+  const tabs=document.getElementById('inbound-date-tabs');
+  if(!tabs)return;
+  const days=get7Days();
+  const td=today();
+  // 各日付にデータがあるかチェック
+  const hasDataMap={};
+  for(const d of days){
+    const snap=await get(ref(db,whPath(`inboundData/${d}`)));
+    const v=snap.val()||{};
+    hasDataMap[d]=!!(
+      (v.charter&&Object.values(v.charter).some(r=>r.carrier||r.containerNo||r.origin))||
+      (v.truck&&Object.values(v.truck).some(r=>r.carrier||r.origin))||
+      (v.container&&Object.values(v.container).some(r=>r.containerNo))
+    );
+  }
+  const dayNames=['日','月','火','水','木','金','土'];
+  tabs.innerHTML=days.map(d=>{
+    const dt=new Date(d+'T00:00:00');
+    const dn=dayNames[dt.getDay()];
+    const label=d===td?`今日 (${dn})`:
+      `${String(dt.getMonth()+1)}/${String(dt.getDate())} (${dn})`;
+    let cls='inbound-date-tab';
+    if(d===td)cls+=' today';
+    if(d===selectedInboundDate)cls+=' active';
+    if(hasDataMap[d])cls+=' has-data';
+    return`<button class="${cls}" onclick="switchInboundDate('${d}')">${label}</button>`;
+  }).join('');
+}
+
+window.switchInboundDate=async function(date){
+  selectedInboundDate=date;
+  // 選択した日付のデータをFirebaseから読込
+  const snap=await get(ref(db,whPath(`inboundData/${date}`)));
+  const d=snap.val()||{};
+  if(d.charter){charterRows=Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
+  else charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+  if(d.truck){truckRows=Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
+  else truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+  if(d.container){containerRows=Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''}));}
+  else containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+  await renderInboundDateTabs();
+  renderCharterArea();renderTruckArea();renderContainerArea();
+};
+
+// ===== 動的キャリア（タッチ画面用・今日分のみ） =====
 function getDynCarriers(){
   const res=[];
   charterRows.forEach(r=>{
@@ -891,10 +982,12 @@ window.showPage=function(id){
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='master'){
+    selectedInboundDate=today();
     if(!charterRows.length)charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
     if(!truckRows.length)truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
     if(!containerRows.length)containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
     renderMaster();renderCharterArea();renderTruckArea();renderContainerArea();
+    renderInboundDateTabs();
   }
   else if(id==='settings'){loadLockUI();}
   else renderCurrent();
@@ -1093,12 +1186,50 @@ function initSign(){
 window.clearSign=function(){const cv=document.getElementById('sign-cv');signCtx.clearRect(0,0,cv.width/devicePixelRatio,cv.height/devicePixelRatio);};
 window.confirmSign=async function(){
   const cv=document.getElementById('sign-cv');const img=cv.toDataURL('image/png');
+  // 修正モーダルからのサイン追加
+  if(signMode==='edit_sign'){
+    const k=editCid;
+    const snap=await get(ref(db,whPath(`records/${editDate}/${k}`)));
+    const rec=snap.val()||{};
+    rec[editSignKey]=img;
+    await set(ref(db,whPath(`records/${editDate}/${k}`)),rec);
+    document.getElementById('sign-modal').classList.add('h');
+    toast('サインを保存しました');
+    // 修正モーダルのサインUIを更新
+    const label=editSignKey==='fieldSign'?'現場サイン':'ドライバーサイン';
+    const wrapId=editSignKey==='fieldSign'?'edit-field-sign-wrap':'edit-driver-sign-wrap';
+    const wrap=document.getElementById(wrapId);
+    if(wrap){
+      wrap.innerHTML=`<img class="sign-thumb" src="${img}" onclick="viewSign('${esc(img)}','${label}')" style="width:70px;height:35px;">
+        <button class="sign-done-btn" onclick="openEditSign('${editSignKey}','${label}')">再サイン</button>
+        <span class="reset-link" style="font-size:10px;margin-left:4px;" onclick="clearEditSign('${editSignKey}')">削除</span>`;
+    }
+    if(editDate===today())renderCurrent();
+    return;
+  }
   const c=getAllCById(signCid);const rec=getRecord(signCid)||{};
   if(signMode==='dep'){rec.departTime=nowTime();rec.driverSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);}
   else if(signMode==='el'){rec.loadEndTime=nowTime();rec.fieldSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
   document.getElementById('sign-modal').classList.add('h');
 };
 window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
+window.clearEditSign=async function(signKey){
+  if(!confirm('このサインを削除しますか？'))return;
+  const k=editCid;
+  const snap=await get(ref(db,whPath(`records/${editDate}/${k}`)));
+  const rec=snap.val()||{};
+  delete rec[signKey];
+  await set(ref(db,whPath(`records/${editDate}/${k}`)),rec);
+  toast('サインを削除しました');
+  const label=signKey==='fieldSign'?'現場サイン':'ドライバーサイン';
+  const wrapId=signKey==='fieldSign'?'edit-field-sign-wrap':'edit-driver-sign-wrap';
+  const wrap=document.getElementById(wrapId);
+  if(wrap){
+    wrap.innerHTML=`<span style="font-size:11px;color:var(--th);margin-right:6px;">未取得</span>
+      <button class="sign-add-btn" onclick="openEditSign('${signKey}','${label}')">+ サイン追加</button>`;
+  }
+  if(editDate===today())renderCurrent();
+};
 window.viewSign=function(src,t){document.getElementById('sv-title').textContent=t;document.getElementById('sv-img').src=src;document.getElementById('sv-modal').classList.add('o');};
 
 // ===== RECORDS =====
@@ -1399,9 +1530,28 @@ function hasCont(row,t){
   if(t==='t')return!!(row.origin||row.carrier||row.carNum||row.time);
   if(t==='k')return!!(row.containerNo||row.time);
 }
-function saveCharter(){debSave('c',async()=>{const o={};charterRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/charter')),o);document.getElementById('charter-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('charter-note').textContent='',3000);});}
-function saveTruck(){debSave('t',async()=>{const o={};truckRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/truck')),o);document.getElementById('truck-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('truck-note').textContent='',3000);});}
-function saveContainer(){debSave('k',async()=>{const o={};containerRows.forEach((r,i)=>o[i]=r);await set(ref(db,whPath('inboundData/container')),o);document.getElementById('container-note').textContent='✅ 保存しました';setTimeout(()=>document.getElementById('container-note').textContent='',3000);});}
+// inbound保存（日付付きパス）
+function inboundPath(type){return whPath(`inboundData/${selectedInboundDate}/${type}`);}
+function todayInboundPath(type){return whPath(`inboundData/${today()}/${type}`);}
+
+function saveCharter(){debSave('c',async()=>{
+  const o={};charterRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('charter')),o);
+  document.getElementById('charter-note').textContent='✅ 保存しました';
+  setTimeout(()=>document.getElementById('charter-note').textContent='',3000);
+});}
+function saveTruck(){debSave('t',async()=>{
+  const o={};truckRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('truck')),o);
+  document.getElementById('truck-note').textContent='✅ 保存しました';
+  setTimeout(()=>document.getElementById('truck-note').textContent='',3000);
+});}
+function saveContainer(){debSave('k',async()=>{
+  const o={};containerRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('container')),o);
+  document.getElementById('container-note').textContent='✅ 保存しました';
+  setTimeout(()=>document.getElementById('container-note').textContent='',3000);
+});}
 
 window.updC=function(i,f,v){if(!charterRows[i])charterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};charterRows[i][f]=v;saveCharter();};
 window.updT=function(i,f,v){if(!truckRows[i])truckRows[i]={origin:'',carrier:'',carNum:'',time:''};truckRows[i][f]=v;saveTruck();};
@@ -1409,9 +1559,9 @@ window.updK=function(i,f,v){if(!containerRows[i])containerRows[i]={containerNo:'
 window.blurC=function(i){if(i===charterRows.length-1&&hasCont(charterRows[i],'c')){charterRows.push({_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
 window.blurT=function(i){if(i===truckRows.length-1&&hasCont(truckRows[i],'t')){truckRows.push({_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
 window.blurK=function(i){if(i===containerRows.length-1&&hasCont(containerRows[i],'k')){containerRows.push({_uid:'k'+Date.now(),containerNo:'',time:''});renderContainerArea();}};
-window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,whPath('inboundData/charter')),null);renderCharterArea();toast('リセットしました');};
-window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,whPath('inboundData/truck')),null);renderTruckArea();toast('リセットしました');};
-window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];await set(ref(db,whPath('inboundData/container')),null);renderContainerArea();toast('リセットしました');};
+window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,inboundPath('charter')),null);renderCharterArea();renderInboundDateTabs();toast('リセットしました');};
+window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,inboundPath('truck')),null);renderTruckArea();renderInboundDateTabs();toast('リセットしました');};
+window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];await set(ref(db,inboundPath('container')),null);renderContainerArea();renderInboundDateTabs();toast('リセットしました');};
 
 // Excel取込
 window.importExcel=function(ev){
@@ -1500,14 +1650,33 @@ let editDate='', editCid='';
 window.openEditModal=async function(date, cid, name){
   editDate=date; editCid=cid;
   document.getElementById('edit-sub').textContent=`${name}　${date}`;
-  // Firebaseから最新データを取得
   const snap=await get(ref(db,whPath(`records/${date}/${cid}`)));
   const rec=snap.val()||{};
   document.getElementById('edit-enter').value     = rec.enterTime||'';
   document.getElementById('edit-load-start').value= rec.loadStartTime||'';
   document.getElementById('edit-load-end').value  = rec.loadEndTime||'';
   document.getElementById('edit-depart').value    = rec.departTime||'';
+  // サインUI
+  function signUI(sign, signKey, label, wrapId){
+    const wrap=document.getElementById(wrapId);
+    if(sign){
+      wrap.innerHTML=`<img class="sign-thumb" src="${sign}" onclick="viewSign('${esc(sign)}','${label}')" style="width:70px;height:35px;">
+        <button class="sign-done-btn" onclick="openEditSign('${signKey}','${label}')">再サイン</button>
+        <span class="reset-link" style="font-size:10px;" onclick="clearEditSign('${signKey}')">削除</span>`;
+    } else {
+      wrap.innerHTML=`<span style="font-size:11px;color:var(--th);margin-right:6px;">未取得</span>
+        <button class="sign-add-btn" onclick="openEditSign('${signKey}','${label}')">+ サイン追加</button>`;
+    }
+  }
+  signUI(rec.fieldSign, 'fieldSign', '現場サイン', 'edit-field-sign-wrap');
+  signUI(rec.driverSign, 'driverSign', 'ドライバーサイン', 'edit-driver-sign-wrap');
   document.getElementById('edit-modal').classList.remove('h');
+};
+
+let editSignKey=''; // 'fieldSign' or 'driverSign'
+window.openEditSign=function(signKey, label){
+  editSignKey=signKey;
+  openSign('edit_sign', editCid, `${label} — 追加・再取得`, 'こちらにサインをお願いします');
 };
 
 window.closeEditModal=function(){
