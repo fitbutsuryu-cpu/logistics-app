@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>持込確認サイン</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;background:#F0F4F8;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:20px;}
+.card{background:#fff;border-radius:16px;padding:28px 24px;width:100%;max-width:480px;box-shadow:0 4px 20px rgba(0,0,0,.10);}
+.logo{font-size:28px;text-align:center;margin-bottom:8px;}
+h1{font-size:20px;font-weight:700;color:#1E293B;text-align:center;margin-bottom:4px;}
+.sub{font-size:13px;color:#64748B;text-align:center;margin-bottom:20px;}
+.info-box{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;margin-bottom:20px;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;}
+.info-row:not(:last-child){border-bottom:1px solid #E2E8F0;}
+.info-label{color:#64748B;font-weight:600;}
+.info-val{color:#1E293B;font-weight:600;}
+.sign-area{border:2px solid #CBD5E1;border-radius:10px;background:#FAFAFA;margin-bottom:14px;overflow:hidden;}
+canvas{display:block;width:100%;height:200px;cursor:crosshair;touch-action:none;}
+.sign-hint{text-align:center;font-size:11px;color:#94A3B8;padding:6px 0;}
+.btn-row{display:flex;gap:10px;margin-bottom:10px;}
+.btn{flex:1;padding:14px;border-radius:10px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+.btn-clear{background:#F1F5F9;color:#475569;}
+.btn-ok{background:#065A82;color:#fff;}
+.btn-ok:disabled{opacity:.4;cursor:not-allowed;}
+.status{text-align:center;font-size:15px;font-weight:600;padding:20px;border-radius:10px;margin-top:10px;}
+.status.ok{background:#DCFCE7;color:#15803D;}
+.status.err{background:#FEE2E2;color:#B91C1C;}
+.status.used{background:#FEF3C7;color:#92400E;}
+.loading{text-align:center;padding:40px;color:#64748B;}
+.spinner{width:36px;height:36px;border:3px solid #E2E8F0;border-top-color:#065A82;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div class="card" id="main-card">
+  <div class="logo">📦</div>
+  <h1>持込確認サイン</h1>
+  <div class="sub">荷物の受領確認として、こちらにサインをお願いします</div>
+  <div class="loading" id="loading"><div class="spinner"></div>読み込み中...</div>
+  <div id="content" style="display:none;">
+    <div class="info-box" id="info-box"></div>
+    <div class="sign-area">
+      <canvas id="cv"></canvas>
+      <div class="sign-hint">↑ こちらにサインしてください</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-clear" onclick="clearSign()">消去</button>
+      <button class="btn btn-ok" id="btn-ok" onclick="submitSign()" disabled>サインして確認</button>
+    </div>
+  </div>
+  <div id="result" style="display:none;"></div>
+</div>
+
+<script type="module">
+import {initializeApp} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {getDatabase,ref,get,set,update} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getAuth,signInAnonymously} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const FB={
+  apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
+  authDomain:"logitime-86b56.firebaseapp.com",
+  databaseURL:"https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"logitime-86b56",storageBucket:"logitime-86b56.firebasestorage.app",
+  messagingSenderId:"148508185008",appId:"1:148508185008:web:bd7a729832528f2fec0675"
+};
+const app=initializeApp(FB);
+const db=getDatabase(app);
+const auth=getAuth(app);
+
+// URLからトークン取得
+const token=new URLSearchParams(location.search).get('token');
+
+let qrData=null;
+let signCtx=null,signDraw=false,hasSigned=false;
+
+async function init(){
+  if(!token){showErr('QRコードが無効です。');return;}
+  await signInAnonymously(auth);
+  const snap=await get(ref(db,`deliveryQR/${token}`));
+  if(!snap.val()){showErr('このQRコードは無効です。');return;}
+  qrData=snap.val();
+  if(qrData.used){
+    showUsed();return;
+  }
+  // 情報表示
+  document.getElementById('info-box').innerHTML=`
+    <div class="info-row"><span class="info-label">運送会社</span><span class="info-val">${qrData.carrierName||'—'}</span></div>
+    <div class="info-row"><span class="info-label">倉庫</span><span class="info-val">${qrData.warehouseName||'—'}</span></div>
+    <div class="info-row"><span class="info-label">発行日</span><span class="info-val">${qrData.date||'—'}</span></div>
+    <div class="info-row"><span class="info-label">退場時刻</span><span class="info-val">${qrData.issuedAt||'—'}</span></div>
+  `;
+  document.getElementById('loading').style.display='none';
+  document.getElementById('content').style.display='block';
+  initCanvas();
+}
+
+function initCanvas(){
+  const cv=document.getElementById('cv');
+  const rect=cv.getBoundingClientRect();
+  const dpr=devicePixelRatio||1;
+  cv.width=(rect.width||460)*dpr;
+  cv.height=200*dpr;
+  signCtx=cv.getContext('2d');
+  signCtx.scale(dpr,dpr);
+  signCtx.strokeStyle='#1a1a1a';signCtx.lineWidth=2.5;signCtx.lineCap='round';signCtx.lineJoin='round';
+
+  function pt(e){const r=cv.getBoundingClientRect();const s=e.touches?e.touches[0]:e;return{x:(s.clientX-r.left),y:(s.clientY-r.top)};}
+  cv.onmousedown=e=>{signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
+  cv.onmousemove=e=>{if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();hasSigned=true;document.getElementById('btn-ok').disabled=false;};
+  cv.onmouseup=()=>signDraw=false;
+  cv.ontouchstart=e=>{e.preventDefault();signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
+  cv.ontouchmove=e=>{e.preventDefault();if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();hasSigned=true;document.getElementById('btn-ok').disabled=false;};
+  cv.ontouchend=()=>signDraw=false;
+}
+
+window.clearSign=function(){
+  const cv=document.getElementById('cv');
+  const dpr=devicePixelRatio||1;
+  signCtx.clearRect(0,0,cv.width/dpr,cv.height/dpr);
+  hasSigned=false;document.getElementById('btn-ok').disabled=true;
+};
+
+window.submitSign=async function(){
+  if(!hasSigned){alert('サインしてください');return;}
+  document.getElementById('btn-ok').disabled=true;
+  document.getElementById('btn-ok').textContent='保存中...';
+  try{
+    const cv=document.getElementById('cv');
+    const img=cv.toDataURL('image/png');
+    const now=new Date();
+    const signedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const signedDate=now.toISOString().slice(0,10);
+
+    // QRを使用済みにしてサイン画像保存
+    await update(ref(db,`deliveryQR/${token}`),{
+      used:true, deliverySign:img, signedAt, signedDate
+    });
+    // records にも持込サインを保存
+    if(qrData.warehouseId&&qrData.carrierId&&qrData.date){
+      const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
+      const recSnap=await get(recRef);
+      const rec=recSnap.val()||{};
+      rec.deliverySign=img;
+      rec.deliverySignedAt=signedAt;
+      rec.deliverySignedDate=signedDate;
+      await set(recRef,rec);
+    }
+    // printQueue を完了に更新
+    await update(ref(db,`printQueue/${token}`),{status:'signed'});
+
+    showOK(signedAt);
+  }catch(e){
+    console.error(e);
+    document.getElementById('btn-ok').disabled=false;
+    document.getElementById('btn-ok').textContent='サインして確認';
+    alert('保存に失敗しました。もう一度お試しください。');
+  }
+};
+
+function showOK(time){
+  document.getElementById('content').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('result').innerHTML=`
+    <div class="status ok">
+      ✅ 受領確認が完了しました<br>
+      <span style="font-size:12px;font-weight:400;margin-top:6px;display:block;">サイン時刻：${time}</span>
+    </div>
+    <p style="font-size:12px;color:#64748B;text-align:center;margin-top:16px;">このページは閉じていただいて構いません。</p>
+  `;
+}
+function showUsed(){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('result').innerHTML=`
+    <div class="status used">⚠️ このQRコードはすでに使用済みです</div>
+    <p style="font-size:12px;color:#64748B;text-align:center;margin-top:16px;">必要な場合は担当者にご連絡ください。</p>
+  `;
+}
+function showErr(msg){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('result').style.display='block';
+  document.getElementById('result').innerHTML=`<div class="status err">❌ ${msg}</div>`;
+}
+
+init();
+</script>
+</body>
+</html>
