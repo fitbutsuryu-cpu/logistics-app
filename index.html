@@ -643,6 +643,10 @@ let signMode='',signCid='';
 let signCtx,signDraw=false;
 let prevEntered=new Set();
 let selectedInboundDate=today(); // マスターで選択中の日付
+// タッチ画面用（今日分のみ）
+let todayCharterRows=[];
+let todayTruckRows=[];
+let todayContainerRows=[];
 // 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
 let charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
 let truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
@@ -873,11 +877,15 @@ function startListeners(){
   onValue(ref(db,whPath('reqTime')),snap=>{state.reqTime=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath(`inboundData/${today()}`)),snap=>{
     const d=snap.val()||{};
-    // 今日分のみをcharterRows/truckRows/containerRowsに反映（タッチ画面用）
+    // 今日分はタッチ画面用変数に保存
+    todayCharterRows=d.charter?Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''})):[];
+    todayTruckRows=d.truck?Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''})):[];
+    todayContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''})):[];
+    // マスターで今日が選択中なら入力欄も更新
     if(selectedInboundDate===today()){
-      if(d.charter){charterRows=Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''}));}
-      if(d.truck){truckRows=Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''}));}
-      if(d.container){containerRows=Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''}));}
+      charterRows=todayCharterRows.length?[...todayCharterRows]:[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+      truckRows=todayTruckRows.length?[...todayTruckRows]:[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+      containerRows=todayContainerRows.length?[...todayContainerRows]:[{_uid:'k'+Date.now(),containerNo:'',time:''}];
     }
     renderCurrent();
     const mp=document.getElementById('page-master');
@@ -953,20 +961,21 @@ window.switchInboundDate=async function(date){
 // ===== 動的キャリア（タッチ画面用・今日分のみ） =====
 function getDynCarriers(){
   const res=[];
-  charterRows.forEach(r=>{
+  // 必ず今日分のデータのみ使用（マスターの選択日付に関わらず）
+  todayCharterRows.forEach(r=>{
     if(!r.carrier)return;
     const uid=r._uid||('c'+Date.now());
     const info=[r.realCarrier?`実車:${r.realCarrier}`:'',r.carNum?`車番:${r.carNum}`:'',r.carType?`車種:${r.carType}`:'',r.dest,r.addr,r.time].filter(Boolean).join(' / ');
     res.push({id:`dyn_${uid}`,name:r.carrier,short:r.carrier,type:'spot_charter',_dyn:true,_label:'チャーター出荷',_info:info,_realCarrier:r.realCarrier||'',_carNum:r.carNum||'',_carType:r.carType||'',_time:r.time||''});
   });
-  truckRows.forEach(r=>{
+  todayTruckRows.forEach(r=>{
     if(!r.carrier&&!r.origin)return;
     const uid=r._uid||('t'+Date.now());
     const nm=r.carrier||r.origin;
     const info=[r.origin?`出荷元:${r.origin}`:'',r.carNum?`車番:${r.carNum}`:'',r.time].filter(Boolean).join(' / ');
     res.push({id:`dyn_${uid}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||''});
   });
-  containerRows.forEach(r=>{
+  todayContainerRows.forEach(r=>{
     if(!r.containerNo)return;
     const uid=r._uid||('k'+Date.now());
     const info=r.time?`入場時間:${r.time}`:'';
