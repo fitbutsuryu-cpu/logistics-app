@@ -443,21 +443,30 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     <div style="margin-top:12px;">
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🚚 チャーター出荷入力</div>
       <div id="charter-area"></div>
-      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button></div>
+      <div class="dyn-row-btns">
+        <button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button>
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveCharterNow()">💾 今すぐ保存</button>
+      </div>
       <div class="save-note" id="charter-note"></div>
     </div>
     <!-- トラック入庫 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);">
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🛻 トラック入庫入力</div>
       <div id="truck-area"></div>
-      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button></div>
+      <div class="dyn-row-btns">
+        <button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button>
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveTruckNow()">💾 今すぐ保存</button>
+      </div>
       <div class="save-note" id="truck-note"></div>
     </div>
     <!-- コンテナ入庫 -->
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd);">
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">📦 コンテナ入庫入力</div>
       <div id="container-area"></div>
-      <div class="dyn-row-btns"><button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button></div>
+      <div class="dyn-row-btns">
+        <button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button>
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveContainerNow()">💾 今すぐ保存</button>
+      </div>
       <div class="save-note" id="container-note"></div>
     </div>
   </div>
@@ -494,6 +503,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     </div>
     <p style="font-size:11px;color:var(--th);margin-top:5px;">各セルをタップして編集できます。印刷前に内容を確認・修正してください。</p>
   </div>
+  <div class="gd-sec"><div class="gd-sec-title">🚌 路線出荷</div><div class="gd-tbl-wrap"><div id="gd-route"></div></div></div>
   <div class="gd-sec"><div class="gd-sec-title">📦 チャーター出荷</div><div class="gd-tbl-wrap"><div id="gd-charter"></div></div></div>
   <div class="gd-sec"><div class="gd-sec-title">🛻 トラック入庫</div><div class="gd-tbl-wrap"><div id="gd-truck"></div></div></div>
   <div class="gd-sec"><div class="gd-sec-title">📦 コンテナ入庫</div><div class="gd-tbl-wrap"><div id="gd-container"></div></div></div>
@@ -1607,25 +1617,41 @@ function makeGdTable(headers,rows,id){
   return`<table class="gd-tbl" id="${id}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
 }
 
-window.renderGuard=function(){
-  // チャーター出荷（守衛チェック済みの定期・不定期＋動的チャーター入力）
-  const gdTypes=['regular','irregular'];
-  const gdCharter=state.carriers.filter(c=>gdTypes.includes(c.type)&&isGuard(c.id)).map(c=>{
-    const rt=getReqTime(c.id);return[c.name,'','','',rt,''];
-  });
-  const dynCharter=charterRows.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'']);
-  const charterAll=[...gdCharter,...dynCharter];
+window.renderGuard=async function(){
+  const guardDate=document.getElementById('guard-date').value||nextBizDay();
+
+  // 選択日付のinboundDataをFirebaseから取得
+  const snap=await get(ref(db,whPath(`inboundData/${guardDate}`)));
+  const dayInbound=snap.val()||{};
+  const dc=dayInbound.charter?Object.values(dayInbound.charter):[];
+  const dt2=dayInbound.truck?Object.values(dayInbound.truck):[];
+  const dk=dayInbound.container?Object.values(dayInbound.container):[];
+
+  // ① 路線出荷（守衛チェック済みの定期便・不定期便）
+  const routeCarriers=state.carriers.filter(c=>['regular','irregular'].includes(c.type)&&isGuard(c.id));
+  const routeRows=routeCarriers.map(c=>[c.name,getReqTime(c.id),'','']);
+  const rdiv=document.getElementById('gd-route');
+  if(rdiv)rdiv.innerHTML=makeGdTable(
+    ['会社名','入場依頼時間','入場時間','退場時間'],
+    routeRows.length?routeRows:[['（なし）','','','']],'tbl-r');
+
+  // ② チャーター出荷（選択日付のinboundData）
+  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'','','']);
   document.getElementById('gd-charter').innerHTML=makeGdTable(
-    ['会社名','実車名','行先','住所','入場依頼時間','車種'],
-    charterAll.length?charterAll:[['（なし）','','','','','']],'tbl-c');
+    ['会社名','実車名','行先','住所','入場依頼時間','車種','入場時間','退場時間'],
+    charterRows2.length?charterRows2:[['（なし）','','','','','','','']],'tbl-c');
 
-  // トラック入庫
-  const dynTruck=truckRows.filter(r=>r.carrier||r.origin).map(r=>([r.origin||'',r.carrier||'',r.carNum||'',r.time||'']));
-  document.getElementById('gd-truck').innerHTML=makeGdTable(['出荷元','運送会社','車番','入場依頼時間'],dynTruck.length?dynTruck:[['（なし）','','','']],'tbl-t');
+  // ③ トラック入庫（選択日付のinboundData）
+  const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carNum||'',r.time||'','','']);
+  document.getElementById('gd-truck').innerHTML=makeGdTable(
+    ['出荷元','運送会社','車番','入場依頼時間','入場時間','退場時間'],
+    truckRows2.length?truckRows2:[['（なし）','','','','','']],'tbl-t');
 
-  // コンテナ入庫
-  const dynCont=containerRows.filter(r=>r.containerNo).map(r=>([r.containerNo,r.time||'']));
-  document.getElementById('gd-container').innerHTML=makeGdTable(['コンテナNo','入場依頼時間'],dynCont.length?dynCont:[['（なし）','']],'tbl-k');
+  // ④ コンテナ入庫（選択日付のinboundData）
+  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.time||'','','']);
+  document.getElementById('gd-container').innerHTML=makeGdTable(
+    ['コンテナNo','入場依頼時間','入場時間','退場時間'],
+    contRows2.length?contRows2:[['（なし）','','','']],'tbl-k');
 };
 
 window.printGuard=function(){
@@ -1639,9 +1665,35 @@ window.printGuard=function(){
   }
   document.getElementById('print-area').innerHTML=`<div style="padding:20px;">
     <div style="font-size:16px;font-weight:700;margin-bottom:4px;">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
-    ${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
+    ${tblHtml('tbl-r','🚌 路線出荷')}${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
   </div>`;
   window.print();
+};
+
+// ===== 即時保存（保存ボタン用） =====
+window.saveCharterNow=async function(){
+  const o={};charterRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('charter')),o);
+  clearTimeout(debMap['c']);
+  const n=document.getElementById('charter-note');
+  n.textContent='✅ 保存しました';setTimeout(()=>n.textContent='',2000);
+  await renderInboundDateTabs();
+};
+window.saveTruckNow=async function(){
+  const o={};truckRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('truck')),o);
+  clearTimeout(debMap['t']);
+  const n=document.getElementById('truck-note');
+  n.textContent='✅ 保存しました';setTimeout(()=>n.textContent='',2000);
+  await renderInboundDateTabs();
+};
+window.saveContainerNow=async function(){
+  const o={};containerRows.forEach((r,i)=>o[i]=r);
+  await set(ref(db,inboundPath('container')),o);
+  clearTimeout(debMap['k']);
+  const n=document.getElementById('container-note');
+  n.textContent='✅ 保存しました';setTimeout(()=>n.textContent='',2000);
+  await renderInboundDateTabs();
 };
 
 // ===== 記録修正 =====
