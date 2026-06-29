@@ -185,6 +185,7 @@ table.rt tr:hover td{background:var(--gy50);}
 .t-badge.charter{background:var(--pu50);color:var(--pu600);}
 .t-badge.truck_in{background:var(--tr50);color:var(--tr600);}
 .t-badge.container_in{background:var(--cn50);color:var(--cn600);}
+.t-badge.delivery{background:#FDF2FF;color:#7C3AED;}
 .tog-btn{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;border:none;}
 .tog-btn.on{background:var(--gn50);color:var(--gn600);border:1px solid var(--gn200);}
 .tog-btn.off{background:var(--gy50);color:var(--gy600);border:1px solid var(--gy100);}
@@ -480,6 +481,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
         <select id="m-type">
           <option value="regular">定期便</option>
           <option value="irregular">不定期便</option>
+          <option value="delivery">持込</option>
         </select>
       </div>
       <div class="fg"><label>備考</label><input type="text" id="m-note" placeholder="例：東京ルート"></div>
@@ -661,7 +663,7 @@ function nextBizDay(){
   while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
   return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
 }
-function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫'}[t]||t;}
+function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫',delivery:'持込'}[t]||t;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('s');setTimeout(()=>t.classList.remove('s'),2800);}
 function setConn(on){const b=document.getElementById('conn');b.className='conn '+(on?'on':'off');document.getElementById('conn-txt').textContent=on?'接続中':'オフライン';}
@@ -1218,11 +1220,55 @@ window.confirmSign=async function(){
     return;
   }
   const c=getAllCById(signCid);const rec=getRecord(signCid)||{};
-  if(signMode==='dep'){rec.departTime=nowTime();rec.driverSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);}
+  if(signMode==='dep'){
+    rec.departTime=nowTime();rec.driverSign=img;
+    await fbSetRecord(signCid,rec);
+    toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);
+    // 持込種別なら自動でQRトークン発行
+    if(c.type==='delivery'){
+      await issueDeliveryQR(signCid,c,rec);
+    }
+  }
   else if(signMode==='el'){rec.loadEndTime=nowTime();rec.fieldSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
   document.getElementById('sign-modal').classList.add('h');
 };
 window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
+
+// ===== 持込QR発行 =====
+async function issueDeliveryQR(cid, c, rec){
+  const token='dlv_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  const k=cid.replace(/[.#$/[\]]/g,'_');
+  const qrData={
+    token,
+    carrierId:k,
+    carrierName:c.name,
+    date:today(),
+    issuedAt:nowTime(),
+    warehouseId:CWH,
+    warehouseName:(WHs.find(w=>w.id===CWH)||{}).name||'',
+    used:false,
+    deliverySign:null
+  };
+  // Firebase に保存
+  await set(ref(db,`deliveryQR/${token}`),qrData);
+  // records にトークンを紐付け
+  const recSnap=await get(ref(db,whPath(`records/${today()}/${k}`)));
+  const latestRec=recSnap.val()||rec;
+  latestRec.deliveryQRToken=token;
+  await set(ref(db,whPath(`records/${today()}/${k}`)),latestRec);
+  toast(`📦 ${c.name} の持込QRを発行しました。ラベル印刷中...`);
+  // PC監視スクリプトへの通知は Firebase 経由で自動（printQueue に追加）
+  await set(ref(db,`printQueue/${token}`),{...qrData, status:'pending'});
+}
+
+// 管理記録から手動でQR再発行
+window.reissueDeliveryQR=async function(date, cid, carrierName){
+  if(!confirm(`${carrierName} の持込QRを再発行しますか？\n（再発行すると古いQRは無効になります）`))return;
+  const k=cid;
+  const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
+  const rec={};
+  await issueDeliveryQR(k,c,rec);
+};
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
   const k=editCid;
@@ -1322,7 +1368,7 @@ window.renderRecords=async function(){
   let html=`<table class="rt"><thead><tr>
     <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>依頼時間</th>
     <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
-    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>修正</th>
+    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>持込確認</th><th>修正</th>
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
@@ -1332,6 +1378,17 @@ window.renderRecords=async function(){
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
     const cid=c.id.replace(/[.#$/[\]]/g,'_');
+    // 持込確認列
+    let deliveryCell='—';
+    if(c.type==='delivery'){
+      if(rec.deliverySign){
+        deliveryCell=`<img class="sign-th" src="${rec.deliverySign}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span>`;
+      } else if(rec.deliveryQRToken){
+        deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
+      } else if(rec.departTime){
+        deliveryCell=`<button class="edit-btn" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR発行</button>`;
+      }
+    }
     html+=`<tr>
       <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
       <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
@@ -1341,6 +1398,7 @@ window.renderRecords=async function(){
       <td>${pill}</td>
       <td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td>
       <td>${fs}</td><td>${ds}</td>
+      <td>${deliveryCell}</td>
       <td><button class="edit-btn" onclick="openEditModal('${esc(date)}','${esc(cid)}','${esc(c.name)}')">✏️ 修正</button></td>
     </tr>`;
   });
