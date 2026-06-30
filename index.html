@@ -308,6 +308,25 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   table{width:100%;border-collapse:collapse;font-size:11px;}
   th{background:#f0f0f0 !important;padding:5px 7px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
   td{padding:4px 7px;border:1px solid #999;}
+
+  /* B5サイズ印刷設定（QR印刷専用） */
+  @page{size:B5;margin:15mm;}
+  .qr-print-page{
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    page-break-after:avoid;
+  }
+  .qr-print-title{font-size:22px;font-weight:700;color:#1E293B;margin-bottom:6px;}
+  .qr-print-sub{font-size:13px;color:#64748B;margin-bottom:18px;}
+  .qr-print-carrier{font-size:28px;font-weight:700;color:#065A82;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #CBD5E1;width:80%;}
+  .qr-print-img{width:60mm;height:60mm;margin-bottom:24px;}
+  .qr-print-hint{font-size:14px;color:#475569;line-height:1.8;margin-bottom:20px;}
+  .qr-print-token{font-size:9px;color:#CBD5E1;}
 }
 #print-area{display:none;}
 </style>
@@ -616,6 +635,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 <div id="print-area"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {getDatabase,ref,set,get,onValue,off} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -1234,17 +1254,14 @@ window.confirmSign=async function(){
     rec.departTime=nowTime();rec.driverSign=img;
     await fbSetRecord(signCid,rec);
     toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);
-    // 持込種別なら自動でQRトークン発行
-    if(c.type==='delivery'){
-      await issueDeliveryQR(signCid,c,rec);
-    }
+    // 持込種別の場合は管理・記録画面から手動でQR印刷する運用のため、ここでは自動発行しない
   }
   else if(signMode==='el'){rec.loadEndTime=nowTime();rec.fieldSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
   document.getElementById('sign-modal').classList.add('h');
 };
 window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
 
-// ===== 持込QR発行 =====
+// ===== 持込QR発行（管理・記録画面から手動実行） =====
 async function issueDeliveryQR(cid, c, rec){
   const token='dlv_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
   const k=cid.replace(/[.#$/[\]]/g,'_');
@@ -1259,26 +1276,76 @@ async function issueDeliveryQR(cid, c, rec){
     used:false,
     deliverySign:null
   };
-  // Firebase に保存
   await set(ref(db,`deliveryQR/${token}`),qrData);
-  // records にトークンを紐付け
   const recSnap=await get(ref(db,whPath(`records/${today()}/${k}`)));
   const latestRec=recSnap.val()||rec;
   latestRec.deliveryQRToken=token;
   await set(ref(db,whPath(`records/${today()}/${k}`)),latestRec);
-  toast(`📦 ${c.name} の持込QRを発行しました。ラベル印刷中...`);
-  // PC監視スクリプトへの通知は Firebase 経由で自動（printQueue に追加）
-  await set(ref(db,`printQueue/${token}`),{...qrData, status:'pending'});
+  return token;
 }
 
-// 管理記録から手動でQR再発行
+// 管理・記録画面からQR発行＋B5印刷プレビュー表示
+window.printDeliveryQR=async function(date, cid, carrierName){
+  // 既存トークンがあれば再利用、なければ新規発行
+  const k=cid;
+  const recSnap=await get(ref(db,whPath(`records/${date}/${k}`)));
+  const rec=recSnap.val()||{};
+  let token=rec.deliveryQRToken;
+
+  // 既存トークンが「使用済み」なら新規発行、なければそのまま使う
+  if(token){
+    const qrSnap=await get(ref(db,`deliveryQR/${token}`));
+    const qrVal=qrSnap.val();
+    if(!qrVal||qrVal.used){
+      token=null; // 使用済み or 存在しない → 再発行
+    }
+  }
+  if(!token){
+    const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
+    token=await issueDeliveryQR(k,c,rec);
+    toast(`📦 ${carrierName} の持込QRを発行しました`);
+    if(date===today())renderRecords();
+  }
+
+  await showQRPrintPreview(token, carrierName, date);
+};
+
+// QR再発行（強制的に新しいトークンを作る）
 window.reissueDeliveryQR=async function(date, cid, carrierName){
   if(!confirm(`${carrierName} の持込QRを再発行しますか？\n（再発行すると古いQRは無効になります）`))return;
   const k=cid;
   const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
   const rec={};
-  await issueDeliveryQR(k,c,rec);
+  const token=await issueDeliveryQR(k,c,rec);
+  toast(`📦 ${carrierName} の持込QRを再発行しました`);
+  renderRecords();
+  await showQRPrintPreview(token, carrierName, date);
 };
+
+// ===== B5印刷プレビュー =====
+async function showQRPrintPreview(token, carrierName, date){
+  const SIGN_PAGE_URL='https://fitbutsuryu-cpu.github.io/logistics-app/sign.html';
+  const signUrl=`${SIGN_PAGE_URL}?token=${token}`;
+  const wh=WHs.find(w=>w.id===CWH);
+  const whName=wh?wh.name:'';
+
+  // QRコードをcanvasに生成→DataURLに変換
+  const qrCanvas=document.createElement('canvas');
+  await QRCode.toCanvas(qrCanvas, signUrl, { width:500, margin:2, errorCorrectionLevel:'H' });
+  const qrDataUrl=qrCanvas.toDataURL('image/png');
+
+  const printArea=document.getElementById('print-area');
+  printArea.innerHTML=`
+    <div class="qr-print-page">
+      <div class="qr-print-title">持込確認サイン用QRコード</div>
+      <div class="qr-print-sub">${esc(whName)}　${esc(date)}</div>
+      <div class="qr-print-carrier">${esc(carrierName)}</div>
+      <img class="qr-print-img" src="${qrDataUrl}">
+      <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
+      <div class="qr-print-token">Token: ${esc(token)}</div>
+    </div>`;
+  window.print();
+}
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
   const k=editCid;
@@ -1392,11 +1459,13 @@ window.renderRecords=async function(){
     let deliveryCell='—';
     if(c.type==='delivery'){
       if(rec.deliverySign){
-        deliveryCell=`<img class="sign-th" src="${rec.deliverySign}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span>`;
+        deliveryCell=`<img class="sign-th" src="${rec.deliverySign}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
       } else if(rec.deliveryQRToken){
-        deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
+        deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="printDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">🖨️ 再印刷</button>`;
       } else if(rec.departTime){
-        deliveryCell=`<button class="edit-btn" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR発行</button>`;
+        deliveryCell=`<button class="edit-btn" onclick="printDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">🖨️ QR印刷</button>`;
+      } else {
+        deliveryCell=`<span style="font-size:10px;color:var(--th);">退場後に印刷可</span>`;
       }
     }
     html+=`<tr>
