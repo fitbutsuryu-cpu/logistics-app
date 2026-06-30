@@ -1895,6 +1895,27 @@ async function cleanOldRecords(){
   }catch(e){console.error('自動削除エラー:',e);}
 }
 
+// ===== 日付変更の自動検知 =====
+let lastCheckedDate=today();
+setInterval(()=>{
+  const nowDate=today();
+  if(nowDate!==lastCheckedDate){
+    lastCheckedDate=nowDate;
+    // 日付が変わったら選択日付を今日にリセット
+    selectedInboundDate=nowDate;
+    // マスタータブが開いていれば日付タブを再描画
+    const mp=document.getElementById('page-master');
+    if(mp&&mp.classList.contains('active')){
+      masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+      masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
+      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+      renderInboundDateTabs();
+      renderCharterArea();renderTruckArea();renderContainerArea();
+    }
+    toast('日付が変わりました（'+nowDate+'）');
+  }
+},60000); // 1分ごとにチェック
+
 // ===== 初期化 =====
 updateDate();setInterval(updateDate,60000);
 signInAnonymously(auth).then(()=>{
