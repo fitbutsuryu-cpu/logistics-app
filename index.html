@@ -1300,14 +1300,17 @@ window.printDeliveryQR=async function(date, cid, carrierName){
       token=null; // 使用済み or 存在しない → 再発行
     }
   }
+  let needsRefresh=false;
   if(!token){
     const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
     token=await issueDeliveryQR(k,c,rec);
     toast(`📦 ${carrierName} の持込QRを発行しました`);
-    if(date===today())renderRecords();
+    needsRefresh=true;
   }
 
+  // 先に印刷プレビューを表示してから、裏でテーブルを再描画する
   await showQRPrintPreview(token, carrierName, date);
+  if(needsRefresh&&date===today())renderRecords();
 };
 
 // QR再発行（強制的に新しいトークンを作る）
@@ -1318,8 +1321,8 @@ window.reissueDeliveryQR=async function(date, cid, carrierName){
   const rec={};
   const token=await issueDeliveryQR(k,c,rec);
   toast(`📦 ${carrierName} の持込QRを再発行しました`);
-  renderRecords();
   await showQRPrintPreview(token, carrierName, date);
+  renderRecords();
 };
 
 // ===== B5印刷プレビュー =====
@@ -1330,9 +1333,16 @@ async function showQRPrintPreview(token, carrierName, date){
   const whName=wh?wh.name:'';
 
   // QRコードをcanvasに生成→DataURLに変換
-  const qrCanvas=document.createElement('canvas');
-  await QRCode.toCanvas(qrCanvas, signUrl, { width:500, margin:2, errorCorrectionLevel:'H' });
-  const qrDataUrl=qrCanvas.toDataURL('image/png');
+  let qrDataUrl='';
+  try{
+    const qrCanvas=document.createElement('canvas');
+    await QRCode.toCanvas(qrCanvas, signUrl, { width:500, margin:2, errorCorrectionLevel:'H' });
+    qrDataUrl=qrCanvas.toDataURL('image/png');
+  }catch(e){
+    console.error('QRコード生成エラー:',e);
+    toast('⚠️ QRコード生成に失敗しました');
+    return;
+  }
 
   const printArea=document.getElementById('print-area');
   printArea.innerHTML=`
@@ -1344,6 +1354,16 @@ async function showQRPrintPreview(token, carrierName, date){
       <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
       <div class="qr-print-token">Token: ${esc(token)}</div>
     </div>`;
+
+  // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
+  const img=printArea.querySelector('img.qr-print-img');
+  await new Promise(resolve=>{
+    if(img.complete){resolve();}
+    else{img.onload=resolve;img.onerror=resolve;}
+  });
+  // 1フレーム分待ってブラウザの描画を確定させる
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
   window.print();
 }
 window.clearEditSign=async function(signKey){
