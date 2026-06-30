@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>物流時間管理システム</title>
+<title>ALINCO LOGITIME — 物流時間管理システム</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' rx='28' fill='%230C447C'/%3E%3Cpath d='M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90' fill='none' stroke='%23FFFFFF' stroke-width='11' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 102 117 L 129 117 L 129 75' fill='none' stroke='%2302C39A' stroke-width='11' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 :root{
   --bl50:#E6F1FB;--bl200:#85B7EB;--bl600:#185FA5;--bl800:#0C447C;
@@ -25,9 +26,12 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 
 /* NAV */
 .nav{background:var(--bl800);color:#fff;display:flex;align-items:center;height:60px;position:sticky;top:0;z-index:100;}
-.nav-logo{padding:0 12px;white-space:nowrap;display:flex;flex-direction:column;line-height:1.3;}
-.nav-logo .app{font-size:10px;color:rgba(255,255,255,.6);}
-.nav-logo .wh{font-size:14px;color:#fff;font-weight:600;}
+.nav-logo{padding:0 12px;white-space:nowrap;display:flex;align-items:center;gap:10px;}
+.nav-logo-mark{width:34px;height:34px;border-radius:9px;background:var(--bl600);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.nav-logo-mark svg{width:22px;height:22px;display:block;}
+.nav-logo-text{display:flex;flex-direction:column;line-height:1.25;}
+.nav-logo-text .brand{font-size:13px;font-weight:700;color:#fff;letter-spacing:.3px;}
+.nav-logo-text .wh{font-size:10.5px;color:rgba(255,255,255,.65);}
 .nav-tabs{display:flex;flex:1;overflow-x:auto;scrollbar-width:none;}
 .nav-tabs::-webkit-scrollbar{display:none;}
 .nav-tab{padding:0 12px;height:60px;display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;color:rgba(255,255,255,.65);transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:inherit;}
@@ -53,8 +57,9 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 /* 倉庫選択 */
 .wh-sel{position:fixed;inset:0;background:var(--bl800);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 24px;overflow-y:auto;gap:0;}
 .wh-sel.h{display:none;}
-.wh-logo{font-size:36px;margin-bottom:10px;}
-.wh-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:4px;}
+.wh-logo-mark{width:72px;height:72px;border-radius:18px;background:var(--bl600);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+.wh-logo-mark svg{width:46px;height:46px;display:block;}
+.wh-title{font-size:26px;font-weight:700;color:#fff;margin-bottom:4px;letter-spacing:.5px;}
 .wh-sub{font-size:13px;color:rgba(255,255,255,.65);margin-bottom:28px;}
 .wh-grid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;}
 .wh-btn{background:#fff;border:none;border-radius:var(--r);padding:18px 20px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;font-family:inherit;}
@@ -305,12 +310,18 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 @media print{
   body>*:not(#print-area){display:none !important;}
   #print-area{display:block !important;}
-  table{width:100%;border-collapse:collapse;font-size:11px;}
-  th{background:#f0f0f0 !important;padding:5px 7px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
-  td{padding:4px 7px;border:1px solid #999;}
+  table{width:100%;border-collapse:collapse;font-size:10px;}
+  th{background:#f0f0f0 !important;padding:3px 5px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
+  td{padding:2px 5px;border:1px solid #999;}
 
-  /* B5サイズ印刷設定（QR印刷専用） */
-  @page{size:B5;margin:15mm;}
+  /* デフォルト：守衛連絡リスト用（上下左右の余白を最小化） */
+  @page{margin:5mm 10mm;}
+  .guard-print-wrap{padding:0;}
+  .guard-print-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+  .guard-print-section{margin-bottom:8px;}
+  .guard-print-section-title{font-size:12px;font-weight:700;border-bottom:1.5px solid #333;padding-bottom:2px;margin-bottom:3px;}
+
+  /* QR印刷専用ページ（B5サイズ・別レイアウト） */
   .qr-print-page{
     width:100%;
     height:100%;
@@ -320,6 +331,9 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     justify-content:center;
     text-align:center;
     page-break-after:avoid;
+  }
+  .qr-print-page.b5-page{
+    /* このページのみB5サイズ余白を上書き適用 */
   }
   .qr-print-title{font-size:22px;font-weight:700;color:#1E293B;margin-bottom:6px;}
   .qr-print-sub{font-size:13px;color:#64748B;margin-bottom:18px;}
@@ -335,8 +349,14 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 
 <!-- 倉庫選択 -->
 <div class="wh-sel" id="wh-sel">
-  <div class="wh-logo">🏭</div>
-  <div class="wh-title">物流時間管理システム</div>
+  <div class="wh-logo-mark">
+    <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 102 117 L 129 117 L 129 75" fill="none" stroke="#02C39A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="wh-title">ALINCO LOGITIME</div>
+  <div class="wh-sub" style="margin-bottom:4px;">物流時間管理システム</div>
   <div class="wh-sub">倉庫を選択してください</div>
   <div class="wh-grid" id="wh-grid"></div>
   <div class="wh-add-box">
@@ -369,7 +389,18 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 
 <!-- NAV -->
 <nav class="nav">
-  <div class="nav-logo"><span class="app">🚚 物流管理</span><span class="wh" id="nav-wh">—</span></div>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 102 117 L 129 117 L 129 75" fill="none" stroke="#02C39A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="nav-logo-text">
+      <span class="brand">ALINCO LOGITIME</span>
+      <span class="wh" id="nav-wh">—</span>
+    </div>
+  </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('office')" id="tab-office">🏢 事務所</button>
     <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
@@ -3512,11 +3543,11 @@ let todayContainerRows=[];
 // マスター入力欄用（選択日付のデータ・タッチ画面とは完全分離）
 let masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
 let masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-let masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+let masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
 // 動的入力行（ローカルのみ・保存不要の表示用、FirebaseのinboundDataと同期）
 let charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
 let truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-let containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+let containerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
 const debMap={};
 // ロック状態
 let unlockedPages=new Set(['office','field']);
@@ -3662,7 +3693,7 @@ window.switchWh=function(){
   state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inbound:{charter:{},truck:{},container:{}}};
   charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
   truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-  containerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+  containerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
   selOff=null;selFld=null;prevEntered=new Set();CWH=null;
   document.getElementById('wh-sel').classList.remove('h');
   renderWHSel();
@@ -3746,12 +3777,12 @@ function startListeners(){
     // 今日分はタッチ画面用変数にのみ保存（masterRowsは触らない）
     todayCharterRows=d.charter?Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''})):[];
     todayTruckRows=d.truck?Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''})):[];
-    todayContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''})):[];
+    todayContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',contType:r.contType||'',time:r.time||''})):[];
     // マスターで今日が選択中ならmasterRowsも更新して入力欄を再描画
     if(selectedInboundDate===today()){
       masterCharterRows=todayCharterRows.length?[...todayCharterRows]:[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
       masterTruckRows=todayTruckRows.length?[...todayTruckRows]:[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-      masterContainerRows=todayContainerRows.length?[...todayContainerRows]:[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+      masterContainerRows=todayContainerRows.length?[...todayContainerRows]:[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
       const mp=document.getElementById('page-master');
       if(mp&&mp.classList.contains('active')){
         renderCharterArea();renderTruckArea();renderContainerArea();
@@ -3816,7 +3847,7 @@ window.switchInboundDate=async function(date){
   // マスター入力欄専用変数に読み込む（タッチ画面変数は触らない）
   masterCharterRows=d.charter?Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''})):[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
   masterTruckRows=d.truck?Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carNum:r.carNum||'',time:r.time||''})):[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-  masterContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',time:r.time||''})):[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+  masterContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',contType:r.contType||'',time:r.time||''})):[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
   await renderInboundDateTabs();
   renderCharterArea();renderTruckArea();renderContainerArea();
 };
@@ -3866,12 +3897,9 @@ window.showPage=function(id){
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='master'){
-    selectedInboundDate=today();
-    if(!masterCharterRows.length)masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-    if(!masterTruckRows.length)masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-    if(!masterContainerRows.length)masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
-    renderMaster();renderCharterArea();renderTruckArea();renderContainerArea();
-    renderInboundDateTabs();
+    // 必ず今日のデータをFirebaseから読み直す（前回編集した別日付のデータが残らないように）
+    switchInboundDate(today());
+    renderMaster();
   }
   else if(id==='settings'){loadLockUI();}
   else renderCurrent();
@@ -4168,6 +4196,17 @@ window.reissueDeliveryQR=async function(date, cid, carrierName){
 };
 
 // ===== B5印刷プレビュー =====
+// ===== 印刷用@pageサイズ動的切替 =====
+function setPrintPageStyle(css){
+  let styleTag=document.getElementById('dynamic-print-style');
+  if(!styleTag){
+    styleTag=document.createElement('style');
+    styleTag.id='dynamic-print-style';
+    document.head.appendChild(styleTag);
+  }
+  styleTag.textContent=css;
+}
+
 async function showQRPrintPreview(token, carrierName, date){
   const SIGN_PAGE_URL='https://fitbutsuryu-cpu.github.io/logistics-app/sign.html';
   const signUrl=`${SIGN_PAGE_URL}?token=${token}`;
@@ -4199,6 +4238,9 @@ async function showQRPrintPreview(token, carrierName, date){
       <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
       <div class="qr-print-token">Token: ${esc(token)}</div>
     </div>`;
+
+  // QR印刷専用：B5サイズの@pageを動的適用
+  setPrintPageStyle('@media print { @page { size: B5; margin: 15mm; } }');
 
   // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
   const img=printArea.querySelector('img.qr-print-img');
@@ -4533,6 +4575,7 @@ function renderContainerArea(){
     <div class="dyn-row">
       <span class="dyn-row-num">${i+1}</span>
       <input type="text" placeholder="コンテナNo" value="${esc(r.containerNo||'')}" oninput="updK(${i},'containerNo',this.value)" onblur="blurK(${i})" style="max-width:200px;">
+      <input type="text" placeholder="種別" value="${esc(r.contType||'')}" oninput="updK(${i},'contType',this.value)" onblur="blurK(${i})" style="max-width:90px;">
       <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updK(${i},'time',this.value)" onblur="blurK(${i})" style="max-width:80px;">
     </div>`).join('');
 }
@@ -4540,7 +4583,7 @@ function renderContainerArea(){
 function hasCont(row,t){
   if(t==='c')return!!(row.carrier||row.realCarrier||row.carNum||row.carType||row.dest||row.addr||row.time);
   if(t==='t')return!!(row.origin||row.carrier||row.carNum||row.time);
-  if(t==='k')return!!(row.containerNo||row.time);
+  if(t==='k')return!!(row.containerNo||row.contType||row.time);
 }
 // inbound保存（日付付きパス）
 function inboundPath(type){return whPath(`inboundData/${selectedInboundDate}/${type}`);}
@@ -4566,13 +4609,13 @@ function saveContainer(){debSave('k',async()=>{
 
 window.updC=function(i,f,v){if(!masterCharterRows[i])masterCharterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};masterCharterRows[i][f]=v;saveCharter();};
 window.updT=function(i,f,v){if(!masterTruckRows[i])masterTruckRows[i]={origin:'',carrier:'',carNum:'',time:''};masterTruckRows[i][f]=v;saveTruck();};
-window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={containerNo:'',time:''};masterContainerRows[i][f]=v;saveContainer();};
+window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={containerNo:'',contType:'',time:''};masterContainerRows[i][f]=v;saveContainer();};
 window.blurC=function(i){if(i===masterCharterRows.length-1&&hasCont(masterCharterRows[i],'c')){masterCharterRows.push({_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
 window.blurT=function(i){if(i===masterTruckRows.length-1&&hasCont(masterTruckRows[i],'t')){masterTruckRows.push({_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
-window.blurK=function(i){if(i===masterContainerRows.length-1&&hasCont(masterContainerRows[i],'k')){masterContainerRows.push({_uid:'k'+Date.now(),containerNo:'',time:''});renderContainerArea();}};
+window.blurK=function(i){if(i===masterContainerRows.length-1&&hasCont(masterContainerRows[i],'k')){masterContainerRows.push({_uid:'k'+Date.now(),containerNo:'',contType:'',time:''});renderContainerArea();}};
 window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,inboundPath('charter')),null);renderCharterArea();renderInboundDateTabs();toast('リセットしました');};
 window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,inboundPath('truck')),null);renderTruckArea();renderInboundDateTabs();toast('リセットしました');};
-window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];await set(ref(db,inboundPath('container')),null);renderContainerArea();renderInboundDateTabs();toast('リセットしました');};
+window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];await set(ref(db,inboundPath('container')),null);renderContainerArea();renderInboundDateTabs();toast('リセットしました');};
 
 // Excel取込
 window.importExcel=function(ev){
@@ -4649,10 +4692,10 @@ window.renderGuard=async function(){
     truckRows2.length?truckRows2:[['（なし）','','','','','']],'tbl-t');
 
   // ④ コンテナ入庫（選択日付のinboundData）
-  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.time||'','','']);
+  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.contType||'',r.time||'','','']);
   document.getElementById('gd-container').innerHTML=makeGdTable(
-    ['コンテナNo','入場依頼時間','入場時間','退場時間'],
-    contRows2.length?contRows2:[['（なし）','','','']],'tbl-k');
+    ['コンテナNo','種別','入場依頼時間','入場時間','退場時間'],
+    contRows2.length?contRows2:[['（なし）','','','','']],'tbl-k');
 };
 
 window.printGuard=function(){
@@ -4662,12 +4705,14 @@ window.printGuard=function(){
     const tbl=document.getElementById(id);if(!tbl)return'';
     const ths=Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
     const trs=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>Array.from(tr.querySelectorAll('td')).map(td=>td.textContent));
-    return`<div style="margin-bottom:18px;"><div style="font-size:13px;font-weight:700;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:6px;">${title}</div><table><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return`<div class="guard-print-section"><div class="guard-print-section-title">${title}</div><table><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
-  document.getElementById('print-area').innerHTML=`<div style="padding:20px;">
-    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
+  document.getElementById('print-area').innerHTML=`<div class="guard-print-wrap">
+    <div class="guard-print-title">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
     ${tblHtml('tbl-r','🚌 路線出荷')}${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
   </div>`;
+  // 守衛連絡リスト印刷：標準の最小余白に戻す（QR印刷のB5設定を上書き）
+  setPrintPageStyle('@media print { @page { size: auto; margin: 5mm 10mm; } }');
   window.print();
 };
 
@@ -4842,7 +4887,7 @@ setInterval(()=>{
     if(mp&&mp.classList.contains('active')){
       masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
       masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
-      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',time:''}];
+      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
       renderInboundDateTabs();
       renderCharterArea();renderTruckArea();renderContainerArea();
     }
