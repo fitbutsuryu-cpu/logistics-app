@@ -3827,12 +3827,12 @@ async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
     spot_charter:'チャーター出荷', charter:'専属チャーター',
     truck_in:'トラック入庫', container_in:'コンテナ入庫',
     delivery:'持込'
-  }[type]||'';
+  }[type]||'運送会社';
 
   // メッセージ本文を組み立て
-  let msg=`🚪 入場記録 — ALINCO LOGITIME\n\n`;
+  let msg='🚪 入場記録 — ALINCO LOGITIME\n\n';
   msg+=`🏭 倉庫：${whName}\n`;
-  msg+=`🚚 ${typeLabel||'運送会社'}：${carrierName}\n`;
+  msg+=`🚚 ${typeLabel}：${carrierName}\n`;
   if(type==='spot_charter'){
     if(extra.realCarrier) msg+=`🚛 実車名：${extra.realCarrier}\n`;
     if(extra.carNum)      msg+=`🔢 車番：${extra.carNum}\n`;
@@ -3845,7 +3845,6 @@ async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
   msg+=`📅 日付：${today()}`;
 
   try{
-    // Teamsワークフロー（Webhookアラート）の形式
     await fetch(TEAMS_WEBHOOK_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
