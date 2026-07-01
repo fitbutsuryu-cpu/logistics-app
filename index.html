@@ -137,10 +137,6 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 .inbound-info-title{font-size:11px;font-weight:600;color:var(--tr600);margin-bottom:5px;}
 .inbound-info-body{font-size:12px;color:var(--tx);white-space:pre-wrap;line-height:1.6;}
 
-/* NOTIFY BANNER */
-.notify{position:fixed;top:68px;left:50%;transform:translateX(-50%);background:var(--bl800);color:#fff;padding:12px 22px;border-radius:30px;font-size:14px;font-weight:600;z-index:400;display:flex;align-items:center;gap:9px;box-shadow:0 4px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
-.notify.s{opacity:1;}
-
 /* RECORDS */
 .rec-hdr{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 0;flex-wrap:wrap;gap:12px;}
 .rec-hdr h1{font-size:20px;font-weight:600;}
@@ -371,9 +367,6 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 
 <!-- ローディング -->
 <div class="ov h" id="ov"><div class="sp"></div><p>接続中...</p></div>
-
-<!-- 通知バナー -->
-<div class="notify" id="notify">🔔 <span id="notify-txt"></span></div>
 
 <!-- パスワードロック（NAV下・タブは見える） -->
 <div class="lock-modal h" id="lock-modal">
@@ -3534,7 +3527,6 @@ let state={carriers:[],records:{},shipData:{},visibility:{},guardCheck:{},inboun
 let selOff=null,selFld=null;
 let signMode='',signCid='';
 let signCtx,signDraw=false;
-let prevEntered=new Set();
 let selectedInboundDate=today(); // マスターで選択中の日付
 // タッチ画面用（今日分のみ・Firebaseリスナーで自動更新）
 let todayCharterRows=[];
@@ -3694,7 +3686,7 @@ window.switchWh=function(){
   charterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
   truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];
   containerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
-  selOff=null;selFld=null;prevEntered=new Set();CWH=null;
+  selOff=null;selFld=null;CWH=null;
   document.getElementById('wh-sel').classList.remove('h');
   renderWHSel();
 };
@@ -3756,15 +3748,13 @@ function startListeners(){
     // 最初のデータ受信後に90日削除実行
     cleanOldRecords();
   });
-  onValue(ref(db,whPath(`records/${today()}`)),snap=>{
+  onValue(ref(db,whPath(`records/${today()}`)),async snap=>{
     const newRec=snap.val()||{};
-    // 通知チェック
-    Object.entries(newRec).forEach(([k,r])=>{
-      if(r.enterTime&&!prevEntered.has(k)){
+    // 通知チェック（FirebaseのteamsNotifiedフラグで重複送信を防止）
+    for(const [k,r] of Object.entries(newRec)){
+      if(r.enterTime&&!r.teamsNotified){
         const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
         if(c){
-          showNotify(`${c.short||c.name}が入場しました (${r.enterTime})`);
-          // 種別に応じた追加情報を構築
           const extra={};
           if(c._dyn){
             if(c.type==='spot_charter'){
@@ -3773,14 +3763,14 @@ function startListeners(){
             } else if(c.type==='truck_in'){
               if(c._info) extra.truckInfo=c._info;
             } else if(c.type==='container_in'){
-              extra.containerNo=c.name; // コンテナNoが会社名として入っている
+              extra.containerNo=c.name;
             }
           }
-          sendTeamsNotify(c.name, r.enterTime, c.type, extra);
+          await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
+          await set(ref(db,whPath(`records/${today()}/${k}/teamsNotified`)),true);
         }
-        prevEntered.add(k);
       }
-    });
+    }
     state.records[today()]=newRec;renderCurrent();
   });
   onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
@@ -3807,13 +3797,6 @@ function startListeners(){
   });
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
-function showNotify(msg){
-  const b=document.getElementById('notify');document.getElementById('notify-txt').textContent=msg;
-  b.classList.add('s');
-  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=0.2;o.start();o.stop(ctx.currentTime+0.2);}catch(e){}
-  setTimeout(()=>b.classList.remove('s'),4000);
-}
-
 // ===== Teams通知（Power Automate経由） =====
 const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c47ddbcdda034be3b78483bfa3d4b626/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fpEvXXKMEKqKSrcMWHYTFVoYPhU_9TqcwoYVcXT5R-4';
 
