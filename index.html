@@ -3803,20 +3803,34 @@ function showNotify(msg){
 }
 
 // ===== Teams通知（Power Automate経由） =====
-const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/e717d98ad03e48dbaca6f2df48e915cd/triggers/manual/paths/invoke?api-version=1';
+const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/a552a7c4c2554eacac46aeace0affff4/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ofzrSU0-2EmYPj2v7AeDtMpl--prSVfEb2lxtaZBiZY';
 
 async function sendTeamsNotify(carrierName, enterTime){
   if(!TEAMS_WEBHOOK_URL)return;
   const wh=WHs.find(w=>w.id===CWH);
+  const whName=wh?wh.name:'';
   try{
     await fetch(TEAMS_WEBHOOK_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        carrierName: carrierName,
-        enterTime: enterTime,
-        warehouseName: wh?wh.name:'',
-        date: today()
+        type:'message',
+        attachments:[{
+          contentType:'application/vnd.microsoft.card.adaptive',
+          content:{
+            type:'AdaptiveCard',
+            version:'1.2',
+            body:[
+              {type:'TextBlock',text:'🚪 入場記録 — ALINCO LOGITIME',weight:'Bolder',size:'Medium'},
+              {type:'FactSet',facts:[
+                {title:'🏭 倉庫',value:whName},
+                {title:'🚚 運送会社',value:carrierName},
+                {title:'⏰ 入場時刻',value:enterTime},
+                {title:'📅 日付',value:today()}
+              ]}
+            ]
+          }
+        }]
       })
     });
   }catch(e){
