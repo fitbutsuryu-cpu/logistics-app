@@ -3764,7 +3764,19 @@ function startListeners(){
         const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
         if(c){
           showNotify(`${c.short||c.name}が入場しました (${r.enterTime})`);
-          sendTeamsNotify(c.name, r.enterTime);
+          // 種別に応じた追加情報を構築
+          const extra={};
+          if(c._dyn){
+            if(c.type==='spot_charter'){
+              if(c._realCarrier) extra.realCarrier=c._realCarrier;
+              if(c._carNum) extra.carNum=c._carNum;
+            } else if(c.type==='truck_in'){
+              if(c._info) extra.truckInfo=c._info;
+            } else if(c.type==='container_in'){
+              extra.containerNo=c.name; // コンテナNoが会社名として入っている
+            }
+          }
+          sendTeamsNotify(c.name, r.enterTime, c.type, extra);
         }
         prevEntered.add(k);
       }
@@ -3805,33 +3817,39 @@ function showNotify(msg){
 // ===== Teams通知（Power Automate経由） =====
 const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c47ddbcdda034be3b78483bfa3d4b626/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fpEvXXKMEKqKSrcMWHYTFVoYPhU_9TqcwoYVcXT5R-4';
 
-async function sendTeamsNotify(carrierName, enterTime){
+async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
   if(!TEAMS_WEBHOOK_URL)return;
   const wh=WHs.find(w=>w.id===CWH);
   const whName=wh?wh.name:'';
+
+  const typeLabel={
+    regular:'定期便', irregular:'不定期便',
+    spot_charter:'チャーター出荷', charter:'専属チャーター',
+    truck_in:'トラック入庫', container_in:'コンテナ入庫',
+    delivery:'持込'
+  }[type]||'';
+
+  // メッセージ本文を組み立て
+  let msg=`🚪 入場記録 — ALINCO LOGITIME\n\n`;
+  msg+=`🏭 倉庫：${whName}\n`;
+  msg+=`🚚 ${typeLabel||'運送会社'}：${carrierName}\n`;
+  if(type==='spot_charter'){
+    if(extra.realCarrier) msg+=`🚛 実車名：${extra.realCarrier}\n`;
+    if(extra.carNum)      msg+=`🔢 車番：${extra.carNum}\n`;
+  } else if(type==='truck_in'){
+    if(extra.truckInfo)   msg+=`📋 ${extra.truckInfo}\n`;
+  } else if(type==='container_in'){
+    if(extra.containerNo) msg+=`📦 コンテナNo：${extra.containerNo}\n`;
+  }
+  msg+=`⏰ 入場時刻：${enterTime}\n`;
+  msg+=`📅 日付：${today()}`;
+
   try{
+    // Teamsワークフロー（Webhookアラート）の形式
     await fetch(TEAMS_WEBHOOK_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        type:'message',
-        attachments:[{
-          contentType:'application/vnd.microsoft.card.adaptive',
-          content:{
-            type:'AdaptiveCard',
-            version:'1.2',
-            body:[
-              {type:'TextBlock',text:'🚪 入場記録 — ALINCO LOGITIME',weight:'Bolder',size:'Medium'},
-              {type:'FactSet',facts:[
-                {title:'🏭 倉庫',value:whName},
-                {title:'🚚 運送会社',value:carrierName},
-                {title:'⏰ 入場時刻',value:enterTime},
-                {title:'📅 日付',value:today()}
-              ]}
-            ]
-          }
-        }]
-      })
+      body:JSON.stringify({text: msg})
     });
   }catch(e){
     console.warn('Teams通知の送信に失敗しました:',e);
