@@ -3829,26 +3829,50 @@ async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
     delivery:'持込'
   }[type]||'運送会社';
 
-  // メッセージ本文を組み立て
-  let msg='🚪 入場記録 — ALINCO LOGITIME\n\n';
-  msg+=`🏭 倉庫：${whName}\n`;
-  msg+=`🚚 ${typeLabel}：${carrierName}\n`;
+  // カード本文のブロックを組み立て
+  const facts=[
+    {title:'🏭 倉庫',value:whName},
+    {title:`🚚 ${typeLabel}`,value:carrierName},
+  ];
   if(type==='spot_charter'){
-    if(extra.realCarrier) msg+=`🚛 実車名：${extra.realCarrier}\n`;
-    if(extra.carNum)      msg+=`🔢 車番：${extra.carNum}\n`;
+    if(extra.realCarrier) facts.push({title:'🚛 実車名',value:extra.realCarrier});
+    if(extra.carNum)      facts.push({title:'🔢 車番',value:extra.carNum});
   } else if(type==='truck_in'){
-    if(extra.truckInfo)   msg+=`📋 ${extra.truckInfo}\n`;
+    if(extra.truckInfo)   facts.push({title:'📋 詳細',value:extra.truckInfo});
   } else if(type==='container_in'){
-    if(extra.containerNo) msg+=`📦 コンテナNo：${extra.containerNo}\n`;
+    if(extra.containerNo) facts.push({title:'📦 コンテナNo',value:extra.containerNo});
   }
-  msg+=`⏰ 入場時刻：${enterTime}\n`;
-  msg+=`📅 日付：${today()}`;
+  facts.push({title:'⏰ 入場時刻',value:enterTime});
+  facts.push({title:'📅 日付',value:today()});
 
   try{
     await fetch(TEAMS_WEBHOOK_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text: msg})
+      body:JSON.stringify({
+        type:'message',
+        attachments:[{
+          contentType:'application/vnd.microsoft.card.adaptive',
+          content:{
+            '$schema':'http://adaptivecards.io/schemas/adaptive-card.json',
+            type:'AdaptiveCard',
+            version:'1.4',
+            body:[
+              {
+                type:'TextBlock',
+                text:'🚪 入場記録 — ALINCO LOGITIME',
+                weight:'Bolder',
+                size:'Medium',
+                color:'Accent'
+              },
+              {
+                type:'FactSet',
+                facts: facts
+              }
+            ]
+          }
+        }]
+      })
     });
   }catch(e){
     console.warn('Teams通知の送信に失敗しました:',e);
