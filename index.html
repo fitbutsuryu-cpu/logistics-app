@@ -488,6 +488,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🚚 チャーター出荷入力</div>
       <div id="charter-area"></div>
       <div class="dyn-row-btns">
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="addCharterRow()">＋ 行追加</button>
         <button class="reset-btn" onclick="resetCharter()">🗑️ リセット</button>
         <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveCharterNow()">💾 今すぐ保存</button>
       </div>
@@ -498,6 +499,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">🛻 トラック入庫入力</div>
       <div id="truck-area"></div>
       <div class="dyn-row-btns">
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="addTruckRow()">＋ 行追加</button>
         <button class="reset-btn" onclick="resetTruck()">🗑️ リセット</button>
         <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveTruckNow()">💾 今すぐ保存</button>
       </div>
@@ -508,6 +510,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div style="font-size:13px;font-weight:600;color:var(--ts);margin-bottom:6px;">📦 コンテナ入庫入力</div>
       <div id="container-area"></div>
       <div class="dyn-row-btns">
+        <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="addContainerRow()">＋ 行追加</button>
         <button class="reset-btn" onclick="resetContainer()">🗑️ リセット</button>
         <button class="reset-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="saveContainerNow()">💾 今すぐ保存</button>
       </div>
@@ -4553,25 +4556,70 @@ window.toggleGuard=async function(cid){await fbSetGuard(cid,!isGuard(cid));};
 
 const shipDeb={};
 window.onShipInput=function(cid){
+  // 入力中インジケーター表示
+  const k=cid.replace(/[.#$/[\]]/g,'_');
+  const note=document.getElementById(`ship-note-${k}`);
+  if(note){note.textContent='✏️ 未保存';note.style.color='var(--am600)';}
   clearTimeout(shipDeb[cid]);
-  shipDeb[cid]=setTimeout(async()=>{
+  shipDeb[cid]=setTimeout(()=>saveShipData(cid),10000);
+};
+
+async function saveShipData(cid){
+  clearTimeout(shipDeb[cid]);
+  const k=cid.replace(/[.#$/[\]]/g,'_');
+  const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
+  if(!ce)return;
+  const existing=(state.shipData[today()]||{})[k]||{};
+  const updated={
+    count: ce.value!==''?ce.value:(existing.count??''),
+    qty:   qe.value!==''?qe.value:(existing.qty??''),
+    vol:   ve.value!==''?ve.value:(existing.vol??''),
+  };
+  await fbSetShip(cid,updated);
+  if(!state.shipData[today()])state.shipData[today()]={};
+  state.shipData[today()][k]=updated;
+  [ce,qe,ve].forEach(e=>{if(e){e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);}});
+  const note=document.getElementById(`ship-note-${k}`);
+  if(note){note.textContent='✅ 保存済';note.style.color='var(--gn600)';setTimeout(()=>{if(note)note.textContent='';},2000);}
+}
+window.saveShipNow=function(cid){saveShipData(cid);};
+
+// タブ切替・ページ離脱時に未保存の件数/個数/才数を強制保存
+async function flushAllShipData(){
+  const pending=Object.keys(shipDeb);
+  if(!pending.length)return;
+  for(const cid of pending){
+    clearTimeout(shipDeb[cid]);
+    delete shipDeb[cid];
+    await saveShipData(cid);
+  }
+}
+// タブが非表示になるとき（別タブに移動、ホームボタンなど）
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') flushAllShipData();
+});
+// ページを閉じる・リロードするとき
+window.addEventListener('beforeunload',()=>{
+  // beforeunloadはasyncが使えないため同期的に処理
+  Object.keys(shipDeb).forEach(cid=>{
+    clearTimeout(shipDeb[cid]);
+    delete shipDeb[cid];
     const k=cid.replace(/[.#$/[\]]/g,'_');
     const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
     if(!ce)return;
-    // 既存のFirebase値をベースに上書き（空欄のままの場合は既存値を保持）
     const existing=(state.shipData[today()]||{})[k]||{};
     const updated={
       count: ce.value!==''?ce.value:(existing.count??''),
       qty:   qe.value!==''?qe.value:(existing.qty??''),
       vol:   ve.value!==''?ve.value:(existing.vol??''),
     };
-    await fbSetShip(cid,updated);
-    // stateも更新
-    if(!state.shipData[today()])state.shipData[today()]={};
-    state.shipData[today()][k]=updated;
-    [ce,qe,ve].forEach(e=>{if(e){e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);}});
-  },3000);
-};
+    // 同期的なfetchは非推奨だがbeforeunloadでは仕方ない
+    // sendBeaconを使ってFirebase REST APIに送信
+    const url=`https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app/warehouses/${CWH}/shipData/${today()}/${k}.json`;
+    const blob=new Blob([JSON.stringify(updated)],{type:'application/json'});
+    navigator.sendBeacon(url,blob);
+  });
+});
 const reqDeb={};
 window.onReqTimeInput=function(cid,val){
   clearTimeout(reqDeb[cid]);
@@ -4613,8 +4661,12 @@ function renderMaster(){
         <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
         <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
         <input type="text" id="rt-${k}" value="${esc(rt)}" placeholder="依頼時間" style="max-width:70px;background:#FFF9C4;" oninput="onReqTimeInput('${c.id}',this.value)" title="入場依頼時間">
+        <button onclick="saveShipNow('${c.id}')" style="padding:5px 10px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;white-space:nowrap;">💾 保存</button>
       </div>
-      <div style="font-size:10px;color:var(--th);margin-top:3px;">件数/個数/才数/依頼時間 入力後1秒で自動保存</div>
+      <div style="font-size:10px;color:var(--th);margin-top:3px;display:flex;align-items:center;gap:8px;">
+        <span>件数/個数/才数 入力後10秒で自動保存</span>
+        <span id="ship-note-${k}" style="font-weight:600;"></span>
+      </div>
     </div>`;
   }).join('');
 }
@@ -4688,9 +4740,31 @@ function saveContainer(){debSave('k',async()=>{
 window.updC=function(i,f,v){if(!masterCharterRows[i])masterCharterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};masterCharterRows[i][f]=v;saveCharter();};
 window.updT=function(i,f,v){if(!masterTruckRows[i])masterTruckRows[i]={origin:'',carrier:'',carNum:'',time:''};masterTruckRows[i][f]=v;saveTruck();};
 window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={containerNo:'',contType:'',time:''};masterContainerRows[i][f]=v;saveContainer();};
-window.blurC=function(i){if(i===masterCharterRows.length-1&&hasCont(masterCharterRows[i],'c')){masterCharterRows.push({_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});renderCharterArea();}};
-window.blurT=function(i){if(i===masterTruckRows.length-1&&hasCont(masterTruckRows[i],'t')){masterTruckRows.push({_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''});renderTruckArea();}};
-window.blurK=function(i){if(i===masterContainerRows.length-1&&hasCont(masterContainerRows[i],'k')){masterContainerRows.push({_uid:'k'+Date.now(),containerNo:'',contType:'',time:''});renderContainerArea();}};
+// フォーカスアウト時の自動行追加を廃止（行追加ボタンで対応）
+window.blurC=function(i){};
+window.blurT=function(i){};
+window.blurK=function(i){};
+
+// 行追加ボタン
+window.addCharterRow=function(){
+  masterCharterRows.push({_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''});
+  renderCharterArea();
+  // 追加した行の最初の入力欄にフォーカス
+  const area=document.getElementById('charter-area');
+  if(area){const inputs=area.querySelectorAll('input');if(inputs.length)inputs[inputs.length-6]?.focus();}
+};
+window.addTruckRow=function(){
+  masterTruckRows.push({_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''});
+  renderTruckArea();
+  const area=document.getElementById('truck-area');
+  if(area){const inputs=area.querySelectorAll('input');if(inputs.length)inputs[inputs.length-4]?.focus();}
+};
+window.addContainerRow=function(){
+  masterContainerRows.push({_uid:'k'+Date.now(),containerNo:'',contType:'',time:''});
+  renderContainerArea();
+  const area=document.getElementById('container-area');
+  if(area){const inputs=area.querySelectorAll('input');if(inputs.length)inputs[inputs.length-3]?.focus();}
+};
 window.resetCharter=async function(){if(!confirm('チャーター出荷データをリセットしますか？'))return;masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];await set(ref(db,inboundPath('charter')),null);renderCharterArea();renderInboundDateTabs();toast('リセットしました');};
 window.resetTruck=async function(){if(!confirm('トラック入庫データをリセットしますか？'))return;masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carNum:'',time:''}];await set(ref(db,inboundPath('truck')),null);renderTruckArea();renderInboundDateTabs();toast('リセットしました');};
 window.resetContainer=async function(){if(!confirm('コンテナ入庫データをリセットしますか？'))return;masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];await set(ref(db,inboundPath('container')),null);renderContainerArea();renderInboundDateTabs();toast('リセットしました');};
