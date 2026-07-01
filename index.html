@@ -3529,7 +3529,9 @@ let signMode='',signCid='';
 let signCtx,signDraw=false;
 let selectedInboundDate=today();
 // Teams通知送信済みキャリアのローカルキャッシュ（Firebase書き込み完了前の二重送信防止）
-const teamsNotifiedLocal=new Set(); // マスターで選択中の日付
+const teamsNotifiedLocal=new Set();
+// 初回ロード時（ページ表示直後）は通知チェックをスキップするフラグ
+let isInitialLoad=true; // 初回ロード時の通知スキップフラグ
 // タッチ画面用（今日分のみ・Firebaseリスナーで自動更新）
 let todayCharterRows=[];
 let todayTruckRows=[];
@@ -3753,11 +3755,18 @@ function startListeners(){
   });
   onValue(ref(db,whPath(`records/${today()}`)),async snap=>{
     const newRec=snap.val()||{};
-    // 通知チェック
-    // ローカルSet + FirebaseのteamsNotifiedフラグ 両方で重複送信を防止
+    // 初回ロード時はスキップ（ページリロード時の誤通知防止）
+    if(isInitialLoad){
+      Object.entries(newRec).forEach(([k,r])=>{
+        if(r.enterTime) teamsNotifiedLocal.add(k);
+      });
+      isInitialLoad=false;
+      state.records[today()]=newRec;renderCurrent();
+      return;
+    }
+    // 通知チェック：ローカルSet + FirebaseフラグW両方で重複防止
     for(const [k,r] of Object.entries(newRec)){
       if(r.enterTime && !r.teamsNotified && !teamsNotifiedLocal.has(k)){
-        // 即座にローカルキャッシュに追加（Firebase書き込み前の二重送信を防ぐ）
         teamsNotifiedLocal.add(k);
         const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
         if(c){
@@ -3773,7 +3782,6 @@ function startListeners(){
             }
           }
           await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
-          // Firebase にも送信済みフラグを保存
           await set(ref(db,whPath(`records/${today()}/${k}/teamsNotified`)),true);
         }
       }
