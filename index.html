@@ -3762,7 +3762,10 @@ function startListeners(){
     Object.entries(newRec).forEach(([k,r])=>{
       if(r.enterTime&&!prevEntered.has(k)){
         const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
-        if(c)showNotify(`${c.short||c.name}が入場しました (${r.enterTime})`);
+        if(c){
+          showNotify(`${c.short||c.name}が入場しました (${r.enterTime})`);
+          sendTeamsNotify(c.name, r.enterTime);
+        }
         prevEntered.add(k);
       }
     });
@@ -3797,6 +3800,28 @@ function showNotify(msg){
   b.classList.add('s');
   try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;g.gain.value=0.2;o.start();o.stop(ctx.currentTime+0.2);}catch(e){}
   setTimeout(()=>b.classList.remove('s'),4000);
+}
+
+// ===== Teams通知（Power Automate経由） =====
+const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/e717d98ad03e48dbaca6f2df48e915cd/triggers/manual/paths/invoke?api-version=1';
+
+async function sendTeamsNotify(carrierName, enterTime){
+  if(!TEAMS_WEBHOOK_URL)return;
+  const wh=WHs.find(w=>w.id===CWH);
+  try{
+    await fetch(TEAMS_WEBHOOK_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        carrierName: carrierName,
+        enterTime: enterTime,
+        warehouseName: wh?wh.name:'',
+        date: today()
+      })
+    });
+  }catch(e){
+    console.warn('Teams通知の送信に失敗しました:',e);
+  }
 }
 
 // ===== 1週間分の日付タブ =====
