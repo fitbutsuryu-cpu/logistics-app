@@ -4677,36 +4677,39 @@ function debSave(key,fn){clearTimeout(debMap[key]);debMap[key]=setTimeout(fn,100
 function renderCharterArea(){
   const a=document.getElementById('charter-area');if(!a)return;
   a.innerHTML=masterCharterRows.map((r,i)=>`
-    <div class="dyn-row" style="flex-wrap:wrap;gap:5px;">
+    <div class="dyn-row" style="flex-wrap:wrap;gap:5px;align-items:center;">
       <span class="dyn-row-num">${i+1}</span>
-      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updC(${i},'carrier',this.value)" onblur="blurC(${i})" style="min-width:90px;flex:2;">
-      <input type="text" placeholder="実車名" value="${esc(r.realCarrier||'')}" oninput="updC(${i},'realCarrier',this.value)" onblur="blurC(${i})" style="min-width:80px;flex:2;">
-      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updC(${i},'carNum',this.value)" onblur="blurC(${i})" style="max-width:60px;flex:1;">
-      <input type="text" placeholder="車種" value="${esc(r.carType||'')}" oninput="updC(${i},'carType',this.value)" onblur="blurC(${i})" style="max-width:60px;flex:1;">
-      <input type="text" placeholder="納品先" value="${esc(r.dest||'')}" oninput="updC(${i},'dest',this.value)" onblur="blurC(${i})" style="min-width:80px;flex:2;">
-      <input type="text" placeholder="○○市" value="${esc(r.addr||'')}" oninput="updC(${i},'addr',this.value)" onblur="blurC(${i})" style="max-width:70px;flex:1;">
-      <input type="text" placeholder="依頼時間" value="${esc(r.time||'')}" oninput="updC(${i},'time',this.value)" onblur="blurC(${i})" style="max-width:65px;flex:1;">
+      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updC(${i},'carrier',this.value)" style="min-width:90px;flex:2;">
+      <input type="text" placeholder="実車名" value="${esc(r.realCarrier||'')}" oninput="updC(${i},'realCarrier',this.value)" style="min-width:80px;flex:2;">
+      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updC(${i},'carNum',this.value)" style="max-width:60px;flex:1;">
+      <input type="text" placeholder="車種" value="${esc(r.carType||'')}" oninput="updC(${i},'carType',this.value)" style="max-width:60px;flex:1;">
+      <input type="text" placeholder="納品先" value="${esc(r.dest||'')}" oninput="updC(${i},'dest',this.value)" style="min-width:80px;flex:2;">
+      <input type="text" placeholder="○○市" value="${esc(r.addr||'')}" oninput="updC(${i},'addr',this.value)" style="max-width:70px;flex:1;">
+      <input type="text" placeholder="依頼時間" value="${esc(r.time||'')}" oninput="updC(${i},'time',this.value)" style="max-width:65px;flex:1;">
+      ${masterCharterRows.length>1?`<button onclick="deleteCharterRow(${i})" style="padding:4px 8px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);cursor:pointer;font-size:11px;font-family:inherit;flex-shrink:0;">🗑️</button>`:''}
     </div>`).join('');
 }
 function renderTruckArea(){
   const a=document.getElementById('truck-area');if(!a)return;
   a.innerHTML=masterTruckRows.map((r,i)=>`
-    <div class="dyn-row">
+    <div class="dyn-row" style="align-items:center;">
       <span class="dyn-row-num">${i+1}</span>
-      <input type="text" placeholder="出荷元" value="${esc(r.origin||'')}" oninput="updT(${i},'origin',this.value)" onblur="blurT(${i})">
-      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updT(${i},'carrier',this.value)" onblur="blurT(${i})">
-      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updT(${i},'carNum',this.value)" onblur="blurT(${i})" style="max-width:65px;">
-      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updT(${i},'time',this.value)" onblur="blurT(${i})" style="max-width:65px;">
+      <input type="text" placeholder="出荷元" value="${esc(r.origin||'')}" oninput="updT(${i},'origin',this.value)">
+      <input type="text" placeholder="運送会社" value="${esc(r.carrier||'')}" oninput="updT(${i},'carrier',this.value)">
+      <input type="text" placeholder="車番" value="${esc(r.carNum||'')}" oninput="updT(${i},'carNum',this.value)" style="max-width:65px;">
+      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updT(${i},'time',this.value)" style="max-width:65px;">
+      ${masterTruckRows.length>1?`<button onclick="deleteTruckRow(${i})" style="padding:4px 8px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);cursor:pointer;font-size:11px;font-family:inherit;flex-shrink:0;">🗑️</button>`:''}
     </div>`).join('');
 }
 function renderContainerArea(){
   const a=document.getElementById('container-area');if(!a)return;
   a.innerHTML=masterContainerRows.map((r,i)=>`
-    <div class="dyn-row">
+    <div class="dyn-row" style="align-items:center;">
       <span class="dyn-row-num">${i+1}</span>
-      <input type="text" placeholder="コンテナNo" value="${esc(r.containerNo||'')}" oninput="updK(${i},'containerNo',this.value)" onblur="blurK(${i})" style="max-width:200px;">
-      <input type="text" placeholder="種別" value="${esc(r.contType||'')}" oninput="updK(${i},'contType',this.value)" onblur="blurK(${i})" style="max-width:90px;">
-      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updK(${i},'time',this.value)" onblur="blurK(${i})" style="max-width:80px;">
+      <input type="text" placeholder="コンテナNo" value="${esc(r.containerNo||'')}" oninput="updK(${i},'containerNo',this.value)" style="max-width:200px;">
+      <input type="text" placeholder="種別" value="${esc(r.contType||'')}" oninput="updK(${i},'contType',this.value)" style="max-width:90px;">
+      <input type="text" placeholder="時間" value="${esc(r.time||'')}" oninput="updK(${i},'time',this.value)" style="max-width:80px;">
+      ${masterContainerRows.length>1?`<button onclick="deleteContainerRow(${i})" style="padding:4px 8px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);cursor:pointer;font-size:11px;font-family:inherit;flex-shrink:0;">🗑️</button>`:''}
     </div>`).join('');
 }
 
@@ -4744,6 +4747,26 @@ window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={c
 window.blurC=function(i){};
 window.blurT=function(i){};
 window.blurK=function(i){};
+
+// 行削除（1行のみの場合は削除不可）
+window.deleteCharterRow=function(i){
+  if(masterCharterRows.length<=1)return;
+  masterCharterRows.splice(i,1);
+  renderCharterArea();
+  saveCharter();
+};
+window.deleteTruckRow=function(i){
+  if(masterTruckRows.length<=1)return;
+  masterTruckRows.splice(i,1);
+  renderTruckArea();
+  saveTruck();
+};
+window.deleteContainerRow=function(i){
+  if(masterContainerRows.length<=1)return;
+  masterContainerRows.splice(i,1);
+  renderContainerArea();
+  saveContainer();
+};
 
 // 行追加ボタン
 window.addCharterRow=function(){
