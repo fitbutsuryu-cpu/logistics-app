@@ -4025,11 +4025,12 @@ function makeCarrierBtn(c,mode){
   if((mode==='off'?selOff:selFld)===c.id)cls+=' sel';
   btn.className=cls;
   const extra=c._info?`<span class="c-extra">${esc(c._info)}</span>`:'';
-  // 定期便・不定期便は種別非表示、代わりに依頼時間を表示
-  const hideType=!c._dyn&&(c.type==='regular'||c.type==='irregular');
+  // 定期便・不定期便・持込は種別非表示、代わりに依頼時間を表示
+  const showReqTime=!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery');
+  const hideType=showReqTime;
   const typeHtml=hideType?'':
     `<span class="c-type">${c._label||tLabel(c.type)}</span>`;
-  const reqHtml=(!c._dyn&&(c.type==='regular'||c.type==='irregular'))
+  const reqHtml=showReqTime
     ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${getReqTime(c.id)}</span>`:'';
   btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span>${typeHtml}${reqHtml}<span class="c-st ${st.c}">${st.l}</span>${extra}`;
   btn.onclick=()=>{
@@ -4049,7 +4050,7 @@ function updateOffPanel(){
   const rec=getRecord(c.id);const st=stLabel(rec);
   document.getElementById('off-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
   let stxt=st.l;
-  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'))stxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
+  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery'))stxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
   if(!c._dyn&&c.type==='spot_charter'&&rec?.charterCarrierName)stxt+=` 実車:${rec.charterCarrierName}/${rec.charterCarNumber}`;
   document.getElementById('off-status').textContent=stxt;
   document.getElementById('btn-enter').disabled=!!(rec?.enterTime);
@@ -4132,7 +4133,7 @@ function updateFldPanel(){
   const st=stLabel(rec);
   document.getElementById('fld-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
   let fstxt=st.l;
-  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'))fstxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
+  if(!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery'))fstxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
   document.getElementById('fld-status').textContent=fstxt;
   document.getElementById('btn-sl').disabled=!!(rec.loadStartTime);
   document.getElementById('btn-el').disabled=!(rec.loadStartTime&&!rec.loadEndTime);
