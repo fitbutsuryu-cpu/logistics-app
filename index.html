@@ -3794,7 +3794,15 @@ function startListeners(){
           if(c._dyn){
             if(c.type==='spot_charter'){
               if(c._realCarrier) extra.realCarrier=c._realCarrier;
-              if(c._carNum) extra.carNum=c._carNum;
+              if(c._carNum)      extra.carNum=c._carNum;
+              if(c._dest||c._info){
+                // _infoから納品先を取得（"dest:○○市" 形式）
+                const destMatch=(c._info||'').match(/^([^/]+)/);
+                // getDynCarriersのdestフィールドを直接参照
+                const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
+                          todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
+                if(row&&row.dest) extra.dest=row.dest;
+              }
             } else if(c.type==='truck_in'){
               if(c._info) extra.truckInfo=c._info;
             } else if(c.type==='container_in'){
@@ -3837,8 +3845,6 @@ const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.enviro
 
 async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
   if(!TEAMS_WEBHOOK_URL)return;
-  const wh=WHs.find(w=>w.id===CWH);
-  const whName=wh?wh.name:'';
 
   const typeLabel={
     regular:'定期便', irregular:'不定期便',
@@ -3848,10 +3854,15 @@ async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
   }[type]||'運送会社';
 
   // カード本文のブロックを組み立て
-  const facts=[
-    {title:'🏭 倉庫',value:whName},
-    {title:`🚚 ${typeLabel}`,value:carrierName},
-  ];
+  const facts=[];
+
+  // チャーター出荷は納品先を一番上に
+  if(type==='spot_charter'&&extra.dest){
+    facts.push({title:'📍 納品先',value:extra.dest});
+  }
+
+  facts.push({title:`🚚 ${typeLabel}`,value:carrierName});
+
   if(type==='spot_charter'){
     if(extra.realCarrier) facts.push({title:'🚛 実車名',value:extra.realCarrier});
     if(extra.carNum)      facts.push({title:'🔢 車番',value:extra.carNum});
