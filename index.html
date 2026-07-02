@@ -317,37 +317,39 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   .guard-print-section{margin-bottom:8px;}
   .guard-print-section-title{font-size:12px;font-weight:700;border-bottom:1.5px solid #333;padding-bottom:2px;margin-bottom:3px;}
 
-  // QR印刷専用ページ（A5横サイズ）
+  // QR印刷専用ページ（A5横サイズ・左右2分割）
   .qr-print-page{
     width:100%;
     height:100%;
     display:flex;
     flex-direction:row;
-    align-items:center;
-    justify-content:center;
-    gap:20mm;
+    align-items:stretch;
+    gap:0;
     page-break-after:avoid;
+    box-sizing:border-box;
   }
   .qr-print-left{
+    flex:1;
     display:flex;
     flex-direction:column;
     justify-content:center;
-    flex:1;
+    padding:8mm 8mm 8mm 0;
+    border-right:2px solid #CBD5E1;
   }
-  .qr-print-title{font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;}
-  .qr-print-sub{font-size:11px;color:#64748B;margin-bottom:6px;}
-  .qr-print-carrier{font-size:26px;font-weight:700;color:#065A82;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #CBD5E1;}
-  .qr-print-facts{font-size:12px;color:#475569;line-height:2;}
-  .qr-print-hint{font-size:11px;color:#94A3B8;margin-top:10px;}
+  .qr-print-title{font-size:13px;font-weight:700;color:#64748B;margin-bottom:6mm;letter-spacing:1px;}
+  .qr-print-carrier{font-size:28px;font-weight:700;color:#065A82;margin-bottom:6mm;line-height:1.2;}
+  .qr-print-facts{font-size:13px;color:#475569;line-height:2.2;}
+  .qr-print-hint{font-size:11px;color:#94A3B8;margin-top:6mm;line-height:1.6;border-top:1px solid #E2E8F0;padding-top:4mm;}
   .qr-print-right{
+    flex:1;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    flex-shrink:0;
+    padding:8mm 0 8mm 8mm;
   }
-  .qr-print-img{width:55mm;height:55mm;}
-  .qr-print-token{font-size:7px;color:#CBD5E1;margin-top:4px;text-align:center;}
+  .qr-print-img{width:70mm;height:70mm;}
+  .qr-print-token{font-size:7px;color:#CBD5E1;margin-top:3mm;text-align:center;word-break:break-all;max-width:70mm;}
 }
 #print-area{display:none;}
 </style>
@@ -4344,14 +4346,18 @@ async function showQRPrintPreview(token, carrierName, date){
   printArea.innerHTML=`
     <div class="qr-print-page">
       <div class="qr-print-left">
-        <div class="qr-print-title">持込確認サイン用QRコード</div>
+        <div class="qr-print-title">持込確認サイン用QRコード — ALINCO LOGITIME</div>
         <div class="qr-print-carrier">${esc(carrierName)}</div>
         <div class="qr-print-facts">
-          🏭 倉庫：${esc(whName)}<br>
-          📅 日付：${esc(date)}<br>
-          🕐 発行：${nowTime()}
+          🏭&nbsp;倉庫：${esc(whName)}<br>
+          📅&nbsp;日付：${esc(date)}<br>
+          🕐&nbsp;発行：${nowTime()}
         </div>
-        <div class="qr-print-hint">右のQRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
+        <div class="qr-print-hint">
+          右のQRコードをスマートフォンで<br>
+          スキャンし、受領確認のサインを<br>
+          お願いします。
+        </div>
       </div>
       <div class="qr-print-right">
         <img class="qr-print-img" src="${qrDataUrl}">
@@ -4359,8 +4365,8 @@ async function showQRPrintPreview(token, carrierName, date){
       </div>
     </div>`;
 
-  // QR印刷専用：A5横サイズの@pageを動的適用
-  setPrintPageStyle('@media print { @page { size: A5 landscape; margin: 10mm 15mm; } }');
+  // A5横・余白最小化
+  setPrintPageStyle('@media print { @page { size: A5 landscape; margin: 8mm 10mm; } }');
 
   // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
   const img=printArea.querySelector('img.qr-print-img');
@@ -5070,19 +5076,63 @@ window.downloadYesterday=async function(){
 // ===== 90日自動削除 =====
 async function cleanOldRecords(){
   try{
-    const snap=await get(ref(db,whPath('records')));
-    if(!snap.val())return;
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-90);
     const cutoffStr=`${cutoff.getFullYear()}-${S2(cutoff.getMonth()+1)}-${S2(cutoff.getDate())}`;
     const promises=[];
-    Object.keys(snap.val()).forEach(dateKey=>{
-      if(dateKey<cutoffStr){
-        promises.push(set(ref(db,whPath(`records/${dateKey}`)),null));
-      }
-    });
+
+    // ① 入退場records（日付キー）
+    const recSnap=await get(ref(db,whPath('records')));
+    if(recSnap.val()){
+      Object.keys(recSnap.val()).forEach(dateKey=>{
+        if(dateKey<cutoffStr){
+          promises.push(set(ref(db,whPath(`records/${dateKey}`)),null));
+        }
+      });
+    }
+
+    // ② shipData（日付キー）
+    const shipSnap=await get(ref(db,whPath('shipData')));
+    if(shipSnap.val()){
+      Object.keys(shipSnap.val()).forEach(dateKey=>{
+        if(dateKey<cutoffStr){
+          promises.push(set(ref(db,whPath(`shipData/${dateKey}`)),null));
+        }
+      });
+    }
+
+    // ③ inboundData（日付キー）
+    const inbSnap=await get(ref(db,whPath('inboundData')));
+    if(inbSnap.val()){
+      Object.keys(inbSnap.val()).forEach(dateKey=>{
+        if(dateKey<cutoffStr){
+          promises.push(set(ref(db,whPath(`inboundData/${dateKey}`)),null));
+        }
+      });
+    }
+
+    // ④ deliveryQR（issuedAtの日付で判定）
+    const qrSnap=await get(ref(db,'deliveryQR'));
+    if(qrSnap.val()){
+      Object.entries(qrSnap.val()).forEach(([token,data])=>{
+        if(data.date&&data.date<cutoffStr){
+          promises.push(set(ref(db,`deliveryQR/${token}`),null));
+        }
+      });
+    }
+
+    // ⑤ printQueue（dateで判定）
+    const pqSnap=await get(ref(db,'printQueue'));
+    if(pqSnap.val()){
+      Object.entries(pqSnap.val()).forEach(([token,data])=>{
+        if(data.date&&data.date<cutoffStr){
+          promises.push(set(ref(db,`printQueue/${token}`),null));
+        }
+      });
+    }
+
     if(promises.length){
       await Promise.all(promises);
-      console.log(`90日超えデータ削除: ${promises.length}日分`);
+      console.log(`90日超えデータ削除: ${promises.length}件`);
     }
   }catch(e){console.error('自動削除エラー:',e);}
 }
