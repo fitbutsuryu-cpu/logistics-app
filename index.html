@@ -317,26 +317,37 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   .guard-print-section{margin-bottom:8px;}
   .guard-print-section-title{font-size:12px;font-weight:700;border-bottom:1.5px solid #333;padding-bottom:2px;margin-bottom:3px;}
 
-  /* QR印刷専用ページ（B5サイズ・別レイアウト） */
+  // QR印刷専用ページ（A5横サイズ）
   .qr-print-page{
     width:100%;
     height:100%;
     display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:center;
+    gap:20mm;
+    page-break-after:avoid;
+  }
+  .qr-print-left{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    flex:1;
+  }
+  .qr-print-title{font-size:16px;font-weight:700;color:#1E293B;margin-bottom:8px;}
+  .qr-print-sub{font-size:11px;color:#64748B;margin-bottom:6px;}
+  .qr-print-carrier{font-size:26px;font-weight:700;color:#065A82;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #CBD5E1;}
+  .qr-print-facts{font-size:12px;color:#475569;line-height:2;}
+  .qr-print-hint{font-size:11px;color:#94A3B8;margin-top:10px;}
+  .qr-print-right{
+    display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    text-align:center;
-    page-break-after:avoid;
+    flex-shrink:0;
   }
-  .qr-print-page.b5-page{
-    /* このページのみB5サイズ余白を上書き適用 */
-  }
-  .qr-print-title{font-size:22px;font-weight:700;color:#1E293B;margin-bottom:6px;}
-  .qr-print-sub{font-size:13px;color:#64748B;margin-bottom:18px;}
-  .qr-print-carrier{font-size:28px;font-weight:700;color:#065A82;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #CBD5E1;width:80%;}
-  .qr-print-img{width:60mm;height:60mm;margin-bottom:24px;}
-  .qr-print-hint{font-size:14px;color:#475569;line-height:1.8;margin-bottom:20px;}
-  .qr-print-token{font-size:9px;color:#CBD5E1;}
+  .qr-print-img{width:55mm;height:55mm;}
+  .qr-print-token{font-size:7px;color:#CBD5E1;margin-top:4px;text-align:center;}
 }
 #print-area{display:none;}
 </style>
@@ -422,6 +433,10 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div class="a-btns">
         <button class="a-btn enter" id="btn-enter" onclick="doEnter()">🚪 入場記録</button>
         <button class="a-btn dep" id="btn-dep" onclick="reqDepart()">🚗 退場記録・サイン</button>
+      </div>
+      <!-- 持込QR印刷ボタン（持込種別・退場完了後のみ表示） -->
+      <div id="off-qr-btn" style="display:none;margin-top:10px;">
+        <button onclick="printDeliveryQRFromPanel()" style="width:100%;padding:14px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🖨️ 持込確認QRを印刷</button>
       </div>
       <div class="tl" id="off-tl"></div>
     </div>
@@ -4055,6 +4070,16 @@ function updateOffPanel(){
   document.getElementById('off-status').textContent=stxt;
   document.getElementById('btn-enter').disabled=!!(rec?.enterTime);
   document.getElementById('btn-dep').disabled=!(rec?.loadEndTime&&!rec?.departTime);
+  // 持込QR印刷ボタン：持込種別 かつ 退場完了後のみ表示
+  const qrBtn=document.getElementById('off-qr-btn');
+  if(c.type==='delivery'&&rec?.departTime){
+    qrBtn.style.display='block';
+    qrBtn._cid=c.id.replace(/[.#$/[\]]/g,'_');
+    qrBtn._name=c.name;
+    qrBtn._date=today();
+  } else {
+    qrBtn.style.display='none';
+  }
   // 出荷情報
   renderShipPanel('off-ship','off-ship-stats',c.id,c._dyn);
   // 入庫情報（動的キャリアのみ）
@@ -4276,6 +4301,13 @@ window.reissueDeliveryQR=async function(date, cid, carrierName){
 };
 
 // ===== B5印刷プレビュー =====
+// 事務所パネルからQR印刷
+window.printDeliveryQRFromPanel=async function(){
+  const qrBtn=document.getElementById('off-qr-btn');
+  if(!qrBtn||!qrBtn._cid)return;
+  await printDeliveryQR(qrBtn._date, qrBtn._cid, qrBtn._name);
+};
+
 // ===== 印刷用@pageサイズ動的切替 =====
 function setPrintPageStyle(css){
   let styleTag=document.getElementById('dynamic-print-style');
@@ -4311,16 +4343,24 @@ async function showQRPrintPreview(token, carrierName, date){
   const printArea=document.getElementById('print-area');
   printArea.innerHTML=`
     <div class="qr-print-page">
-      <div class="qr-print-title">持込確認サイン用QRコード</div>
-      <div class="qr-print-sub">${esc(whName)}　${esc(date)}</div>
-      <div class="qr-print-carrier">${esc(carrierName)}</div>
-      <img class="qr-print-img" src="${qrDataUrl}">
-      <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
-      <div class="qr-print-token">Token: ${esc(token)}</div>
+      <div class="qr-print-left">
+        <div class="qr-print-title">持込確認サイン用QRコード</div>
+        <div class="qr-print-carrier">${esc(carrierName)}</div>
+        <div class="qr-print-facts">
+          🏭 倉庫：${esc(whName)}<br>
+          📅 日付：${esc(date)}<br>
+          🕐 発行：${nowTime()}
+        </div>
+        <div class="qr-print-hint">右のQRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
+      </div>
+      <div class="qr-print-right">
+        <img class="qr-print-img" src="${qrDataUrl}">
+        <div class="qr-print-token">${esc(token)}</div>
+      </div>
     </div>`;
 
-  // QR印刷専用：B5サイズの@pageを動的適用
-  setPrintPageStyle('@media print { @page { size: B5; margin: 15mm; } }');
+  // QR印刷専用：A5横サイズの@pageを動的適用
+  setPrintPageStyle('@media print { @page { size: A5 landscape; margin: 10mm 15mm; } }');
 
   // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
   const img=printArea.querySelector('img.qr-print-img');
