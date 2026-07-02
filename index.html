@@ -4229,10 +4229,8 @@ async function issueDeliveryQR(cid, c, rec){
     deliverySign:null
   };
   await set(ref(db,`deliveryQR/${token}`),qrData);
-  const recSnap=await get(ref(db,whPath(`records/${today()}/${k}`)));
-  const latestRec=recSnap.val()||rec;
-  latestRec.deliveryQRToken=token;
-  await set(ref(db,whPath(`records/${today()}/${k}`)),latestRec);
+  // deliveryQRTokenだけを部分更新（teamsNotifiedフラグを上書きしないため）
+  await set(ref(db,whPath(`records/${today()}/${k}/deliveryQRToken`)),token);
   return token;
 }
 
