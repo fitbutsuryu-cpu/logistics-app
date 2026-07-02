@@ -656,7 +656,8 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   <div class="sign-box">
     <h3 id="sign-title">サイン</h3><p id="sign-sub">こちらにサインをお願いします</p>
     <canvas class="sc" id="sign-cv" width="480" height="200"></canvas>
-    <div class="sign-acts"><button class="clear" onclick="clearSign()" style="background:var(--gy50);">消去</button><button class="ok" onclick="confirmSign()">サイン完了</button></div>
+    <div class="sign-acts"><button class="clear" onclick="clearSign()" style="background:var(--gy50);">消去</button><button class="ok" id="sign-ok-btn" onclick="confirmSign()" disabled style="opacity:.4;cursor:not-allowed;">サイン完了</button></div>
+    <p style="font-size:11px;color:var(--th);text-align:center;margin-top:6px;">※ サインを書いてから完了ボタンを押してください</p>
     <button class="cancel-lnk" onclick="cancelSign()">キャンセル</button>
   </div>
 </div>
@@ -4230,15 +4231,33 @@ function initSign(){
   signCtx=cv.getContext('2d');signCtx.scale(devicePixelRatio,devicePixelRatio);
   signCtx.clearRect(0,0,cv.width,cv.height);
   signCtx.strokeStyle='#1a1a1a';signCtx.lineWidth=2.5;signCtx.lineCap='round';signCtx.lineJoin='round';
+  // 初期状態はボタン無効
+  const okBtn=document.getElementById('sign-ok-btn');
+  if(okBtn){okBtn.disabled=true;okBtn.style.opacity='.4';okBtn.style.cursor='not-allowed';}
+  let hasSigned=false;
+  function enableBtn(){
+    if(!hasSigned){
+      hasSigned=true;
+      if(okBtn){okBtn.disabled=false;okBtn.style.opacity='1';okBtn.style.cursor='pointer';}
+    }
+  }
   function pt(e){const r=cv.getBoundingClientRect();const s=e.touches?e.touches[0]:e;return{x:s.clientX-r.left,y:s.clientY-r.top};}
   cv.onmousedown=e=>{signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
-  cv.onmousemove=e=>{if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
+  cv.onmousemove=e=>{if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();enableBtn();};
   cv.onmouseup=()=>signDraw=false;
   cv.ontouchstart=e=>{e.preventDefault();signDraw=true;const p=pt(e);signCtx.beginPath();signCtx.moveTo(p.x,p.y);};
-  cv.ontouchmove=e=>{e.preventDefault();if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();};
+  cv.ontouchmove=e=>{e.preventDefault();if(!signDraw)return;const p=pt(e);signCtx.lineTo(p.x,p.y);signCtx.stroke();enableBtn();};
   cv.ontouchend=()=>signDraw=false;
 }
-window.clearSign=function(){const cv=document.getElementById('sign-cv');signCtx.clearRect(0,0,cv.width/devicePixelRatio,cv.height/devicePixelRatio);};
+window.clearSign=function(){
+  const cv=document.getElementById('sign-cv');
+  signCtx.clearRect(0,0,cv.width/devicePixelRatio,cv.height/devicePixelRatio);
+  // 消去したらボタンを再び無効化
+  const okBtn=document.getElementById('sign-ok-btn');
+  if(okBtn){okBtn.disabled=true;okBtn.style.opacity='.4';okBtn.style.cursor='not-allowed';}
+  // initSignを再呼び出しして描画イベントを再登録
+  initSign();
+};
 window.confirmSign=async function(){
   const cv=document.getElementById('sign-cv');const img=cv.toDataURL('image/png');
   // 修正モーダルからのサイン追加
