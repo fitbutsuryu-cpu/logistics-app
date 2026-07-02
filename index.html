@@ -3524,7 +3524,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,onValue,off} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const FB={
@@ -3697,6 +3697,10 @@ window.selWH=function(id){
   document.getElementById('m-wh-lbl').textContent=`対象倉庫：${w?w.name:id}`;
   document.getElementById('wh-sel').classList.add('h');
   document.getElementById('ov').classList.remove('h');
+  // 倉庫選択のたびに初回ロードフラグとキャッシュをリセット
+  isInitialLoad=true;
+  teamsNotifiedLocal.clear();
+  teamsProcessing.clear();
   startListeners();
 };
 window.switchWh=function(){
@@ -3784,31 +3788,53 @@ function startListeners(){
       state.records[today()]=newRec;renderCurrent();
       return;
     }
-    // 通知チェック：ローカルSet + Firebaseフラグ + 処理中フラグで三重に重複防止
+    // 通知チェック：Firebaseのtransactionで1台のみ送信を保証
     for(const [k,r] of Object.entries(newRec)){
       if(r.enterTime && !r.teamsNotified && !teamsNotifiedLocal.has(k) && !teamsProcessing.has(k)){
-        teamsNotifiedLocal.add(k);  // ローカルキャッシュに即追加
-        teamsProcessing.add(k);     // 処理中フラグをセット
-        const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
-        if(c){
-          const extra={};
-          if(c._dyn){
-            if(c.type==='spot_charter'){
-              if(c._realCarrier) extra.realCarrier=c._realCarrier;
-              if(c._carNum)      extra.carNum=c._carNum;
-              const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
-                        todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
-              if(row&&row.dest) extra.dest=row.dest;
-            } else if(c.type==='truck_in'){
-              if(c._info) extra.truckInfo=c._info;
-            } else if(c.type==='container_in'){
-              extra.containerNo=c.name;
+        teamsNotifiedLocal.add(k);
+        teamsProcessing.add(k);
+        try{
+          // Firebaseのtransactionで排他制御（複数端末から同時に実行されても1台のみ通知）
+          const flagRef=ref(db,whPath(`records/${today()}/${k}/teamsNotified`));
+          let shouldSend=false;
+          await runTransaction(flagRef,(current)=>{
+            if(current===true){
+              // すでに送信済み→中断
+              shouldSend=false;
+              return current; // 変更しない
             }
+            // 未送信→フラグを立てて送信権を取得
+            shouldSend=true;
+            return true;
+          });
+          if(!shouldSend){
+            teamsProcessing.delete(k);
+            continue;
           }
-          await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
-          await set(ref(db,whPath(`records/${today()}/${k}/teamsNotified`)),true);
+          // 送信権を取得した端末のみTeamsに通知
+          const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+          if(c){
+            const extra={};
+            if(c._dyn){
+              if(c.type==='spot_charter'){
+                if(c._realCarrier) extra.realCarrier=c._realCarrier;
+                if(c._carNum)      extra.carNum=c._carNum;
+                const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
+                          todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
+                if(row&&row.dest) extra.dest=row.dest;
+              } else if(c.type==='truck_in'){
+                if(c._info) extra.truckInfo=c._info;
+              } else if(c.type==='container_in'){
+                extra.containerNo=c.name;
+              }
+            }
+            await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
+          }
+        }catch(e){
+          console.error('Teams通知処理エラー:',e);
+        }finally{
+          teamsProcessing.delete(k);
         }
-        teamsProcessing.delete(k);  // 処理完了後にフラグを解除
       }
     }
     state.records[today()]=newRec;renderCurrent();
