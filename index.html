@@ -4342,42 +4342,83 @@ async function showQRPrintPreview(token, carrierName, date){
     return;
   }
 
-  const printArea=document.getElementById('print-area');
-  printArea.innerHTML=`
-    <div class="qr-print-page">
-      <div class="qr-print-left">
-        <div class="qr-print-title">持込確認サイン用QRコード — ALINCO LOGITIME</div>
-        <div class="qr-print-carrier">${esc(carrierName)}</div>
-        <div class="qr-print-facts">
-          🏭&nbsp;倉庫：${esc(whName)}<br>
-          📅&nbsp;日付：${esc(date)}<br>
-          🕐&nbsp;発行：${nowTime()}
-        </div>
-        <div class="qr-print-hint">
-          右のQRコードをスマートフォンで<br>
-          スキャンし、受領確認のサインを<br>
-          お願いします。
-        </div>
-      </div>
-      <div class="qr-print-right">
-        <img class="qr-print-img" src="${qrDataUrl}">
-        <div class="qr-print-token">${esc(token)}</div>
-      </div>
-    </div>`;
+  // iframeを使って印刷（メイン画面に影響しない）
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
+  document.body.appendChild(iframe);
 
-  // A5横・余白最小化
-  setPrintPageStyle('@media print { @page { size: A5 landscape; margin: 8mm 10mm; } }');
+  const printHTML=`<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:A5 landscape;margin:8mm 10mm;}
+body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
+.page{
+  width:100%;height:100%;
+  display:flex;flex-direction:row;
+  align-items:stretch;
+}
+.left{
+  flex:1;
+  display:flex;flex-direction:column;justify-content:center;
+  padding-right:8mm;
+  border-right:2px solid #CBD5E1;
+}
+.title{font-size:11px;color:#64748B;margin-bottom:5mm;letter-spacing:1px;}
+.carrier{font-size:28px;font-weight:700;color:#065A82;margin-bottom:5mm;line-height:1.2;}
+.facts{font-size:13px;color:#475569;line-height:2.2;}
+.hint{font-size:11px;color:#94A3B8;margin-top:5mm;border-top:1px solid #E2E8F0;padding-top:3mm;line-height:1.7;}
+.right{
+  flex:1;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding-left:8mm;
+}
+.right img{width:72mm;height:72mm;}
+.token{font-size:7px;color:#CBD5E1;margin-top:3mm;word-break:break-all;text-align:center;max-width:72mm;}
+</style>
+</head><body>
+<div class="page">
+  <div class="left">
+    <div class="title">持込確認サイン用QRコード — ALINCO LOGITIME</div>
+    <div class="carrier">${esc(carrierName)}</div>
+    <div class="facts">
+      🏭&nbsp;倉庫：${esc(whName)}<br>
+      📅&nbsp;日付：${esc(date)}<br>
+      🕐&nbsp;発行：${nowTime()}
+    </div>
+    <div class="hint">
+      右のQRコードをスマートフォンでスキャンし、<br>
+      受領確認のサインをお願いします。
+    </div>
+  </div>
+  <div class="right">
+    <img src="${qrDataUrl}">
+    <div class="token">${esc(token)}</div>
+  </div>
+</div>
+</body></html>`;
 
-  // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
-  const img=printArea.querySelector('img.qr-print-img');
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(printHTML);
+  iframe.contentDocument.close();
+
+  // 画像読み込み完了を待ってから印刷
   await new Promise(resolve=>{
-    if(img.complete){resolve();}
-    else{img.onload=resolve;img.onerror=resolve;}
+    const img=iframe.contentDocument.querySelector('img');
+    if(img&&img.complete){resolve();}
+    else if(img){img.onload=resolve;img.onerror=resolve;}
+    else{resolve();}
   });
-  // 1フレーム分待ってブラウザの描画を確定させる
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 
-  window.print();
+  iframe.contentWindow.print();
+
+  // 印刷後にiframeを削除
+  setTimeout(()=>{
+    document.body.removeChild(iframe);
+  },2000);
 }
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
