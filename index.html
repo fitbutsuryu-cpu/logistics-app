@@ -3550,7 +3550,7 @@ let signCtx,signDraw=false;
 let selectedInboundDate=today();
 // Teams通知送信済みキャリアのローカルキャッシュ（Firebase書き込み完了前の二重送信防止）
 const teamsNotifiedLocal=new Set();
-// 初回ロード時（ページ表示直後）は通知チェックをスキップするフラグ
+const teamsProcessing=new Set(); // 処理中フラグ（非同期の二重実行防止）
 let isInitialLoad=true; // 初回ロード時の通知スキップフラグ
 // タッチ画面用（今日分のみ・Firebaseリスナーで自動更新）
 let todayCharterRows=[];
@@ -3784,10 +3784,11 @@ function startListeners(){
       state.records[today()]=newRec;renderCurrent();
       return;
     }
-    // 通知チェック：ローカルSet + FirebaseフラグW両方で重複防止
+    // 通知チェック：ローカルSet + Firebaseフラグ + 処理中フラグで三重に重複防止
     for(const [k,r] of Object.entries(newRec)){
-      if(r.enterTime && !r.teamsNotified && !teamsNotifiedLocal.has(k)){
-        teamsNotifiedLocal.add(k);
+      if(r.enterTime && !r.teamsNotified && !teamsNotifiedLocal.has(k) && !teamsProcessing.has(k)){
+        teamsNotifiedLocal.add(k);  // ローカルキャッシュに即追加
+        teamsProcessing.add(k);     // 処理中フラグをセット
         const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
         if(c){
           const extra={};
@@ -3795,14 +3796,9 @@ function startListeners(){
             if(c.type==='spot_charter'){
               if(c._realCarrier) extra.realCarrier=c._realCarrier;
               if(c._carNum)      extra.carNum=c._carNum;
-              if(c._dest||c._info){
-                // _infoから納品先を取得（"dest:○○市" 形式）
-                const destMatch=(c._info||'').match(/^([^/]+)/);
-                // getDynCarriersのdestフィールドを直接参照
-                const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
-                          todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
-                if(row&&row.dest) extra.dest=row.dest;
-              }
+              const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
+                        todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
+              if(row&&row.dest) extra.dest=row.dest;
             } else if(c.type==='truck_in'){
               if(c._info) extra.truckInfo=c._info;
             } else if(c.type==='container_in'){
@@ -3812,6 +3808,7 @@ function startListeners(){
           await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
           await set(ref(db,whPath(`records/${today()}/${k}/teamsNotified`)),true);
         }
+        teamsProcessing.delete(k);  // 処理完了後にフラグを解除
       }
     }
     state.records[today()]=newRec;renderCurrent();
