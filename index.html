@@ -4031,7 +4031,7 @@ function makeCarrierBtn(c,mode){
   const typeHtml=hideType?'':
     `<span class="c-type">${c._label||tLabel(c.type)}</span>`;
   const reqHtml=showReqTime
-    ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${getReqTime(c.id)}</span>`:'';
+    ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${getReqTime(c.id)}${c.type==='delivery'?' (持込)':''}</span>`:'';
   btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span>${typeHtml}${reqHtml}<span class="c-st ${st.c}">${st.l}</span>${extra}`;
   btn.onclick=()=>{
     if(mode==='off'){selOff=c.id;renderOffice();updateOffPanel();}
@@ -4570,11 +4570,11 @@ async function saveShipData(cid){
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
   if(!ce)return;
-  const existing=(state.shipData[today()]||{})[k]||{};
+  // 入力欄の値をそのまま保存（空欄なら空欄として保存）
   const updated={
-    count: ce.value!==''?ce.value:(existing.count??''),
-    qty:   qe.value!==''?qe.value:(existing.qty??''),
-    vol:   ve.value!==''?ve.value:(existing.vol??''),
+    count: ce.value??'',
+    qty:   qe.value??'',
+    vol:   ve.value??'',
   };
   await fbSetShip(cid,updated);
   if(!state.shipData[today()])state.shipData[today()]={};
@@ -4608,11 +4608,10 @@ window.addEventListener('beforeunload',()=>{
     const k=cid.replace(/[.#$/[\]]/g,'_');
     const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
     if(!ce)return;
-    const existing=(state.shipData[today()]||{})[k]||{};
     const updated={
-      count: ce.value!==''?ce.value:(existing.count??''),
-      qty:   qe.value!==''?qe.value:(existing.qty??''),
-      vol:   ve.value!==''?ve.value:(existing.vol??''),
+      count: ce.value??'',
+      qty:   qe.value??'',
+      vol:   ve.value??'',
     };
     // 同期的なfetchは非推奨だがbeforeunloadでは仕方ない
     // sendBeaconを使ってFirebase REST APIに送信
