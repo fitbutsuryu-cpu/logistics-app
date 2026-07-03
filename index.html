@@ -3593,14 +3593,17 @@ function whPath(p){return`warehouses/${CWH}/${p}`;}
 function getRecord(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return(state.records[today()]||{})[k]||null;}
 // 再入場キー生成（例：key__r2, key__r3）
 function reentryKey(cid,n){return cid.replace(/[.#$/[\]]/g,'_')+(n>1?`__r${n}`:'');}
-// その会社の当日記録を全件取得（1回目〜最大5回）
+// その会社の当日記録を全件取得（1回目〜最大5回・キーが存在するもの全て）
 function getAllRecordsForCarrier(cid){
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const recs=[];
   const todayRec=state.records[today()]||{};
   for(let n=1;n<=5;n++){
     const key=reentryKey(cid,n);
-    if(todayRec[key]) recs.push({key,rec:todayRec[key],n});
+    // キーが存在すれば（空レコードでも）含める
+    if(todayRec[key]!==undefined&&todayRec[key]!==null){
+      recs.push({key,rec:todayRec[key],n});
+    }
   }
   return recs;
 }
@@ -3608,10 +3611,13 @@ function getAllRecordsForCarrier(cid){
 function nextEntryNum(cid){
   const recs=getAllRecordsForCarrier(cid);
   if(recs.length===0)return 1;
-  // 最後の記録が退場済みなら次の番号、未退場なら現在の番号
   const last=recs[recs.length-1];
+  // 最後の記録が退場済みなら次の番号を返す
   if(last.rec.departTime&&recs.length<5)return recs.length+1;
-  return null; // 再入場不可
+  // 最後の記録が未入場（doReentryで作成直後）なら現在の番号を返す
+  if(!last.rec.enterTime)return last.n;
+  // 最後の記録が入場中（退場未完）なら再入場不可
+  return null;
 }
 function getShip(cid){return(state.shipData[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')]||null;}
 function isVis(cid){const v=(state.visibility[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')];return v===undefined?true:v;}
@@ -4150,9 +4156,12 @@ function updateOffPanel(){
   console.log('再入場チェック:', c.name, 'nextN:', nextN, 'allRecs:', dbgRecs.length, dbgRecs.map(r=>({key:r.key,n:r.n,depart:r.rec.departTime,enter:r.rec.enterTime})));
   const reentryBtn=document.getElementById('off-reentry-btn');
   if(reentryBtn){
-    if(!c._dyn&&nextN&&nextN>1){
+    // 再入場ボタン表示：退場済みで次の回数が2以上（未入場レコードは除く）
+    const lastRec=dbgRecs.length>0?dbgRecs[dbgRecs.length-1]:null;
+    const showReentry=!c._dyn&&nextN&&nextN>1&&lastRec&&lastRec.rec.departTime;
+    if(showReentry){
       reentryBtn.style.display='block';
-      reentryBtn.innerHTML=`<button onclick="doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
+      reentryBtn.innerHTML=`<button onclick="window.doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
     } else {
       reentryBtn.style.display='none';
       reentryBtn.innerHTML='';
@@ -4235,12 +4244,13 @@ window.doReentry=async function(){
 
 window.doEnter=async function(){
   const c=getAllCById(selOff);if(!c)return;
-  // 現在の入場番号を取得
   const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
-  const n=allRecs.length>0?allRecs[allRecs.length-1].n:1;
-  const k=c._dyn?null:reentryKey(c.id,n);
-  const rec=c._dyn?getRecord(c.id):((state.records[today()]||{})[k]||{});
-  if(rec.enterTime)return;
+  // 最後のレコードを取得（未入場のものを優先）
+  const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const n=last?last.n:1;
+  const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
+  const rec=c._dyn?getRecord(c.id):(last?last.rec:{});
+  if(rec.enterTime)return; // すでに入場済み
   // 専属チャーター（マスター登録済みのspot_charter）のみ受付モーダル
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
@@ -4249,7 +4259,6 @@ window.doEnter=async function(){
   }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec,k||undefined);
-  // Teams通知（再入場の場合は回数を付与）
   const entryLabel=n>1?`（${n}回目）`:'';
   toast(`${c.short||c.name}${entryLabel} 入場: ${rec.enterTime}`);
 };
