@@ -4241,7 +4241,7 @@ window.doEnter=async function(){
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const n=last?last.n:1;
   const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
-  const rec=c._dyn?getRecord(c.id):(last?last.rec:{});
+  const rec=c._dyn?getRecord(c.id):(last?{...last.rec}:{});
   if(rec.enterTime)return;
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
@@ -4250,6 +4250,11 @@ window.doEnter=async function(){
   }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec,k||undefined);
+  // stateを即座に更新してrenderCurrentを呼ぶ（onValueリスナーを待たない）
+  if(!state.records[today()])state.records[today()]={};
+  state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
+  renderCurrent();
+  updateOffPanel();
   const entryLabel=n>1?`（${n}回目）`:'';
   toast(`${c.short||c.name}${entryLabel} 入場: ${rec.enterTime}`);
 };
@@ -4266,6 +4271,10 @@ window.confirmCharterModal=async function(){
   const rec=(state.records[today()]||{})[k]||{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
   await fbSetRecord(c.id,rec,k);
+  if(!state.records[today()])state.records[today()]={};
+  state.records[today()][k]=rec;
+  renderCurrent();
+  updateOffPanel();
   document.getElementById('charter-modal').classList.add('h');
   toast(`${name}（${num}） 入場: ${rec.enterTime}`);
 };
@@ -4335,11 +4344,15 @@ window.doStartLoad=async function(){
   const c=getAllCById(selFld);if(!c)return;
   const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
-  const rec=c._dyn?getRecord(c.id):(last?last.rec:null);
+  const rec=c._dyn?getRecord(c.id):(last?{...last.rec}:null);
   if(!rec?.enterTime||rec?.loadStartTime)return;
   const k=last?last.key:null;
   rec.loadStartTime=nowTime();
   await fbSetRecord(c.id,rec,k||undefined);
+  if(!state.records[today()])state.records[today()]={};
+  state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
+  renderCurrent();
+  updateFldPanel();
   toast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
 };
 window.reqEndLoad=function(){
@@ -4739,7 +4752,7 @@ window.renderRecords=async function(){
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
-    const cid=row.recKey||c.id.replace(/[.#$/[\]]/g,'_');
+    const cid=recKey||c.id.replace(/[.#$/[\]]/g,'_');
     // 持込確認列
     let deliveryCell='—';
     if(c.type==='delivery'){
