@@ -4093,7 +4093,7 @@ function renderOffice(){
   if(selOff)updateOffPanel();
 }
 function makeCarrierBtn(c,mode){
-  const rec=getRecord(c.id);const st=stLabel(rec);
+  const rec=getLatestRecord(c.id,c._dyn);const st=stLabel(rec);
   const btn=document.createElement('button');
   let cls='c-btn';
   if(rec&&rec.departTime)cls+=' done';
@@ -4153,7 +4153,6 @@ function updateOffPanel(){
   // 再入場ボタン（マスター登録済み・退場済み・最大5回未満）
   const nextN=c._dyn?null:nextEntryNum(c.id);
   const dbgRecs=getAllRecordsForCarrier(c.id);
-  console.log('再入場チェック:', c.name, 'nextN:', nextN, 'allRecs:', dbgRecs.length, dbgRecs.map(r=>({key:r.key,n:r.n,depart:r.rec.departTime,enter:r.rec.enterTime})));
   const reentryBtn=document.getElementById('off-reentry-btn');
   if(reentryBtn){
     // 再入場ボタン表示：退場済みで次の回数が2以上（未入場レコードは除く）
@@ -4223,34 +4222,26 @@ let currentEntryN=1;
 
 window.doReentry=async function(){
   const c=getAllCById(selOff);
-  console.log('doReentry called, selOff:', selOff, 'c:', c?.name);
   if(!c||c._dyn){toast('対象の運送会社が見つかりません');return;}
   const nextN=nextEntryNum(c.id);
-  console.log('nextN:', nextN);
   if(!nextN||nextN>5){toast('これ以上再入場できません（最大5回）');return;}
   if(!confirm(`${c.name} の${nextN}回目の入場を記録しますか？`))return;
   const k=reentryKey(c.id,nextN);
-  console.log('reentry key:', k);
   const rec={_entryN:nextN,_name:c.name,_type:c.type};
   await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
-  // stateを直接更新してupdateOffPanelに反映
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k]=rec;
-  console.log('state after reentry:', JSON.stringify(Object.keys(state.records[today()])));
   toast(`${c.name} ${nextN}回目の入場ボタンを押してください`);
-  // 少し待ってからパネルを更新（Firebaseリスナーとの競合を避ける）
   setTimeout(()=>updateOffPanel(),100);
 };
 
 window.doEnter=async function(){
   const c=getAllCById(selOff);if(!c)return;
   const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
-  console.log('doEnter called, allRecs:', allRecs.map(r=>({key:r.key,n:r.n,enter:r.rec.enterTime,depart:r.rec.departTime})));
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const n=last?last.n:1;
   const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
   const rec=c._dyn?getRecord(c.id):(last?last.rec:{});
-  console.log('doEnter key:', k, 'rec.enterTime:', rec?.enterTime);
   if(rec.enterTime)return;
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
@@ -4290,11 +4281,26 @@ window.reqDepart=function(){
   openSign('dep',c.id,`退場確認サイン — ${c.short||c.name}${nLabel}`,'ドライバーの方はこちらにサインをお願いします');
 };
 
+// 最新の有効レコード（再入場含む）を返すヘルパー
+function getLatestRecord(cid,isDyn){
+  if(isDyn)return getRecord(cid);
+  const recs=getAllRecordsForCarrier(cid);
+  return recs.length>0?recs[recs.length-1].rec:null;
+}
+function getLatestRecordEntry(cid){
+  const recs=getAllRecordsForCarrier(cid);
+  return recs.length>0?recs[recs.length-1]:null;
+}
+
 // ===== FIELD =====
 function renderField(){
   const grid=document.getElementById('fld-grid');grid.innerHTML='';
   const allC=[...state.carriers,...getDynCarriers()];
-  const active=allC.filter(c=>{const r=getRecord(c.id);return r?.enterTime&&!r?.departTime;});
+  // 再入場対応：最新レコードが入場中のものを表示
+  const active=allC.filter(c=>{
+    const r=getLatestRecord(c.id,c._dyn);
+    return r?.enterTime&&!r?.departTime;
+  });
   if(!active.length){
     grid.innerHTML='<div style="color:var(--th);font-size:13px;padding:8px 0;">現在入場中の運送会社はありません</div>';
     document.getElementById('fld-no-sel').style.display='';document.getElementById('fld-sel').style.display='none';return;
@@ -4304,11 +4310,13 @@ function renderField(){
 }
 function updateFldPanel(){
   const c=getAllCById(selFld);
-  const rec=c?getRecord(c.id):null;
+  const entry=c&&!c._dyn?getLatestRecordEntry(c.id):null;
+  const rec=c?(c._dyn?getRecord(c.id):(entry?entry.rec:null)):null;
   if(!c||!rec?.enterTime){document.getElementById('fld-no-sel').style.display='';document.getElementById('fld-sel').style.display='none';return;}
   document.getElementById('fld-no-sel').style.display='none';document.getElementById('fld-sel').style.display='';
   const st=stLabel(rec);
-  document.getElementById('fld-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
+  const nLabel=entry&&entry.n>1?`（${entry.n}回目）`:'';
+  document.getElementById('fld-name').textContent=c.name+(c._dyn?`（${c._label}）`:'')+nLabel;
   let fstxt=st.l;
   if(!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery'))fstxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
   document.getElementById('fld-status').textContent=fstxt;
@@ -4724,14 +4732,14 @@ window.renderRecords=async function(){
     <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
     <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>持込確認</th><th>修正</th>
   </tr></thead><tbody>`;
-  allRows.forEach(({date,c,rec,ship,dynInfo})=>{
+  allRows.forEach(({date,c,rec,ship,dynInfo,recKey})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
     const fs=rec.fieldSign?`<img class="sign-th" src="${rec.fieldSign}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
     const ds=rec.driverSign?`<img class="sign-th" src="${rec.driverSign}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
-    const cid=c.id.replace(/[.#$/[\]]/g,'_');
+    const cid=row.recKey||c.id.replace(/[.#$/[\]]/g,'_');
     // 持込確認列
     let deliveryCell='—';
     if(c.type==='delivery'){
