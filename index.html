@@ -442,6 +442,8 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div id="off-qr-btn" style="display:none;margin-top:10px;">
         <button onclick="printDeliveryQRFromPanel()" style="width:100%;padding:14px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🖨️ 持込確認QRを印刷</button>
       </div>
+      <!-- 再入場ボタン（退場済みマスター登録会社のみ表示） -->
+      <div id="off-reentry-btn" style="display:none;margin-top:10px;"></div>
       <div class="tl" id="off-tl"></div>
     </div>
   </div>
@@ -4143,20 +4145,17 @@ function updateOffPanel(){
   document.getElementById('btn-dep').disabled=!(rec?.loadEndTime&&!rec?.departTime);
 
   // 再入場ボタン（マスター登録済み・退場済み・最大5回未満）
-  let reentryBtn=document.getElementById('off-reentry-btn');
-  if(!reentryBtn){
-    reentryBtn=document.createElement('div');
-    reentryBtn.id='off-reentry-btn';
-    reentryBtn.style.cssText='margin-top:10px;display:none;';
-    document.getElementById('off-qr-btn').insertAdjacentElement('afterend',reentryBtn);
-  }
   const nextN=c._dyn?null:nextEntryNum(c.id);
-  console.log('再入場チェック:', c.id, 'nextN:', nextN, 'allRecs:', getAllRecordsForCarrier(c.id), 'state.records:', state.records[today()]);
-  if(!c._dyn&&nextN&&nextN>1){
-    reentryBtn.style.display='block';
-    reentryBtn.innerHTML=`<button onclick="doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
-  } else {
-    reentryBtn.style.display='none';
+  console.log('再入場チェック:', c.name, 'nextN:', nextN, 'allRecs:', getAllRecordsForCarrier(c.id).length);
+  const reentryBtn=document.getElementById('off-reentry-btn');
+  if(reentryBtn){
+    if(!c._dyn&&nextN&&nextN>1){
+      reentryBtn.style.display='block';
+      reentryBtn.innerHTML=`<button onclick="doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
+    } else {
+      reentryBtn.style.display='none';
+      reentryBtn.innerHTML='';
+    }
   }
 
   // 持込QR印刷ボタン
