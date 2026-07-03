@@ -4146,7 +4146,8 @@ function updateOffPanel(){
 
   // 再入場ボタン（マスター登録済み・退場済み・最大5回未満）
   const nextN=c._dyn?null:nextEntryNum(c.id);
-  console.log('再入場チェック:', c.name, 'nextN:', nextN, 'allRecs:', getAllRecordsForCarrier(c.id).length);
+  const dbgRecs=getAllRecordsForCarrier(c.id);
+  console.log('再入場チェック:', c.name, 'nextN:', nextN, 'allRecs:', dbgRecs.length, dbgRecs.map(r=>({key:r.key,n:r.n,depart:r.rec.departTime,enter:r.rec.enterTime})));
   const reentryBtn=document.getElementById('off-reentry-btn');
   if(reentryBtn){
     if(!c._dyn&&nextN&&nextN>1){
@@ -4212,16 +4213,24 @@ function renderShipPanel(panelId,statsId,cid,isDyn){
 let currentEntryN=1;
 
 window.doReentry=async function(){
-  const c=getAllCById(selOff);if(!c||c._dyn)return;
+  const c=getAllCById(selOff);
+  console.log('doReentry called, selOff:', selOff, 'c:', c);
+  if(!c||c._dyn){toast('対象の運送会社が見つかりません');return;}
   const nextN=nextEntryNum(c.id);
+  console.log('nextN:', nextN);
   if(!nextN||nextN>5){toast('これ以上再入場できません（最大5回）');return;}
   if(!confirm(`${c.name} の${nextN}回目の入場を記録しますか？`))return;
-  currentEntryN=nextN;
+  // Firebaseに再入場レコードを作成
   const k=reentryKey(c.id,nextN);
-  const rec={_entryN:nextN};
-  await fbSetRecord(c.id,rec,k);
+  console.log('reentry key:', k);
+  const rec={_entryN:nextN,_name:c.name,_type:c.type};
+  // Firebase書き込み
+  await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
+  toast(`${c.name} ${nextN}回目の入場記録を準備しました。入場ボタンを押してください。`);
+  // state.recordsを直接更新（リスナーを待たずに即反映）
+  if(!state.records[today()])state.records[today()]={};
+  state.records[today()][k]=rec;
   updateOffPanel();
-  toast(`${c.name} ${nextN}回目の入場記録を開始しました`);
 };
 
 window.doEnter=async function(){
