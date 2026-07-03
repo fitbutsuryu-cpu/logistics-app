@@ -4151,6 +4151,7 @@ function updateOffPanel(){
     document.getElementById('off-qr-btn').insertAdjacentElement('afterend',reentryBtn);
   }
   const nextN=c._dyn?null:nextEntryNum(c.id);
+  console.log('再入場チェック:', c.id, 'nextN:', nextN, 'allRecs:', getAllRecordsForCarrier(c.id), 'state.records:', state.records[today()]);
   if(!c._dyn&&nextN&&nextN>1){
     reentryBtn.style.display='block';
     reentryBtn.innerHTML=`<button onclick="doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
