@@ -3589,6 +3589,28 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 function setConn(on){const b=document.getElementById('conn');b.className='conn '+(on?'on':'off');document.getElementById('conn-txt').textContent=on?'接続中':'オフライン';}
 function whPath(p){return`warehouses/${CWH}/${p}`;}
 function getRecord(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return(state.records[today()]||{})[k]||null;}
+// 再入場キー生成（例：key__r2, key__r3）
+function reentryKey(cid,n){return cid.replace(/[.#$/[\]]/g,'_')+(n>1?`__r${n}`:'');}
+// その会社の当日記録を全件取得（1回目〜最大5回）
+function getAllRecordsForCarrier(cid){
+  const k=cid.replace(/[.#$/[\]]/g,'_');
+  const recs=[];
+  const todayRec=state.records[today()]||{};
+  for(let n=1;n<=5;n++){
+    const key=reentryKey(cid,n);
+    if(todayRec[key]) recs.push({key,rec:todayRec[key],n});
+  }
+  return recs;
+}
+// 再入場可能な次の番号を取得（最大5回）
+function nextEntryNum(cid){
+  const recs=getAllRecordsForCarrier(cid);
+  if(recs.length===0)return 1;
+  // 最後の記録が退場済みなら次の番号、未退場なら現在の番号
+  const last=recs[recs.length-1];
+  if(last.rec.departTime&&recs.length<5)return recs.length+1;
+  return null; // 再入場不可
+}
 function getShip(cid){return(state.shipData[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')]||null;}
 function isVis(cid){const v=(state.visibility[today()]||{})[cid.replace(/[.#$/[\]]/g,'_')];return v===undefined?true:v;}
 function isGuard(cid){return!!(state.guardCheck||{})[cid.replace(/[.#$/[\]]/g,'_')];}
@@ -3738,15 +3760,14 @@ window.delWH=async function(id){
 };
 
 // ===== Firebase =====
-async function fbSetRecord(cid,rec){
-  const k=cid.replace(/[.#$/[\]]/g,'_');
+async function fbSetRecord(cid,rec,overrideKey=null){
+  const k=overrideKey||cid.replace(/[.#$/[\]]/g,'_');
   // 会社名・種別・実車情報をスナップショットとして保存（マスター/動的入力削除後も残るように）
   if(!rec._name){
     const c=getAllCById(cid);
     if(c){
       rec._name=c.name;
       rec._type=c.type;
-      // 動的キャリアの場合は実車名・車番・コンテナNoも保存
       if(c._dyn){
         if(c.type==='spot_charter'){
           rec._realCarrier=c._realCarrier||'';
@@ -3755,8 +3776,7 @@ async function fbSetRecord(cid,rec){
         } else if(c.type==='truck_in'){
           rec._carNum=c._carNum||'';
         } else if(c.type==='container_in'){
-          // コンテナNoは会社名として保存済み、車番列にも格納
-          rec._carNum=c.name||''; // コンテナNoを車番として保存
+          rec._carNum=c.name||'';
         }
       }
     }
@@ -3797,27 +3817,21 @@ function startListeners(){
         teamsNotifiedLocal.add(k);
         teamsProcessing.add(k);
         try{
-          // Firebaseのtransactionで排他制御（複数端末から同時に実行されても1台のみ通知）
           const flagRef=ref(db,whPath(`records/${today()}/${k}/teamsNotified`));
           let shouldSend=false;
           await runTransaction(flagRef,(current)=>{
-            if(current===true){
-              // すでに送信済み→中断
-              shouldSend=false;
-              return current; // 変更しない
-            }
-            // 未送信→フラグを立てて送信権を取得
-            shouldSend=true;
-            return true;
+            if(current===true){shouldSend=false;return current;}
+            shouldSend=true;return true;
           });
-          if(!shouldSend){
-            teamsProcessing.delete(k);
-            continue;
-          }
-          // 送信権を取得した端末のみTeamsに通知
-          const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+          if(!shouldSend){teamsProcessing.delete(k);continue;}
+          // 再入場かどうか判定
+          const reentryMatch=k.match(/^(.+)__r(\d)$/);
+          const baseKey=reentryMatch?reentryMatch[1]:k;
+          const entryN=reentryMatch?parseInt(reentryMatch[2]):1;
+          const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===baseKey)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
           if(c){
             const extra={};
+            if(entryN>1) extra.entryN=entryN; // 再入場回数
             if(c._dyn){
               if(c.type==='spot_charter'){
                 if(c._realCarrier) extra.realCarrier=c._realCarrier;
@@ -3899,6 +3913,7 @@ async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
   }
   facts.push({title:'⏰ 入場時刻',value:enterTime});
   facts.push({title:'📅 日付',value:today()});
+  if(extra.entryN) facts.push({title:'🔄 入場回数',value:`${extra.entryN}回目`});
 
   try{
     await fetch(TEAMS_WEBHOOK_URL,{
@@ -4109,15 +4124,41 @@ function updateOffPanel(){
   if(!c){document.getElementById('off-no-sel').style.display='';document.getElementById('off-sel').style.display='none';return;}
   document.getElementById('off-no-sel').style.display='none';
   document.getElementById('off-sel').style.display='';
-  const rec=getRecord(c.id);const st=stLabel(rec);
-  document.getElementById('off-name').textContent=c.name+(c._dyn?`（${c._label}）`:'');
+
+  // 全入場回数を取得
+  const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
+  // 現在の（最新の未完了or最初の）記録
+  const rec=c._dyn?getRecord(c.id):(allRecs.length>0?allRecs[allRecs.length-1].rec:null);
+  const currentN=allRecs.length||1;
+  const st=stLabel(rec);
+
+  document.getElementById('off-name').textContent=c.name+(c._dyn?`（${c._label}）`:'')+(currentN>1?`（${currentN}回目）`:'');
   let stxt=st.l;
   if(!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery'))stxt+=`　⏰ 依頼: ${getReqTime(c.id)}`;
   if(!c._dyn&&c.type==='spot_charter'&&rec?.charterCarrierName)stxt+=` 実車:${rec.charterCarrierName}/${rec.charterCarNumber}`;
   document.getElementById('off-status').textContent=stxt;
+
+  // 入場・退場ボタン制御
   document.getElementById('btn-enter').disabled=!!(rec?.enterTime);
   document.getElementById('btn-dep').disabled=!(rec?.loadEndTime&&!rec?.departTime);
-  // 持込QR印刷ボタン：持込種別 かつ 退場完了後のみ表示
+
+  // 再入場ボタン（マスター登録済み・退場済み・最大5回未満）
+  let reentryBtn=document.getElementById('off-reentry-btn');
+  if(!reentryBtn){
+    reentryBtn=document.createElement('div');
+    reentryBtn.id='off-reentry-btn';
+    reentryBtn.style.cssText='margin-top:10px;display:none;';
+    document.getElementById('off-qr-btn').insertAdjacentElement('afterend',reentryBtn);
+  }
+  const nextN=c._dyn?null:nextEntryNum(c.id);
+  if(!c._dyn&&nextN&&nextN>1){
+    reentryBtn.style.display='block';
+    reentryBtn.innerHTML=`<button onclick="doReentry()" style="width:100%;padding:14px;background:var(--am600);color:#fff;border:none;border-radius:var(--rs);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🔄 再入場記録（${nextN}回目）</button>`;
+  } else {
+    reentryBtn.style.display='none';
+  }
+
+  // 持込QR印刷ボタン
   const qrBtn=document.getElementById('off-qr-btn');
   if(c.type==='delivery'&&rec?.departTime){
     qrBtn.style.display='block';
@@ -4127,19 +4168,33 @@ function updateOffPanel(){
   } else {
     qrBtn.style.display='none';
   }
+
   // 出荷情報
   renderShipPanel('off-ship','off-ship-stats',c.id,c._dyn);
   // 入庫情報（動的キャリアのみ）
   const ib=document.getElementById('off-inbound');
   if(c._dyn&&c._info){ib.classList.add('v');document.getElementById('off-inbound-body').textContent=c._info;}
   else ib.classList.remove('v');
-  // タイムライン
+
+  // タイムライン（全回分表示）
   const tl=document.getElementById('off-tl');tl.innerHTML='';
-  if(rec){
-    if(rec.enterTime){let s=`入場<span>${rec.enterTime}</span>`;if(rec.charterCarrierName)s+=`<span style="margin-left:4px;font-size:10px;color:var(--pu600);">${rec.charterCarrierName}/${rec.charterCarNumber}</span>`;tl.innerHTML+=`<span class="tc">${s}</span>`;}
-    if(rec.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${rec.loadStartTime}</span></span>`;
-    if(rec.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${rec.loadEndTime}</span></span>`;
-    if(rec.departTime)tl.innerHTML+=`<span class="tc">退場<span>${rec.departTime}</span></span>`;
+  if(c._dyn){
+    // 動的キャリアは従来通り
+    if(rec){
+      if(rec.enterTime)tl.innerHTML+=`<span class="tc">入場<span>${rec.enterTime}</span></span>`;
+      if(rec.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${rec.loadStartTime}</span></span>`;
+      if(rec.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${rec.loadEndTime}</span></span>`;
+      if(rec.departTime)tl.innerHTML+=`<span class="tc">退場<span>${rec.departTime}</span></span>`;
+    }
+  } else {
+    // マスター登録済みは全回分を表示
+    allRecs.forEach(({rec:r,n})=>{
+      if(n>1)tl.innerHTML+=`<span class="tc" style="color:var(--am600);font-weight:600;">${n}回目</span>`;
+      if(r.enterTime){let s=`入場<span>${r.enterTime}</span>`;if(r.charterCarrierName)s+=`<span style="margin-left:4px;font-size:10px;color:var(--pu600);">${r.charterCarrierName}/${r.charterCarNumber}</span>`;tl.innerHTML+=`<span class="tc">${s}</span>`;}
+      if(r.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${r.loadStartTime}</span></span>`;
+      if(r.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${r.loadEndTime}</span></span>`;
+      if(r.departTime)tl.innerHTML+=`<span class="tc">退場<span>${r.departTime}</span></span>`;
+    });
   }
 }
 function renderShipPanel(panelId,statsId,cid,isDyn){
@@ -4153,9 +4208,30 @@ function renderShipPanel(panelId,statsId,cid,isDyn){
     .map(x=>`<div class="ship-stat"><div class="ship-stat-val">${esc(String(x.v))}</div><div class="ship-stat-label">${x.l}（${x.u}）</div></div>`).join('');
 }
 
+// 現在操作中の入場番号（再入場管理用）
+let currentEntryN=1;
+
+window.doReentry=async function(){
+  const c=getAllCById(selOff);if(!c||c._dyn)return;
+  const nextN=nextEntryNum(c.id);
+  if(!nextN||nextN>5){toast('これ以上再入場できません（最大5回）');return;}
+  if(!confirm(`${c.name} の${nextN}回目の入場を記録しますか？`))return;
+  currentEntryN=nextN;
+  const k=reentryKey(c.id,nextN);
+  const rec={_entryN:nextN};
+  await fbSetRecord(c.id,rec,k);
+  updateOffPanel();
+  toast(`${c.name} ${nextN}回目の入場記録を開始しました`);
+};
+
 window.doEnter=async function(){
   const c=getAllCById(selOff);if(!c)return;
-  const rec=getRecord(c.id)||{};if(rec.enterTime)return;
+  // 現在の入場番号を取得
+  const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
+  const n=allRecs.length>0?allRecs[allRecs.length-1].n:1;
+  const k=c._dyn?null:reentryKey(c.id,n);
+  const rec=c._dyn?getRecord(c.id):((state.records[today()]||{})[k]||{});
+  if(rec.enterTime)return;
   // 専属チャーター（マスター登録済みのspot_charter）のみ受付モーダル
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
@@ -4163,8 +4239,10 @@ window.doEnter=async function(){
     setTimeout(()=>document.getElementById('cm-name').focus(),100);return;
   }
   rec.enterTime=nowTime();
-  await fbSetRecord(c.id,rec);
-  toast(`${c.short||c.name} 入場: ${rec.enterTime}`);
+  await fbSetRecord(c.id,rec,k||undefined);
+  // Teams通知（再入場の場合は回数を付与）
+  const entryLabel=n>1?`（${n}回目）`:'';
+  toast(`${c.short||c.name}${entryLabel} 入場: ${rec.enterTime}`);
 };
 window.cancelCharterModal=function(){document.getElementById('charter-modal').classList.add('h');};
 window.confirmCharterModal=async function(){
@@ -4173,16 +4251,25 @@ window.confirmCharterModal=async function(){
   if(!name){toast('運送会社名を入力してください');return;}
   if(!/^\d{4}$/.test(num)){toast('車番は4桁の数字を入力してください');return;}
   const c=getAllCById(selOff);if(!c)return;
-  const rec=getRecord(c.id)||{};
+  const allRecs=getAllRecordsForCarrier(c.id);
+  const n=allRecs.length>0?allRecs[allRecs.length-1].n:1;
+  const k=reentryKey(c.id,n);
+  const rec=(state.records[today()]||{})[k]||{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
-  await fbSetRecord(c.id,rec);
+  await fbSetRecord(c.id,rec,k);
   document.getElementById('charter-modal').classList.add('h');
   toast(`${name}（${num}） 入場: ${rec.enterTime}`);
 };
 window.reqDepart=function(){
   const c=getAllCById(selOff);if(!c)return;
-  const rec=getRecord(c.id);if(!rec?.loadEndTime)return;
-  openSign('dep',c.id,`退場確認サイン — ${c.short||c.name}`,'ドライバーの方はこちらにサインをお願いします');
+  // 最新の入場記録を取得
+  const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
+  const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const rec=c._dyn?getRecord(c.id):(last?last.rec:null);
+  if(!rec?.loadEndTime)return;
+  // 再入場時は回数をサイン画面タイトルに表示
+  const nLabel=last&&last.n>1?`（${last.n}回目）`:'';
+  openSign('dep',c.id,`退場確認サイン — ${c.short||c.name}${nLabel}`,'ドライバーの方はこちらにサインをお願いします');
 };
 
 // ===== FIELD =====
@@ -4220,13 +4307,23 @@ function updateFldPanel(){
 }
 window.doStartLoad=async function(){
   const c=getAllCById(selFld);if(!c)return;
-  const rec=getRecord(c.id)||{};if(!rec.enterTime||rec.loadStartTime)return;
-  rec.loadStartTime=nowTime();await fbSetRecord(c.id,rec);toast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
+  const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
+  const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const rec=c._dyn?getRecord(c.id):(last?last.rec:null);
+  if(!rec?.enterTime||rec?.loadStartTime)return;
+  const k=last?last.key:null;
+  rec.loadStartTime=nowTime();
+  await fbSetRecord(c.id,rec,k||undefined);
+  toast(`${c.short||c.name} 荷役開始: ${rec.loadStartTime}`);
 };
 window.reqEndLoad=function(){
   const c=getAllCById(selFld);if(!c)return;
-  const rec=getRecord(c.id);if(!rec?.loadStartTime||rec?.loadEndTime)return;
-  openSign('el',c.id,`荷役終了サイン — ${c.short||c.name}`,'現場担当者はこちらにサインをお願いします');
+  const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
+  const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const rec=c._dyn?getRecord(c.id):(last?last.rec:null);
+  if(!rec?.loadStartTime||rec?.loadEndTime)return;
+  const nLabel=last&&last.n>1?`（${last.n}回目）`:'';
+  openSign('el',c.id,`荷役終了サイン — ${c.short||c.name}${nLabel}`,'現場担当者はこちらにサインをお願いします');
 };
 
 // ===== SIGN =====
@@ -4291,14 +4388,28 @@ window.confirmSign=async function(){
     if(editDate===today())renderCurrent();
     return;
   }
-  const c=getAllCById(signCid);const rec=getRecord(signCid)||{};
+  const c=getAllCById(signCid);
+  const allRecs=c&&!c._dyn?getAllRecordsForCarrier(c.id):[];
+  const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const rec=c?(c._dyn?getRecord(signCid):(last?last.rec:null)):null;
+  const recKey=last?last.key:null;
   if(signMode==='dep'){
+    if(!rec)return;
     rec.departTime=nowTime();rec.driverSign=img;
-    await fbSetRecord(signCid,rec);
-    toast(`${c.short||c.name} 退場完了: ${rec.departTime}`);
-    // 持込種別の場合は管理・記録画面から手動でQR印刷する運用のため、ここでは自動発行しない
+    await fbSetRecord(signCid,rec,recKey||undefined);
+    const nLabel=last&&last.n>1?`（${last.n}回目）`:'';
+    toast(`${c.short||c.name}${nLabel} 退場完了: ${rec.departTime}`);
+    if(c.type==='delivery'){
+      await issueDeliveryQR(signCid,c,rec);
+    }
   }
-  else if(signMode==='el'){rec.loadEndTime=nowTime();rec.fieldSign=img;await fbSetRecord(signCid,rec);toast(`${c.short||c.name} 荷役終了: ${rec.loadEndTime}`);}
+  else if(signMode==='el'){
+    const fRec=c._dyn?getRecord(signCid):(last?last.rec:null);
+    if(!fRec)return;
+    fRec.loadEndTime=nowTime();fRec.fieldSign=img;
+    await fbSetRecord(signCid,fRec,recKey||undefined);
+    toast(`${c.short||c.name} 荷役終了: ${fRec.loadEndTime}`);
+  }
   document.getElementById('sign-modal').classList.add('h');
 };
 window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
@@ -4522,12 +4633,23 @@ async function getAllRecordRows(date){
   const reqTimeSnap=await get(ref(db,whPath('reqTime')));
   const reqTimeData=reqTimeSnap.val()||{};
   const rows=[];
+
+  // 処理済みキーを追跡（再入場の親キーの重複を避ける）
+  const processedBase=new Set();
+
   Object.entries(dayRec).forEach(([k,rec])=>{
-    let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
+    // 再入場キーかどうか判定（__r2〜__r5）
+    const reentryMatch=k.match(/^(.+)__r(\d)$/);
+    const baseKey=reentryMatch?reentryMatch[1]:k;
+    const entryN=reentryMatch?parseInt(reentryMatch[2]):1;
+
+    // 1回目は通常処理、再入場は常に追加
+    if(entryN===1) processedBase.add(baseKey);
+
+    let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===baseKey);
     let dynInfo={realCarrier:'',carNum:'',reqTime:''};
 
     if(!c){
-      // 動的キャリアから探す
       const allDyn=getDynCarriers();
       c=allDyn.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
       if(c){
@@ -4538,13 +4660,10 @@ async function getAllRecordRows(date){
     }
 
     if(!c){
-      // マスター・動的どちらにもない→記録のスナップショットから復元
-      const savedName=rec._name||k;
+      const savedName=rec._name||baseKey;
       const savedType=rec._type||'unknown';
-      c={id:k,name:savedName,short:savedName,type:savedType,_dyn:false};
-      // スナップショットから実車情報を復元
+      c={id:baseKey,name:savedName,short:savedName,type:savedType,_dyn:false};
       dynInfo.realCarrier=rec._realCarrier||'';
-      // コンテナ入庫はコンテナNoを車番欄に表示
       if(savedType==='container_in'){
         dynInfo.carNum=rec._carNum||savedName;
       } else {
@@ -4553,17 +4672,17 @@ async function getAllRecordRows(date){
       dynInfo.reqTime='';
     }
 
-    // マスター登録会社の依頼時間
     if(c&&!c._dyn){
-      const rtKey=c.id.replace(/[.#$/[\]]/g,'_');
+      const rtKey=baseKey;
       dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
-      // コンテナ入庫でスナップショットから復元した場合はそのまま
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
     }
 
-    const ship=dayShip[k]||null;
-    rows.push({date,c,rec,ship,dynInfo});
+    const ship=dayShip[baseKey]||null;
+    // 再入場の場合は会社名に回数を付与
+    const displayC=entryN>1?{...c,name:`${c.name}（${entryN}回目）`,short:`${c.short||c.name}（${entryN}回目）`}:c;
+    rows.push({date,c:displayC,rec,ship,dynInfo,entryN,recKey:k});
   });
   return rows;
 }
