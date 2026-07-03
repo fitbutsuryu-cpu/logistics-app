@@ -4223,35 +4223,35 @@ let currentEntryN=1;
 
 window.doReentry=async function(){
   const c=getAllCById(selOff);
-  console.log('doReentry called, selOff:', selOff, 'c:', c);
+  console.log('doReentry called, selOff:', selOff, 'c:', c?.name);
   if(!c||c._dyn){toast('対象の運送会社が見つかりません');return;}
   const nextN=nextEntryNum(c.id);
   console.log('nextN:', nextN);
   if(!nextN||nextN>5){toast('これ以上再入場できません（最大5回）');return;}
   if(!confirm(`${c.name} の${nextN}回目の入場を記録しますか？`))return;
-  // Firebaseに再入場レコードを作成
   const k=reentryKey(c.id,nextN);
   console.log('reentry key:', k);
   const rec={_entryN:nextN,_name:c.name,_type:c.type};
-  // Firebase書き込み
   await set(ref(db,whPath(`records/${today()}/${k}`)),rec);
-  toast(`${c.name} ${nextN}回目の入場記録を準備しました。入場ボタンを押してください。`);
-  // state.recordsを直接更新（リスナーを待たずに即反映）
+  // stateを直接更新してupdateOffPanelに反映
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k]=rec;
-  updateOffPanel();
+  console.log('state after reentry:', JSON.stringify(Object.keys(state.records[today()])));
+  toast(`${c.name} ${nextN}回目の入場ボタンを押してください`);
+  // 少し待ってからパネルを更新（Firebaseリスナーとの競合を避ける）
+  setTimeout(()=>updateOffPanel(),100);
 };
 
 window.doEnter=async function(){
   const c=getAllCById(selOff);if(!c)return;
   const allRecs=c._dyn?[]:getAllRecordsForCarrier(c.id);
-  // 最後のレコードを取得（未入場のものを優先）
+  console.log('doEnter called, allRecs:', allRecs.map(r=>({key:r.key,n:r.n,enter:r.rec.enterTime,depart:r.rec.departTime})));
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const n=last?last.n:1;
   const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
   const rec=c._dyn?getRecord(c.id):(last?last.rec:{});
-  if(rec.enterTime)return; // すでに入場済み
-  // 専属チャーター（マスター登録済みのspot_charter）のみ受付モーダル
+  console.log('doEnter key:', k, 'rec.enterTime:', rec?.enterTime);
+  if(rec.enterTime)return;
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
     document.getElementById('charter-modal').classList.remove('h');
@@ -5303,7 +5303,11 @@ window.saveEdit=async function(){
 
 window.deleteRecord=async function(){
   if(!editDate||!editCid)return;
-  if(!confirm('この運送会社のこの日の記録をすべて削除しますか？\nサインデータも含めて完全に削除されます。'))return;
+  const isReentry=editCid.includes('__r');
+  const msg=isReentry
+    ?'この回の記録を削除しますか？\nサインデータも含めて削除されます。'
+    :'この運送会社のこの日の記録を削除しますか？\nサインデータも含めて完全に削除されます。';
+  if(!confirm(msg))return;
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),null);
   toast('記録を削除しました');
   closeEditModal();
