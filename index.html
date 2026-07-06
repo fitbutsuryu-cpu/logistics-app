@@ -4247,7 +4247,9 @@ window.doEnter=async function(){
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const n=last?last.n:1;
   const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
-  const rec=c._dyn?getRecord(c.id):(last?{...last.rec}:{});
+  // recがnullの場合は空オブジェクトとして扱う
+  const recRaw=c._dyn?getRecord(c.id):(last?last.rec:null);
+  const rec=recRaw?{...recRaw}:{};
   if(rec.enterTime)return;
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
@@ -4256,7 +4258,6 @@ window.doEnter=async function(){
   }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec,k||undefined);
-  // stateを即座に更新してrenderCurrentを呼ぶ（onValueリスナーを待たない）
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
   renderCurrent();
