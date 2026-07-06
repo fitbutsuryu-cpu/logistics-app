@@ -4120,7 +4120,13 @@ function makeCarrierBtn(c,mode){
   }
   btn.onclick=()=>{
     if(mode==='off'){selOff=c.id;renderOffice();updateOffPanel();}
-    else{selFld=c.id;renderField();updateFldPanel();}
+    else{
+      selFld=c.id;
+      // ボタンの選択状態だけ更新（renderField全体の再呼び出しは不要）
+      document.querySelectorAll('.c-btn.sel').forEach(b=>b.classList.remove('sel'));
+      btn.classList.add('sel');
+      updateFldPanel();
+    }
   };
   return btn;
 }
@@ -4263,12 +4269,14 @@ window.confirmCharterModal=async function(){
   const name=document.getElementById('cm-name').value.trim();
   const num=document.getElementById('cm-num').value.trim();
   if(!name){toast('運送会社名を入力してください');return;}
-  if(!/^\d{4}$/.test(num)){toast('車番は4桁の数字を入力してください');return;}
+  if(!num){toast('車番を入力してください');return;}
   const c=getAllCById(selOff);if(!c)return;
   const allRecs=getAllRecordsForCarrier(c.id);
-  const n=allRecs.length>0?allRecs[allRecs.length-1].n:1;
+  // allRecsが空（初回入場）の場合は1回目のキーを使う
+  const lastEntry=allRecs.length>0?allRecs[allRecs.length-1]:null;
+  const n=lastEntry?lastEntry.n:1;
   const k=reentryKey(c.id,n);
-  const rec=(state.records[today()]||{})[k]||{};
+  const rec=lastEntry?{...lastEntry.rec}:{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
   await fbSetRecord(c.id,rec,k);
   if(!state.records[today()])state.records[today()]={};
