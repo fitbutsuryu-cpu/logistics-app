@@ -5189,10 +5189,10 @@ window.renderGuard=async function(){
     routeRows.length?routeRows:[['（なし）','','','','','']],'tbl-r');
 
   // ② チャーター出荷（選択日付のinboundData）
-  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'','','','','']);
+  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.carNum||'',r.dest||'',r.addr||'',r.time||'',r.carType||'','','','','']);
   document.getElementById('gd-charter').innerHTML=makeGdTable(
-    ['会社名','実車名','行先','住所','入場依頼時間','車種','入場時間','荷役開始時間','荷役終了時間','退場時間'],
-    charterRows2.length?charterRows2:[['（なし）','','','','','','','','','']],'tbl-c');
+    ['会社名','実車名','車番','行先','住所','入場依頼時間','車種','入場時間','荷役開始時間','荷役終了時間','退場時間'],
+    charterRows2.length?charterRows2:[['（なし）','','','','','','','','','','']],'tbl-c');
 
   // ③ トラック入庫（選択日付のinboundData）
   const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carNum||'',r.time||'','','','','']);
