@@ -4575,32 +4575,34 @@ async function showQRPrintPreview(token, carrierName, date){
 <title>持込確認QR — ${esc(carrierName)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-@page{size:A5 portrait;margin:10mm;}
-html,body{width:100%;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@page{size:A5 portrait;margin:8mm 10mm;}
+html,body{width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
 .page{
   width:100%;
   display:flex;flex-direction:column;
   align-items:center;
+  page-break-after:avoid;
+  page-break-inside:avoid;
 }
 .left{
   width:100%;
   display:flex;flex-direction:column;
-  padding:0 0 6mm 0;
-  border-bottom:2px solid #CBD5E1;
-  margin-bottom:6mm;
+  padding:0 0 4mm 0;
+  border-bottom:1.5px solid #CBD5E1;
+  margin-bottom:4mm;
 }
-.title{font-size:10px;color:#94A3B8;margin-bottom:4mm;letter-spacing:1px;}
-.carrier{font-size:28px;font-weight:700;color:#065A82;margin-bottom:4mm;line-height:1.2;}
-.facts{font-size:12px;color:#475569;line-height:2.2;}
-.hint{font-size:10px;color:#94A3B8;margin-top:4mm;line-height:1.7;}
+.title{font-size:9px;color:#94A3B8;margin-bottom:3mm;letter-spacing:1px;}
+.carrier{font-size:24px;font-weight:700;color:#065A82;margin-bottom:3mm;line-height:1.2;}
+.facts{font-size:11px;color:#475569;line-height:2.0;}
+.hint{font-size:9px;color:#94A3B8;margin-top:3mm;line-height:1.6;}
 .right{
   width:100%;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
 }
-.right img{width:80mm;height:80mm;}
-.token{font-size:7px;color:#CBD5E1;margin-top:3mm;word-break:break-all;text-align:center;max-width:80mm;}
+.right img{width:72mm;height:72mm;}
+.token{font-size:6px;color:#CBD5E1;margin-top:2mm;word-break:break-all;text-align:center;max-width:72mm;}
 /* 画面表示用（印刷ボタン） */
 .print-btn{
   position:fixed;bottom:20px;right:20px;
