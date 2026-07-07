@@ -308,16 +308,16 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 @media print{
   body>*:not(#print-area){display:none !important;}
   #print-area{display:block !important;}
-  table{width:100%;border-collapse:collapse;font-size:10px;}
-  th{background:#f0f0f0 !important;padding:3px 5px;border:1px solid #999;font-weight:600;-webkit-print-color-adjust:exact;}
-  td{padding:2px 5px;border:1px solid #999;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:#f0f0f0 !important;padding:7px 8px;border:1px solid #999;font-weight:700;-webkit-print-color-adjust:exact;}
+  td{padding:8px 8px;border:1px solid #999;line-height:1.4;}
 
-  /* デフォルト：守衛連絡リスト用（上下左右の余白を最小化） */
-  @page{margin:5mm 10mm;}
+  /* デフォルト：守衛連絡リスト用 */
+  @page{margin:8mm 10mm;}
   .guard-print-wrap{padding:0;}
-  .guard-print-title{font-size:14px;font-weight:700;margin-bottom:6px;}
-  .guard-print-section{margin-bottom:8px;}
-  .guard-print-section-title{font-size:12px;font-weight:700;border-bottom:1.5px solid #333;padding-bottom:2px;margin-bottom:3px;}
+  .guard-print-title{font-size:18px;font-weight:700;margin-bottom:10px;}
+  .guard-print-section{margin-bottom:14px;}
+  .guard-print-section-title{font-size:14px;font-weight:700;border-bottom:2px solid #333;padding-bottom:3px;margin-bottom:5px;}
 
   // QR印刷専用ページ（A5横サイズ・左右2分割）
   .qr-print-page{
