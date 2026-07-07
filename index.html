@@ -4564,18 +4564,15 @@ async function showQRPrintPreview(token, carrierName, date){
     return;
   }
 
-  // iframeを使って印刷（メイン画面に影響しない）
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText='position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
-  document.body.appendChild(iframe);
-
   const printHTML=`<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>持込確認QR — ${esc(carrierName)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 @page{size:A5 landscape;margin:10mm;}
-html,body{width:100%;height:100%;}
+html,body{width:100%;height:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
 .page{
   width:100%;height:100%;
@@ -4602,6 +4599,15 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
 }
 .right img{width:82mm;height:82mm;}
 .token{font-size:7px;color:#CBD5E1;margin-top:4mm;word-break:break-all;text-align:center;max-width:82mm;}
+/* 画面表示用（印刷ボタン） */
+.print-btn{
+  position:fixed;bottom:20px;right:20px;
+  padding:14px 28px;background:#065A82;color:#fff;
+  border:none;border-radius:10px;font-size:16px;font-weight:700;
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+}
+@media print{.print-btn{display:none;}}
 </style>
 </head><body>
 <div class="page">
@@ -4623,27 +4629,29 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
     <div class="token">${esc(token)}</div>
   </div>
 </div>
+<button class="print-btn" onclick="window.print()">🖨️ 印刷する</button>
 </body></html>`;
 
-  iframe.contentDocument.open();
-  iframe.contentDocument.write(printHTML);
-  iframe.contentDocument.close();
+  // 新しいウィンドウで開く（iPad/PC両対応）
+  const printWin=window.open('','_blank');
+  if(!printWin){
+    toast('⚠️ ポップアップがブロックされています。ブラウザの設定で許可してください。');
+    return;
+  }
+  printWin.document.open();
+  printWin.document.write(printHTML);
+  printWin.document.close();
 
-  // 画像読み込み完了を待ってから印刷
-  await new Promise(resolve=>{
-    const img=iframe.contentDocument.querySelector('img');
-    if(img&&img.complete){resolve();}
-    else if(img){img.onload=resolve;img.onerror=resolve;}
-    else{resolve();}
-  });
-  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-
-  iframe.contentWindow.print();
-
-  // 印刷後にiframeを削除
-  setTimeout(()=>{
-    document.body.removeChild(iframe);
-  },2000);
+  // 画像読み込み完了を待ってから自動印刷（PCのみ・iPadは手動ボタンで対応）
+  const isIPad=/iPad|Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1;
+  const isMobile=/iPhone|Android/.test(navigator.userAgent);
+  if(!isIPad&&!isMobile){
+    // PCの場合は自動で印刷ダイアログを開く
+    printWin.addEventListener('load',()=>{
+      setTimeout(()=>printWin.print(),500);
+    });
+  }
+  // iPadはページ内の「🖨️ 印刷する」ボタンで手動印刷
 }
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
@@ -5174,29 +5182,29 @@ window.renderGuard=async function(){
 
   // ① 路線出荷（守衛チェック済みの定期便・不定期便）
   const routeCarriers=state.carriers.filter(c=>['regular','irregular'].includes(c.type)&&isGuard(c.id));
-  const routeRows=routeCarriers.map(c=>[c.name,getReqTime(c.id),'','']);
+  const routeRows=routeCarriers.map(c=>[c.name,getReqTime(c.id),'','','','']);
   const rdiv=document.getElementById('gd-route');
   if(rdiv)rdiv.innerHTML=makeGdTable(
-    ['会社名','入場依頼時間','入場時間','退場時間'],
-    routeRows.length?routeRows:[['（なし）','','','']],'tbl-r');
+    ['会社名','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
+    routeRows.length?routeRows:[['（なし）','','','','','']],'tbl-r');
 
   // ② チャーター出荷（選択日付のinboundData）
-  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'','','']);
+  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.dest||'',r.addr||'',r.time||'',r.carType||'','','','','']);
   document.getElementById('gd-charter').innerHTML=makeGdTable(
-    ['会社名','実車名','行先','住所','入場依頼時間','車種','入場時間','退場時間'],
-    charterRows2.length?charterRows2:[['（なし）','','','','','','','']],'tbl-c');
+    ['会社名','実車名','行先','住所','入場依頼時間','車種','入場時間','荷役開始時間','荷役終了時間','退場時間'],
+    charterRows2.length?charterRows2:[['（なし）','','','','','','','','','']],'tbl-c');
 
   // ③ トラック入庫（選択日付のinboundData）
-  const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carNum||'',r.time||'','','']);
+  const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carNum||'',r.time||'','','','','']);
   document.getElementById('gd-truck').innerHTML=makeGdTable(
-    ['出荷元','運送会社','車番','入場依頼時間','入場時間','退場時間'],
-    truckRows2.length?truckRows2:[['（なし）','','','','','']],'tbl-t');
+    ['出荷元','運送会社','車番','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
+    truckRows2.length?truckRows2:[['（なし）','','','','','','','']],'tbl-t');
 
   // ④ コンテナ入庫（選択日付のinboundData）
-  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.contType||'',r.time||'','','']);
+  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.contType||'',r.time||'','','','','']);
   document.getElementById('gd-container').innerHTML=makeGdTable(
-    ['コンテナNo','種別','入場依頼時間','入場時間','退場時間'],
-    contRows2.length?contRows2:[['（なし）','','','','']],'tbl-k');
+    ['コンテナNo','種別','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
+    contRows2.length?contRows2:[['（なし）','','','','','','']],'tbl-k');
 };
 
 window.printGuard=function(){
