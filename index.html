@@ -4873,22 +4873,34 @@ window.deleteCarrier=async function(id){
 window.toggleVis=async function(cid){await fbSetVis(cid,!isVis(cid));};
 window.toggleGuard=async function(cid){await fbSetGuard(cid,!isGuard(cid));};
 
+// 全社共通の1つのタイマー（複数社入力しても最終入力から10秒でまとめて保存）
 const shipDeb={};
+let shipGlobalTimer=null;
+const shipPending=new Set(); // 保存待ちのcid一覧
+
 window.onShipInput=function(cid){
-  // 入力中インジケーター表示
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const note=document.getElementById(`ship-note-${k}`);
   if(note){note.textContent='✏️ 未保存';note.style.color='var(--am600)';}
-  clearTimeout(shipDeb[cid]);
-  shipDeb[cid]=setTimeout(()=>saveShipData(cid),10000);
+  // 保存待ちリストに追加
+  shipPending.add(cid);
+  // グローバルタイマーをリセット（最終入力から10秒）
+  clearTimeout(shipGlobalTimer);
+  shipGlobalTimer=setTimeout(async()=>{
+    const toSave=[...shipPending];
+    shipPending.clear();
+    for(const c of toSave){
+      await saveShipData(c);
+    }
+  },10000);
 };
 
 async function saveShipData(cid){
   clearTimeout(shipDeb[cid]);
+  delete shipDeb[cid];
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
   if(!ce)return;
-  // 入力欄の値をそのまま保存（空欄なら空欄として保存）
   const updated={
     count: ce.value??'',
     qty:   qe.value??'',
@@ -4897,19 +4909,23 @@ async function saveShipData(cid){
   await fbSetShip(cid,updated);
   if(!state.shipData[today()])state.shipData[today()]={};
   state.shipData[today()][k]=updated;
+  // 枠色のフィードバックのみ（再描画なし・カーソルリセットなし）
   [ce,qe,ve].forEach(e=>{if(e){e.style.borderColor='var(--gn600)';setTimeout(()=>e.style.borderColor='',1500);}});
   const note=document.getElementById(`ship-note-${k}`);
   if(note){note.textContent='✅ 保存済';note.style.color='var(--gn600)';setTimeout(()=>{if(note)note.textContent='';},2000);}
 }
-window.saveShipNow=function(cid){saveShipData(cid);};
+window.saveShipNow=function(cid){
+  shipPending.delete(cid);
+  clearTimeout(shipGlobalTimer);
+  saveShipData(cid);
+};
 
 // タブ切替・ページ離脱時に未保存の件数/個数/才数を強制保存
 async function flushAllShipData(){
-  const pending=Object.keys(shipDeb);
-  if(!pending.length)return;
-  for(const cid of pending){
-    clearTimeout(shipDeb[cid]);
-    delete shipDeb[cid];
+  clearTimeout(shipGlobalTimer);
+  const toSave=[...shipPending];
+  shipPending.clear();
+  for(const cid of toSave){
     await saveShipData(cid);
   }
 }
@@ -4919,20 +4935,12 @@ document.addEventListener('visibilitychange',()=>{
 });
 // ページを閉じる・リロードするとき
 window.addEventListener('beforeunload',()=>{
-  // beforeunloadはasyncが使えないため同期的に処理
-  Object.keys(shipDeb).forEach(cid=>{
-    clearTimeout(shipDeb[cid]);
-    delete shipDeb[cid];
+  clearTimeout(shipGlobalTimer);
+  shipPending.forEach(cid=>{
     const k=cid.replace(/[.#$/[\]]/g,'_');
     const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
     if(!ce)return;
-    const updated={
-      count: ce.value??'',
-      qty:   qe.value??'',
-      vol:   ve.value??'',
-    };
-    // 同期的なfetchは非推奨だがbeforeunloadでは仕方ない
-    // sendBeaconを使ってFirebase REST APIに送信
+    const updated={count:ce.value??'',qty:qe.value??'',vol:ve.value??''};
     const url=`https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app/warehouses/${CWH}/shipData/${today()}/${k}.json`;
     const blob=new Blob([JSON.stringify(updated)],{type:'application/json'});
     navigator.sendBeacon(url,blob);
