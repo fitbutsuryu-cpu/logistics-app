@@ -5305,12 +5305,38 @@ window.printGuard=function(){
     const trs=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>Array.from(tr.querySelectorAll('td')).map(td=>td.textContent));
     return`<div class="guard-print-section"><div class="guard-print-section-title">${title}</div><table><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
-  document.getElementById('print-area').innerHTML=`<div class="guard-print-wrap">
+  const content=`<div class="guard-print-wrap">
     <div class="guard-print-title">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
     ${tblHtml('tbl-r','🚌 路線出荷')}${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
   </div>`;
-  // 守衛連絡リスト印刷：標準の最小余白に戻す（QR印刷のB5設定を上書き）
-  setPrintPageStyle('@media print { @page { size: auto; margin: 5mm 10mm; } }');
+  document.getElementById('print-area').innerHTML=content;
+
+  // 行数を数えて自動圧縮レベルを決定
+  const totalRows=document.getElementById('print-area').querySelectorAll('tbody tr').length;
+  let fontSize,cellPadding,sectionGap,titleSize;
+  if(totalRows<=12){
+    // 通常サイズ
+    fontSize=13;cellPadding='8px 8px';sectionGap=14;titleSize=18;
+  } else if(totalRows<=20){
+    // 少し圧縮
+    fontSize=11;cellPadding='5px 6px';sectionGap=10;titleSize=15;
+  } else if(totalRows<=30){
+    // 中圧縮
+    fontSize=10;cellPadding='3px 5px';sectionGap=7;titleSize=13;
+  } else {
+    // 最大圧縮
+    fontSize=9;cellPadding='2px 4px';sectionGap=5;titleSize=12;
+  }
+
+  setPrintPageStyle(`@media print {
+    @page { size: auto; margin: 5mm 10mm; }
+    table { font-size: ${fontSize}px !important; }
+    th { padding: ${cellPadding} !important; font-weight: 700 !important; }
+    td { padding: ${cellPadding} !important; line-height: 1.3 !important; }
+    .guard-print-section { margin-bottom: ${sectionGap}px !important; }
+    .guard-print-title { font-size: ${titleSize}px !important; margin-bottom: 6px !important; }
+    .guard-print-section-title { font-size: ${fontSize+1}px !important; }
+  }`);
   window.print();
 };
 
