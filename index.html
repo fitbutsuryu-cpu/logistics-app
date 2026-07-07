@@ -175,7 +175,11 @@ table.rt tr:hover td{background:var(--gy50);}
 .add-btn{width:100%;padding:11px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
 .add-btn:hover{background:var(--bl800);}
 .c-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow-y:auto;}
-.c-item{background:var(--gy50);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 11px;}
+.c-item{background:var(--gy50);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 11px;transition:box-shadow .15s;position:relative;}
+.c-item.dragging{opacity:.4;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+.c-item.drag-over{border-color:var(--bl600);background:var(--bl50);}
+.c-drag-handle{cursor:grab;padding:4px 8px 4px 4px;color:var(--ts);font-size:18px;line-height:1;touch-action:none;user-select:none;flex-shrink:0;}
+.c-drag-handle:active{cursor:grabbing;}
 .c-item-row{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .c-item-info{flex:1;}
 .c-item-name{font-size:13px;font-weight:600;}
@@ -4965,7 +4969,6 @@ window.onReqTimeInput=function(cid,val){
 function renderMaster(){
   const list=document.getElementById('m-list');
   if(!state.carriers.length){list.innerHTML='<div style="color:var(--th);font-size:13px;padding:6px;">登録された運送会社はありません</div>';return;}
-  // 入力中の値を退避
   const saved={};
   state.carriers.forEach(c=>{
     const k=c.id.replace(/[.#$/[\]]/g,'_');
@@ -4978,8 +4981,9 @@ function renderMaster(){
     const vis=isVis(c.id);const gd=isGuard(c.id);
     const sd=saved[k]||(getShip(c.id)||{count:'',qty:'',vol:''});
     const rt=saved[k]?.reqTime??getReqTime(c.id);
-    return`<div class="c-item">
+    return`<div class="c-item" draggable="true" data-cid="${esc(c.id)}">
       <div class="c-item-row">
+        <span class="c-drag-handle" title="ドラッグして並べ替え">☰</span>
         <div class="c-item-info">
           <div class="c-item-name">${esc(c.name)}<span class="t-badge ${c.type}">${tLabel(c.type)}</span></div>
           <div class="c-item-meta">${c.short!==c.name?'略称:'+esc(c.short)+'　':''}${esc(c.note||'')}</div>
@@ -5003,6 +5007,91 @@ function renderMaster(){
       </div>
     </div>`;
   }).join('');
+  initCarrierDragSort(list);
+}
+
+// ===== 運送会社ドラッグ並べ替え =====
+function initCarrierDragSort(list){
+  let dragSrc=null;
+
+  list.querySelectorAll('.c-item').forEach(item=>{
+    // PC：Drag & Drop API
+    item.addEventListener('dragstart',e=>{
+      dragSrc=item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    item.addEventListener('dragend',()=>{
+      item.classList.remove('dragging');
+      list.querySelectorAll('.c-item').forEach(i=>i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(item===dragSrc)return;
+      item.classList.add('drag-over');
+    });
+    item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+    item.addEventListener('drop',e=>{
+      e.preventDefault();
+      if(item===dragSrc)return;
+      item.classList.remove('drag-over');
+      const items=[...list.querySelectorAll('.c-item')];
+      const fromIdx=items.indexOf(dragSrc);
+      const toIdx=items.indexOf(item);
+      if(fromIdx<0||toIdx<0)return;
+      const newOrder=[...state.carriers];
+      const [moved]=newOrder.splice(fromIdx,1);
+      newOrder.splice(toIdx,0,moved);
+      fbSetCarriers(newOrder);
+    });
+
+    // iPad/スマホ：タッチイベント
+    const handle=item.querySelector('.c-drag-handle');
+    if(!handle)return;
+    let touchStartY=0,touchItem=null;
+    handle.addEventListener('touchstart',e=>{
+      touchItem=item;
+      touchStartY=e.touches[0].clientY;
+      item.classList.add('dragging');
+      e.preventDefault();
+    },{passive:false});
+    handle.addEventListener('touchmove',e=>{
+      e.preventDefault();
+      const y=e.touches[0].clientY;
+      const els=list.querySelectorAll('.c-item');
+      els.forEach(i=>i.classList.remove('drag-over'));
+      // カーソル位置のアイテムをハイライト
+      for(const el of els){
+        const r=el.getBoundingClientRect();
+        if(y>=r.top&&y<=r.bottom&&el!==touchItem){
+          el.classList.add('drag-over');break;
+        }
+      }
+    },{passive:false});
+    handle.addEventListener('touchend',e=>{
+      if(!touchItem)return;
+      touchItem.classList.remove('dragging');
+      const y=e.changedTouches[0].clientY;
+      const items=[...list.querySelectorAll('.c-item')];
+      items.forEach(i=>i.classList.remove('drag-over'));
+      let targetItem=null;
+      for(const el of items){
+        const r=el.getBoundingClientRect();
+        if(y>=r.top&&y<=r.bottom&&el!==touchItem){targetItem=el;break;}
+      }
+      if(targetItem){
+        const fromIdx=items.indexOf(touchItem);
+        const toIdx=items.indexOf(targetItem);
+        if(fromIdx>=0&&toIdx>=0&&fromIdx!==toIdx){
+          const newOrder=[...state.carriers];
+          const [moved]=newOrder.splice(fromIdx,1);
+          newOrder.splice(toIdx,0,moved);
+          fbSetCarriers(newOrder);
+        }
+      }
+      touchItem=null;
+    });
+  });
 }
 
 // ===== 動的入力エリア =====
