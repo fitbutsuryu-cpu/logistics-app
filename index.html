@@ -4602,20 +4602,7 @@ async function showQRPrintPreview(token, carrierName, date){
   // 印刷ボタン
   document.getElementById('qr-print-btn').onclick=()=>{
     const printArea=document.getElementById('print-area');
-    printArea.innerHTML=`<style>
-      @page{size:A5 portrait;margin:8mm 10mm;}
-      *{margin:0;padding:0;box-sizing:border-box;}
-      html,body{width:100%;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;}
-      .qp{display:flex;flex-direction:column;align-items:center;page-break-inside:avoid;}
-      .ql{width:100%;padding-bottom:4mm;border-bottom:1.5px solid #CBD5E1;margin-bottom:4mm;}
-      .qt{font-size:9px;color:#94A3B8;margin-bottom:3mm;letter-spacing:1px;}
-      .qc{font-size:24px;font-weight:700;color:#065A82;margin-bottom:3mm;line-height:1.2;}
-      .qf{font-size:11px;color:#475569;line-height:2.0;}
-      .qh{font-size:9px;color:#94A3B8;margin-top:3mm;line-height:1.6;}
-      .qr{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-      .qr img{width:72mm;height:72mm;}
-      .qk{font-size:6px;color:#CBD5E1;margin-top:2mm;word-break:break-all;text-align:center;max-width:72mm;}
-    </style>
+    printArea.innerHTML=`
     <div class="qp">
       <div class="ql">
         <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
@@ -4623,11 +4610,22 @@ async function showQRPrintPreview(token, carrierName, date){
         <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
         <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
       </div>
-      <div class="qr"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
+      <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
     </div>`;
     // オーバーレイを隠して印刷
     overlay.style.display='none';
-    setPrintPageStyle('@media print { @page { size: A5 portrait; margin: 8mm 10mm; } }');
+    setPrintPageStyle(`@media print {
+      @page { size: A5 portrait; margin: 8mm 10mm; }
+      .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
+      .ql { width: 100%; padding-bottom: 4mm; border-bottom: 1.5px solid #CBD5E1; margin-bottom: 4mm; }
+      .qt { font-size: 9px; color: #94A3B8; margin-bottom: 3mm; letter-spacing: 1px; }
+      .qc { font-size: 24px; font-weight: 700; color: #065A82; margin-bottom: 3mm; line-height: 1.2; }
+      .qf { font-size: 11px; color: #475569; line-height: 2.0; }
+      .qh { font-size: 9px; color: #94A3B8; margin-top: 3mm; line-height: 1.6; }
+      .qr-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+      .qr-img-wrap img { width: 72mm; height: 72mm; }
+      .qk { font-size: 6px; color: #CBD5E1; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
+    }`);
     window.print();
     // 印刷ダイアログを閉じたら自動でオーバーレイを削除して元の画面に戻る
     setTimeout(()=>{
