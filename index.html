@@ -4582,14 +4582,14 @@ async function showQRPrintPreview(token, carrierName, date){
     setPrintPageStyle(`@media print {
       @page { size: A5 portrait; margin: 8mm 10mm; }
       .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
-      .ql { width: 100%; padding-bottom: 4mm; border-bottom: 1.5px solid #CBD5E1; margin-bottom: 4mm; }
-      .qt { font-size: 9px; color: #94A3B8; margin-bottom: 3mm; letter-spacing: 1px; }
-      .qc { font-size: 24px; font-weight: 700; color: #065A82; margin-bottom: 3mm; line-height: 1.2; }
-      .qf { font-size: 11px; color: #475569; line-height: 2.0; }
-      .qh { font-size: 9px; color: #94A3B8; margin-top: 3mm; line-height: 1.6; }
+      .ql { width: 100%; padding-bottom: 4mm; border-bottom: 2px solid #000; margin-bottom: 4mm; }
+      .qt { font-size: 9px; color: #000; margin-bottom: 3mm; letter-spacing: 1px; }
+      .qc { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 3mm; line-height: 1.2; }
+      .qf { font-size: 11px; color: #000; line-height: 2.0; }
+      .qh { font-size: 9px; color: #333; margin-top: 3mm; line-height: 1.6; }
       .qr-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
       .qr-img-wrap img { width: 72mm; height: 72mm; }
-      .qk { font-size: 6px; color: #CBD5E1; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
+      .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
     }`);
     // オーバーレイをDOMから完全削除してから印刷（背景が2ページ目に出るのを防ぐ）
     overlay.remove();
