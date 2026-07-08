@@ -4784,16 +4784,24 @@ window.downloadExcel=async function(){
   const sn=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','実車名','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
   headers.forEach(h=>si(h));
-  const dm=allRows.map(({date,c,rec,ship,dynInfo})=>[
-    date,c.name,tLabel(c.type),
-    dynInfo?.realCarrier||'',dynInfo?.carNum||'',dynInfo?.reqTime||'',
-    rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',
-    rec.departTime?'完了':'進行中',
-    ship?.count??'',ship?.qty??'',ship?.vol??'',
-    rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
-  ]);
+  const dm=allRows.map(({date,c,rec,ship,dynInfo})=>{
+    let realCVal=dynInfo?.realCarrier||'';
+    if(c.type==='spot_charter'&&dynInfo?.dest){
+      realCVal=realCVal?`${realCVal} / 納品先:${dynInfo.dest}`:`納品先:${dynInfo.dest}`;
+    } else if(c.type==='truck_in'&&dynInfo?.origin){
+      realCVal=realCVal?`${realCVal} / 出荷元:${dynInfo.origin}`:`出荷元:${dynInfo.origin}`;
+    }
+    return[
+      date,c.name,tLabel(c.type),
+      realCVal,dynInfo?.carNum||'',dynInfo?.reqTime||'',
+      rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',
+      rec.departTime?'完了':'進行中',
+      ship?.count??'',ship?.qty??'',ship?.vol??'',
+      rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
+    ];
+  });
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
