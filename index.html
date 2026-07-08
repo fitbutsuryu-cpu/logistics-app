@@ -4651,7 +4651,7 @@ async function getAllRecordRows(date){
     if(entryN===1) processedBase.add(baseKey);
 
     let c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===baseKey);
-    let dynInfo={realCarrier:'',carNum:'',reqTime:''};
+    let dynInfo={realCarrier:'',carNum:'',reqTime:'',dest:'',origin:''};
 
     if(!c){
       const allDyn=getDynCarriers();
@@ -4660,6 +4660,7 @@ async function getAllRecordRows(date){
         dynInfo.realCarrier=c._realCarrier||'';
         dynInfo.carNum=c._carNum||'';
         dynInfo.reqTime=c._time||'';
+        dynInfo.dest=c._dest||'';
       }
     }
 
@@ -4681,6 +4682,14 @@ async function getAllRecordRows(date){
       dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
+      // inboundDataから納品先・出荷元を取得
+      if(c.type==='spot_charter'){
+        const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
+        if(charterRow) dynInfo.dest=charterRow.dest||'';
+      } else if(c.type==='truck_in'){
+        const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
+        if(truckRow) dynInfo.origin=truckRow.origin||'';
+      }
     }
 
     const ship=dayShip[baseKey]||null;
@@ -4717,6 +4726,13 @@ window.renderRecords=async function(){
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
+    // 実車名列：チャーターは「実車名／納品先」、トラックは「出荷元」を同じ列に表示
+    let realCCell=esc(realC);
+    if(c.type==='spot_charter'&&dynInfo?.dest){
+      realCCell=`${esc(realC)}<br><span style="font-size:10px;color:var(--co600);">📍${esc(dynInfo.dest)}</span>`;
+    } else if((c.type==='truck_in')&&dynInfo?.origin){
+      realCCell=`<span style="font-size:10px;color:var(--bl600);">📦${esc(dynInfo.origin)}</span>`;
+    }
     const cid=recKey||c.id.replace(/[.#$/[\]]/g,'_');
     // 持込確認列
     let deliveryCell='—';
@@ -4734,7 +4750,7 @@ window.renderRecords=async function(){
     html+=`<tr>
       <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
       <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
-      <td>${esc(realC)}</td><td>${esc(carN)}</td><td>${esc(reqT)}</td>
+      <td>${realCCell}</td><td>${esc(carN)}</td><td>${esc(reqT)}</td>
       <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
       <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
       <td>${pill}</td>
