@@ -4578,8 +4578,6 @@ async function showQRPrintPreview(token, carrierName, date){
       </div>
       <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
     </div>`;
-    // オーバーレイを隠して印刷
-    overlay.style.display='none';
     setPrintPageStyle(`@media print {
       @page { size: A5 portrait; margin: 8mm 10mm; }
       .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
@@ -4592,12 +4590,14 @@ async function showQRPrintPreview(token, carrierName, date){
       .qr-img-wrap img { width: 72mm; height: 72mm; }
       .qk { font-size: 6px; color: #CBD5E1; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
     }`);
-    window.print();
-    // 印刷ダイアログを閉じたら自動でオーバーレイを削除して元の画面に戻る
+    // オーバーレイをDOMから完全削除してから印刷（背景が2ページ目に出るのを防ぐ）
+    overlay.remove();
     setTimeout(()=>{
-      printArea.innerHTML='';
-      overlay.remove();
-    },1500);
+      window.print();
+      setTimeout(()=>{
+        printArea.innerHTML='';
+      },1500);
+    },100);
   };
 }
 window.clearEditSign=async function(signKey){
