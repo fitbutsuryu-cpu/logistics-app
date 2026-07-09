@@ -5149,7 +5149,12 @@ const reqDeb={};
 window.onReqTimeInput=function(cid,val){
   clearTimeout(reqDeb[cid]);
   reqDeb[cid]=setTimeout(async()=>{
+    console.log('reqTime保存:', cid, val, 'path:', `warehouses/${CWH}/reqTime/${cid.replace(/[.#$/[\]]/g,'_')}`);
     await fbSetReqTime(cid,val);
+    console.log('reqTime保存完了');
+    // state.reqTimeも即座に更新
+    if(!state.reqTime)state.reqTime={};
+    state.reqTime[cid.replace(/[.#$/[\]]/g,'_')]=val;
   },1000);
 };
 
