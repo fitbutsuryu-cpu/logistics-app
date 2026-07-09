@@ -4851,7 +4851,7 @@ async function getAllRecordRows(date){
       dynInfo.realCarrier=rec._realCarrier||'';
       dynInfo.dest=rec._dest||'';
       dynInfo.origin=rec._origin||'';
-      dynInfo.reqTime=rec._reqTime||'';
+      dynInfo.reqTime=rec._reqTime||reqTimeData[baseKey]||'15:30'; // _reqTime保存前のレコードはreqTimeDataから
       if(savedType==='container_in'){
         dynInfo.carNum=rec._carNum||savedName;
       } else {
@@ -4862,7 +4862,7 @@ async function getAllRecordRows(date){
     if(c&&!c._dyn){
       const rtKey=baseKey;
       // _reqTimeがrecordに保存されていればそれを使用、なければreqTimeDataから取得
-      dynInfo.reqTime=rec._reqTime||reqTimeData[rtKey]||'';
+      dynInfo.reqTime=rec._reqTime||reqTimeData[rtKey]||'15:30';
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
       // _dest・_originがrecordにあれば優先、なければinboundDataから取得
@@ -4898,7 +4898,7 @@ window.renderRecords=async function(){
   let html=`<table class="rt"><thead><tr>
     <th>日付</th><th>会社名</th><th>種別</th><th>実車名</th><th>車番</th><th>依頼時間</th>
     <th>入場</th><th>荷役開始</th><th>荷役終了</th><th>退場</th><th>状態</th>
-    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>持込確認</th><th>修正</th>
+    <th>出荷件数</th><th>出荷個数</th><th>出荷才数</th><th>現場サイン</th><th>ドライバーサイン</th><th>持込確認</th><th>待機時間</th><th>修正</th>
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo,recKey})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
@@ -4915,6 +4915,34 @@ window.renderRecords=async function(){
       realCCell=`<span style="font-size:10px;color:var(--bl600);">📦${esc(dynInfo.origin)}</span>`;
     }
     const cid=recKey||c.id.replace(/[.#$/[\]]/g,'_');
+
+    // 待機時間の計算
+    // 待機時間 = 荷役開始 - MAX(入場時間, 依頼時間) ※マイナスなら00:00
+    let waitCell='—';
+    if(rec.enterTime&&rec.loadStartTime&&reqT!=='—'){
+      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const enterMin=toMin(rec.enterTime);
+      const startMin=toMin(rec.loadStartTime);
+      const reqMin=toMin(reqT);
+      // 依頼時間を過ぎた分からカウント
+      const baseMin=Math.max(enterMin,reqMin);
+      const waitMin=Math.max(0,startMin-baseMin);
+      const wh=Math.floor(waitMin/60);
+      const wm=waitMin%60;
+      const waitStr=`${String(wh).padStart(2,'0')}:${String(wm).padStart(2,'0')}`;
+      const isOver30=waitMin>=30;
+      waitCell=`<span style="${isOver30?'background:#FEF08A;color:#854D0E;font-weight:700;padding:2px 6px;border-radius:4px;':''}">${waitStr}${isOver30?' ⚠️':''}</span>`;
+    } else if(rec.enterTime&&rec.loadStartTime){
+      // 依頼時間がない場合は荷役開始-入場時間のみ
+      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const waitMin=Math.max(0,toMin(rec.loadStartTime)-toMin(rec.enterTime));
+      const wh=Math.floor(waitMin/60);
+      const wm=waitMin%60;
+      const waitStr=`${String(wh).padStart(2,'0')}:${String(wm).padStart(2,'0')}`;
+      const isOver30=waitMin>=30;
+      waitCell=`<span style="${isOver30?'background:#FEF08A;color:#854D0E;font-weight:700;padding:2px 6px;border-radius:4px;':''}">${waitStr}${isOver30?' ⚠️':''}</span>`;
+    }
+
     // 持込確認列
     let deliveryCell='—';
     if(c.type==='delivery'){
@@ -4938,6 +4966,7 @@ window.renderRecords=async function(){
       <td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td>
       <td>${fs}</td><td>${ds}</td>
       <td>${deliveryCell}</td>
+      <td style="text-align:center;">${waitCell}</td>
       <td><button class="edit-btn" onclick="openEditModal('${esc(date)}','${esc(cid)}','${esc(c.name)}')">✏️ 修正</button></td>
     </tr>`;
   });
@@ -4965,7 +4994,7 @@ window.downloadExcel=async function(){
   const sn=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','待機時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
   headers.forEach(h=>si(h));
   const dm=allRows.map(({date,c,rec,ship,dynInfo})=>{
     let realCVal=dynInfo?.realCarrier||'';
@@ -4974,13 +5003,25 @@ window.downloadExcel=async function(){
     } else if(c.type==='truck_in'&&dynInfo?.origin){
       realCVal=realCVal?`${realCVal} / 出荷元:${dynInfo.origin}`:`出荷元:${dynInfo.origin}`;
     }
+    // 待機時間計算
+    let waitStr='';
+    const reqT=dynInfo?.reqTime||'';
+    if(rec.enterTime&&rec.loadStartTime){
+      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const enterMin=toMin(rec.enterTime);
+      const startMin=toMin(rec.loadStartTime);
+      const baseMin=reqT?Math.max(enterMin,toMin(reqT)):enterMin;
+      const waitMin=Math.max(0,startMin-baseMin);
+      waitStr=`${String(Math.floor(waitMin/60)).padStart(2,'0')}:${String(waitMin%60).padStart(2,'0')}`;
+    }
     return[
       date,c.name,tLabel(c.type),
       realCVal,dynInfo?.carNum||'',dynInfo?.reqTime||'',
       rec.enterTime||'',rec.loadStartTime||'',rec.loadEndTime||'',rec.departTime||'',
+      waitStr,
       rec.departTime?'完了':'進行中',
       ship?.count??'',ship?.qty??'',ship?.vol??'',
-      rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
+      rec.fieldSign?'有':'',rec.driverSign?'有':''
     ];
   });
   dm.forEach(r=>r.forEach(v=>si(v)));
