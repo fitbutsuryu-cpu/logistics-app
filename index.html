@@ -4629,11 +4629,29 @@ async function fetchDayShip(date){
   if(date===today())return state.shipData[today()]||{};
   const snap=await get(ref(db,whPath(`shipData/${date}`)));return snap.val()||{};
 }
+async function fetchDayInbound(date){
+  // 今日分はメモリから、過去分はFirebaseから取得
+  if(date===today()){
+    return{
+      charter:todayCharterRows,
+      truck:todayTruckRows,
+      container:todayContainerRows
+    };
+  }
+  const snap=await get(ref(db,whPath(`inboundData/${date}`)));
+  const d=snap.val()||{};
+  return{
+    charter:d.charter?Object.values(d.charter):[],
+    truck:d.truck?Object.values(d.truck):[],
+    container:d.container?Object.values(d.container):[]
+  };
+}
 
 // 動的キャリアのIDは日次データとして保存されるので、すべてのキャリア（マスター＋動的）をそのまま参照
 async function getAllRecordRows(date){
   const dayRec=await fetchDayRecords(date);
   const dayShip=await fetchDayShip(date);
+  const dayInbound=await fetchDayInbound(date);
   const reqTimeSnap=await get(ref(db,whPath('reqTime')));
   const reqTimeData=reqTimeSnap.val()||{};
   const rows=[];
@@ -4682,12 +4700,12 @@ async function getAllRecordRows(date){
       dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
-      // inboundDataから納品先・出荷元を取得
+      // inboundDataから納品先・出荷元を取得（当日・過去日付両対応）
       if(c.type==='spot_charter'){
-        const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
+        const charterRow=dayInbound.charter.find(r=>r.carrier===c.name);
         if(charterRow) dynInfo.dest=charterRow.dest||'';
       } else if(c.type==='truck_in'){
-        const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
+        const truckRow=dayInbound.truck.find(r=>r.carrier===c.name);
         if(truckRow) dynInfo.origin=truckRow.origin||'';
       }
     }
