@@ -3785,10 +3785,24 @@ async function fbSetRecord(cid,rec,overrideKey=null){
           rec._realCarrier=c._realCarrier||'';
           rec._carNum=c._carNum||'';
           rec._carType=c._carType||'';
+          rec._dest=c._dest||'';
         } else if(c.type==='truck_in'){
           rec._carNum=c._carNum||'';
+          // トラック入庫のoriginはinboundDataから取得
+          const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
+          if(truckRow) rec._origin=truckRow.origin||'';
         } else if(c.type==='container_in'){
           rec._carNum=c.name||'';
+        }
+      } else {
+        // マスター登録会社の依頼時間・納品先・出荷元もスナップショット保存
+        if(!rec._reqTime) rec._reqTime=getReqTime(cid);
+        if(c.type==='spot_charter'){
+          const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
+          if(charterRow&&!rec._dest) rec._dest=charterRow.dest||'';
+        } else if(c.type==='truck_in'){
+          const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
+          if(truckRow&&!rec._origin) rec._origin=truckRow.origin||'';
         }
       }
     }
@@ -4267,6 +4281,8 @@ window.doEnter=async function(){
     return;
   }
   rec.enterTime=nowTime();
+  // 依頼時間をレコードに保存（過去記録参照時のため）
+  if(!c._dyn) rec._reqTime=getReqTime(c.id);
   await fbSetRecord(c.id,rec,k||undefined);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
@@ -4286,6 +4302,8 @@ window.confirmEnterTimeModal=async function(){
   const rec=modal._rec||{};
   const n=modal._n||1;
   rec.enterTime=timeVal;
+  const c2=getAllCById(modal._cid);
+  if(c2&&!c2._dyn) rec._reqTime=getReqTime(c2.id);
   await fbSetRecord(c.id,rec,k||undefined);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
@@ -4393,6 +4411,7 @@ window.confirmCharterModal=async function(){
   const k=reentryKey(c.id,n);
   const rec=lastEntry?{...lastEntry.rec}:{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
+  if(!c._dyn) rec._reqTime=getReqTime(c.id);
   await fbSetRecord(c.id,rec,k);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k]=rec;
@@ -4830,26 +4849,27 @@ async function getAllRecordRows(date){
       const savedType=rec._type||'unknown';
       c={id:baseKey,name:savedName,short:savedName,type:savedType,_dyn:false};
       dynInfo.realCarrier=rec._realCarrier||'';
+      dynInfo.dest=rec._dest||'';
+      dynInfo.origin=rec._origin||'';
+      dynInfo.reqTime=rec._reqTime||'';
       if(savedType==='container_in'){
         dynInfo.carNum=rec._carNum||savedName;
       } else {
         dynInfo.carNum=rec._carNum||'';
       }
-      dynInfo.reqTime='';
     }
 
     if(c&&!c._dyn){
       const rtKey=baseKey;
-      dynInfo.reqTime=reqTimeData[rtKey]||'15:30';
+      // _reqTimeがrecordに保存されていればそれを使用、なければreqTimeDataから取得
+      dynInfo.reqTime=rec._reqTime||reqTimeData[rtKey]||'';
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
-      // inboundDataから納品先・出荷元を取得（当日・過去日付両対応）
+      // _dest・_originがrecordにあれば優先、なければinboundDataから取得
       if(c.type==='spot_charter'){
-        const charterRow=dayInbound.charter.find(r=>r.carrier===c.name);
-        if(charterRow) dynInfo.dest=charterRow.dest||'';
+        dynInfo.dest=rec._dest||(()=>{const r=dayInbound.charter.find(r=>r.carrier===c.name);return r?r.dest||'':''})();
       } else if(c.type==='truck_in'){
-        const truckRow=dayInbound.truck.find(r=>r.carrier===c.name);
-        if(truckRow) dynInfo.origin=truckRow.origin||'';
+        dynInfo.origin=rec._origin||(()=>{const r=dayInbound.truck.find(r=>r.carrier===c.name);return r?r.origin||'':''})();
       }
     }
 
