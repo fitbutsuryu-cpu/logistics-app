@@ -3795,12 +3795,12 @@ async function fbSetRecord(cid,rec,overrideKey=null){
           rec._carNum=c.name||'';
         }
       } else {
-        // マスター登録会社の依頼時間・納品先・出荷元もスナップショット保存
-        if(!rec._reqTime) rec._reqTime=getReqTime(cid);
-        if(c.type==='spot_charter'){
+        // マスター登録会社の依頼時間・納品先・出荷元は入場時のみスナップショット保存
+        if(rec.enterTime&&!rec._reqTime) rec._reqTime=getReqTime(cid);
+        if(rec.enterTime&&c.type==='spot_charter'){
           const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
           if(charterRow&&!rec._dest) rec._dest=charterRow.dest||'';
-        } else if(c.type==='truck_in'){
+        } else if(rec.enterTime&&c.type==='truck_in'){
           const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
           if(truckRow&&!rec._origin) rec._origin=truckRow.origin||'';
         }
@@ -4281,8 +4281,6 @@ window.doEnter=async function(){
     return;
   }
   rec.enterTime=nowTime();
-  // 依頼時間をレコードに保存（過去記録参照時のため）
-  if(!c._dyn) rec._reqTime=getReqTime(c.id);
   await fbSetRecord(c.id,rec,k||undefined);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
@@ -4303,7 +4301,6 @@ window.confirmEnterTimeModal=async function(){
   const n=modal._n||1;
   rec.enterTime=timeVal;
   const c2=getAllCById(modal._cid);
-  if(c2&&!c2._dyn) rec._reqTime=getReqTime(c2.id);
   await fbSetRecord(c.id,rec,k||undefined);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
@@ -4411,7 +4408,6 @@ window.confirmCharterModal=async function(){
   const k=reentryKey(c.id,n);
   const rec=lastEntry?{...lastEntry.rec}:{};
   rec.enterTime=nowTime();rec.charterCarrierName=name;rec.charterCarNumber=num;
-  if(!c._dyn) rec._reqTime=getReqTime(c.id);
   await fbSetRecord(c.id,rec,k);
   if(!state.records[today()])state.records[today()]={};
   state.records[today()][k]=rec;
@@ -4753,14 +4749,12 @@ async function showQRPrintPreview(token, carrierName, date){
       .qr-img-wrap img { width: 72mm; height: 72mm; }
       .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
     }`);
-    // オーバーレイをDOMから完全削除してから印刷（背景が2ページ目に出るのを防ぐ）
+    // オーバーレイをDOMから完全削除してから印刷
     overlay.remove();
-    setTimeout(()=>{
-      window.print();
-      setTimeout(()=>{
-        printArea.innerHTML='';
-      },1500);
-    },100);
+    // window.print()をawaitなしで即座に呼ぶ（Safariのセキュリティ制限対策）
+    window.print();
+    // 印刷後にprint-areaをクリア
+    setTimeout(()=>{ printArea.innerHTML=''; },2000);
   };
 }
 window.clearEditSign=async function(signKey){
