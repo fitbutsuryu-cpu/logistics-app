@@ -650,6 +650,39 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   </div>
 </div>
 
+<!-- 入場時刻入力モーダル（コンテナ・トラック入庫用）ドラムロール式 -->
+<div class="charter-modal h" id="enter-time-modal">
+  <div class="charter-box">
+    <h3 id="etm-title">🕐 入場時刻を入力</h3>
+    <p style="font-size:13px;color:var(--ts);margin-bottom:16px;">実際に入場した時刻を選択してください</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px;">
+      <!-- 時間ドラム -->
+      <div style="position:relative;width:80px;height:180px;overflow:hidden;border-radius:12px;background:var(--gy50);border:1.5px solid var(--bd);">
+        <div style="position:absolute;top:0;left:0;right:0;height:60px;background:linear-gradient(to bottom,rgba(248,247,244,0.95),transparent);pointer-events:none;z-index:2;"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,rgba(248,247,244,0.95),transparent);pointer-events:none;z-index:2;"></div>
+        <div style="position:absolute;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);border-top:2px solid var(--bl600);border-bottom:2px solid var(--bl600);pointer-events:none;z-index:1;"></div>
+        <div id="drum-hour" style="touch-action:none;cursor:grab;"></div>
+      </div>
+      <div style="font-size:32px;font-weight:700;color:var(--bl800);">:</div>
+      <!-- 分ドラム -->
+      <div style="position:relative;width:80px;height:180px;overflow:hidden;border-radius:12px;background:var(--gy50);border:1.5px solid var(--bd);">
+        <div style="position:absolute;top:0;left:0;right:0;height:60px;background:linear-gradient(to bottom,rgba(248,247,244,0.95),transparent);pointer-events:none;z-index:2;"></div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,rgba(248,247,244,0.95),transparent);pointer-events:none;z-index:2;"></div>
+        <div style="position:absolute;top:50%;left:0;right:0;height:60px;transform:translateY(-50%);border-top:2px solid var(--bl600);border-bottom:2px solid var(--bl600);pointer-events:none;z-index:1;"></div>
+        <div id="drum-min" style="touch-action:none;cursor:grab;"></div>
+      </div>
+    </div>
+    <!-- 選択中の時刻表示 -->
+    <div style="text-align:center;font-size:22px;font-weight:700;color:var(--bl800);margin-bottom:16px;">
+      <span id="etm-display">00:00</span>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cancelEnterTimeModal()" style="flex:1;padding:13px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--gy50);cursor:pointer;font-size:14px;font-family:inherit;">キャンセル</button>
+      <button onclick="confirmEnterTimeModal()" style="flex:2;padding:13px;border-radius:var(--rs);border:none;background:var(--bl600);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">入場記録する</button>
+    </div>
+  </div>
+</div>
+
 <div class="sv-modal" id="sv-modal"><div class="sv-inner"><h3 id="sv-title" style="font-size:15px;margin-bottom:10px;"></h3><img id="sv-img" src="" alt="サイン"><button class="sv-close" onclick="document.getElementById('sv-modal').classList.remove('o')">閉じる</button></div></div>
 <div class="toast" id="toast"></div>
 <div id="print-area"></div>
@@ -4218,14 +4251,20 @@ window.doEnter=async function(){
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const n=last?last.n:1;
   const k=c._dyn?null:(last?last.key:reentryKey(c.id,1));
-  // recがnullの場合は空オブジェクトとして扱う
   const recRaw=c._dyn?getRecord(c.id):(last?last.rec:null);
   const rec=recRaw?{...recRaw}:{};
   if(rec.enterTime)return;
+  // チャーター出荷（マスター登録済み）→ 実車名・車番入力モーダル
   if(!c._dyn&&c.type==='spot_charter'){
     document.getElementById('cm-name').value='';document.getElementById('cm-num').value='';
     document.getElementById('charter-modal').classList.remove('h');
     setTimeout(()=>document.getElementById('cm-name').focus(),100);return;
+  }
+  // コンテナ入庫・トラック入庫 → ドラムロール時刻入力モーダル
+  if(c._dyn&&(c.type==='container_in'||c.type==='truck_in')){
+    const typeLabel=c.type==='container_in'?'コンテナ入庫':'トラック入庫';
+    openEnterTimeModal(c.id,k,rec,n,typeLabel);
+    return;
   }
   rec.enterTime=nowTime();
   await fbSetRecord(c.id,rec,k||undefined);
@@ -4236,6 +4275,110 @@ window.doEnter=async function(){
   const entryLabel=n>1?`（${n}回目）`:'';
   toast(`${c.short||c.name}${entryLabel} 入場: ${rec.enterTime}`);
 };
+window.cancelEnterTimeModal=function(){
+  document.getElementById('enter-time-modal').classList.add('h');
+};
+window.confirmEnterTimeModal=async function(){
+  const modal=document.getElementById('enter-time-modal');
+  const timeVal=`${String(drumState.hour).padStart(2,'0')}:${String(drumState.min).padStart(2,'0')}`;
+  const c=getAllCById(modal._cid);if(!c)return;
+  const k=modal._k;
+  const rec=modal._rec||{};
+  const n=modal._n||1;
+  rec.enterTime=timeVal;
+  await fbSetRecord(c.id,rec,k||undefined);
+  if(!state.records[today()])state.records[today()]={};
+  state.records[today()][k||c.id.replace(/[.#$/[\]]/g,'_')]=rec;
+  modal.classList.add('h');
+  renderCurrent();
+  updateOffPanel();
+  const entryLabel=n>1?`（${n}回目）`:'';
+  toast(`${c.short||c.name}${entryLabel} 入場: ${timeVal}`);
+};
+
+// ===== ドラムロール時刻ピッカー =====
+const drumState={hour:0,min:0};
+const ITEM_H=60;
+
+function initDrum(drumId,max,current,onChange){
+  const drum=document.getElementById(drumId);
+  const items=Array.from({length:max},(_,i)=>i);
+  drum.innerHTML=`
+    <div style="padding:60px 0;">
+      ${items.map(i=>`<div style="height:${ITEM_H}px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;color:var(--bl800);">${String(i).padStart(2,'0')}</div>`).join('')}
+    </div>`;
+  let offsetY=0;
+  let startY=0;
+  let startOffset=0;
+  let isDragging=false;
+
+  function clamp(v){return Math.max(0,Math.min(max-1,v));}
+  function snapTo(idx){
+    offsetY=-idx*ITEM_H;
+    drum.style.transform=`translateY(${offsetY}px)`;
+    onChange(idx);
+  }
+  function getIdxFromOffset(off){return clamp(Math.round(-off/ITEM_H));}
+
+  drum.style.transition='none';
+  drum.style.willChange='transform';
+  snapTo(current);
+
+  function onStart(y){
+    isDragging=true;
+    startY=y;
+    startOffset=offsetY;
+    drum.style.transition='none';
+  }
+  function onMove(y){
+    if(!isDragging)return;
+    const dy=y-startY;
+    const raw=startOffset+dy;
+    const minO=-(max-1)*ITEM_H;
+    offsetY=Math.max(minO,Math.min(0,raw));
+    drum.style.transform=`translateY(${offsetY}px)`;
+    onChange(getIdxFromOffset(offsetY));
+  }
+  function onEnd(){
+    if(!isDragging)return;
+    isDragging=false;
+    const idx=getIdxFromOffset(offsetY);
+    drum.style.transition='transform .2s cubic-bezier(.25,.46,.45,.94)';
+    snapTo(idx);
+  }
+
+  // タッチ
+  drum.parentElement.addEventListener('touchstart',e=>{onStart(e.touches[0].clientY);},{passive:true});
+  drum.parentElement.addEventListener('touchmove',e=>{onMove(e.touches[0].clientY);},{passive:true});
+  drum.parentElement.addEventListener('touchend',onEnd);
+  // マウス
+  drum.parentElement.addEventListener('mousedown',e=>{onStart(e.clientY);});
+  window.addEventListener('mousemove',e=>{if(isDragging)onMove(e.clientY);});
+  window.addEventListener('mouseup',onEnd);
+}
+
+function updateDrumDisplay(){
+  document.getElementById('etm-display').textContent=
+    `${String(drumState.hour).padStart(2,'0')}:${String(drumState.min).padStart(2,'0')}`;
+}
+
+function openEnterTimeModal(cid,k,rec,n,typeLabel){
+  const now=new Date();
+  drumState.hour=now.getHours();
+  drumState.min=now.getMinutes();
+  document.getElementById('etm-title').textContent=`🕐 入場時刻を入力（${typeLabel}）`;
+  document.getElementById('enter-time-modal').classList.remove('h');
+  document.getElementById('enter-time-modal')._cid=cid;
+  document.getElementById('enter-time-modal')._k=k;
+  document.getElementById('enter-time-modal')._rec=rec;
+  document.getElementById('enter-time-modal')._n=n;
+  // ドラム初期化
+  setTimeout(()=>{
+    initDrum('drum-hour',24,drumState.hour,v=>{drumState.hour=v;updateDrumDisplay();});
+    initDrum('drum-min',60,drumState.min,v=>{drumState.min=v;updateDrumDisplay();});
+    updateDrumDisplay();
+  },50);
+}
 window.cancelCharterModal=function(){document.getElementById('charter-modal').classList.add('h');};
 window.confirmCharterModal=async function(){
   const name=document.getElementById('cm-name').value.trim();
