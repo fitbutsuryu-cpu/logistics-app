@@ -5024,13 +5024,13 @@ window.downloadExcel=async function(){
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
-  const CW=[12,24,10,12,8,8,10,10,10,8,9,9,9,9,16,16];
+  const CW=[12,24,10,12,8,8,10,10,10,8,9,9,9,9,9,16,16];
   let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
   // サイン画像収集（hasDより先に実行）
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],ri=i+1;
-    for(const[k,col]of[['fieldSign',14],['driverSign',15]]){
+    for(const[k,col]of[['fieldSign',15],['driverSign',16]]){
       if(rec[k]){try{const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}catch(e){console.warn('サイン画像取得失敗:',e);}}
     }
   }
