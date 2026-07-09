@@ -5190,7 +5190,7 @@ function renderMaster(){
         <input type="number" id="sc-${k}" value="${esc(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
         <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
         <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
-        <input type="text" id="rt-${k}" value="${esc(rt)}" placeholder="依頼時間" style="max-width:70px;background:#FFF9C4;" oninput="onReqTimeInput('${c.id}',this.value)" title="入場依頼時間">
+        <input type="text" id="rt-${k}" data-cid="${esc(c.id)}" value="${esc(rt)}" placeholder="依頼時間" style="max-width:70px;background:#FFF9C4;" title="入場依頼時間">
         <button onclick="saveShipNow('${c.id}')" style="padding:5px 10px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;white-space:nowrap;">💾 保存</button>
       </div>
       <div style="font-size:10px;color:var(--th);margin-top:3px;display:flex;align-items:center;gap:8px;">
@@ -5200,6 +5200,21 @@ function renderMaster(){
     </div>`;
   }).join('');
   initCarrierDragSort(list);
+  // 依頼時間入力欄のイベントリスナーを直接登録（oninput属性はmoduleスコープで動かない場合があるため）
+  list.querySelectorAll('input[data-cid]').forEach(input=>{
+    input.addEventListener('input',function(){
+      const cid=this.dataset.cid;
+      const val=this.value;
+      clearTimeout(reqDeb[cid]);
+      reqDeb[cid]=setTimeout(async()=>{
+        const k=cid.replace(/[.#$/[\]]/g,'_');
+        await set(ref(db,whPath(`reqTime/${k}`)),val);
+        if(!state.reqTime)state.reqTime={};
+        state.reqTime[k]=val;
+        console.log('reqTime保存完了:', k, val);
+      },1000);
+    });
+  });
 }
 
 // ===== 運送会社ドラッグ並べ替え =====
