@@ -4845,7 +4845,7 @@ async function getAllRecordRows(date){
       dynInfo.realCarrier=rec._realCarrier||'';
       dynInfo.dest=rec._dest||'';
       dynInfo.origin=rec._origin||'';
-      dynInfo.reqTime=rec._reqTime||reqTimeData[baseKey]||'15:30'; // _reqTime保存前のレコードはreqTimeDataから
+      dynInfo.reqTime=reqTimeData[baseKey]||rec._reqTime||'15:30';
       if(savedType==='container_in'){
         dynInfo.carNum=rec._carNum||savedName;
       } else {
@@ -4855,8 +4855,11 @@ async function getAllRecordRows(date){
 
     if(c&&!c._dyn){
       const rtKey=baseKey;
-      // _reqTimeがrecordに保存されていればそれを使用、なければreqTimeDataから取得
-      dynInfo.reqTime=rec._reqTime||reqTimeData[rtKey]||'15:30';
+      // 正しい依頼時間の取得順序：
+      // ① reqTimeData（常に最新の正しい値）
+      // ② rec._reqTime（reqTimeDataにない場合のフォールバック）
+      // ③ '15:30'（デフォルト）
+      dynInfo.reqTime=reqTimeData[rtKey]||rec._reqTime||'15:30';
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
       // _dest・_originがrecordにあれば優先、なければinboundDataから取得
@@ -5732,6 +5735,38 @@ async function cleanOldRecords(){
     }
   }catch(e){console.error('自動削除エラー:',e);}
 }
+
+// ===== 緊急修正：誤って書き込まれた_reqTimeを削除 =====
+// バグで全レコードに_reqTime:15:30が書き込まれた場合に使用
+window.fixReqTime=async function(){
+  if(!confirm('過去90日分のレコードから誤った_reqTimeを削除します。よろしいですか？'))return;
+  toast('修正中...');
+  const reqTimeSnap=await get(ref(db,whPath('reqTime')));
+  const reqTimeData=reqTimeSnap.val()||{};
+  const recSnap=await get(ref(db,whPath('records')));
+  const allRecs=recSnap.val()||{};
+  let count=0;
+  const promises=[];
+  Object.entries(allRecs).forEach(([date,dayRec])=>{
+    Object.entries(dayRec).forEach(([k,rec])=>{
+      if(rec._reqTime){
+        // reqTimeDataの正しい値と比較
+        const correct=reqTimeData[k];
+        // _reqTimeが正しいreqTimeDataの値と異なる場合は削除（誤書き込み）
+        // または入場時刻がない（入場前に書き込まれた）場合も削除
+        if(!rec.enterTime||!correct||(rec._reqTime===correct)){
+          // 入場時刻がない場合は誤書き込みなので削除
+          if(!rec.enterTime){
+            promises.push(set(ref(db,whPath(`records/${date}/${k}/_reqTime`)),null));
+            count++;
+          }
+        }
+      }
+    });
+  });
+  await Promise.all(promises);
+  toast(`✅ ${count}件修正しました。ページをリロードしてください。`);
+};
 
 // ===== 日付変更の自動検知 =====
 let lastCheckedDate=today();
