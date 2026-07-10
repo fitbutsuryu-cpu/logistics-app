@@ -3774,36 +3774,44 @@ window.delWH=async function(id){
 // ===== Firebase =====
 async function fbSetRecord(cid,rec,overrideKey=null){
   const k=overrideKey||cid.replace(/[.#$/[\]]/g,'_');
-  // 会社名・種別・実車情報をスナップショットとして保存（マスター/動的入力削除後も残るように）
-  if(!rec._name){
-    const c=getAllCById(cid);
-    if(c){
-      rec._name=c.name;
-      rec._type=c.type;
-      if(c._dyn){
-        if(c.type==='spot_charter'){
-          rec._realCarrier=c._realCarrier||'';
-          rec._carNum=c._carNum||'';
-          rec._carType=c._carType||'';
-          rec._dest=c._dest||'';
-        } else if(c.type==='truck_in'){
-          rec._carNum=c._carNum||'';
-          // トラック入庫のoriginはinboundDataから取得
+  // 会社名・種別・実車情報・依頼時間・納品先・出荷元は「未保存のフィールドのみ」個別にスナップショット保存する。
+  // rec._nameの有無で全体をゲートしない（再入場等で_nameだけ先に入るケースでも各項目が漏れなく保存されるように）。
+  const c=getAllCById(cid);
+  if(c){
+    if(!rec._name) rec._name=c.name;
+    if(!rec._type) rec._type=c.type;
+    if(c._dyn){
+      if(c.type==='spot_charter'){
+        if(!rec._realCarrier) rec._realCarrier=c._realCarrier||'';
+        if(!rec._carNum) rec._carNum=c._carNum||'';
+        if(!rec._carType) rec._carType=c._carType||'';
+        if(!rec._dest) rec._dest=c._dest||'';
+        if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+      } else if(c.type==='truck_in'){
+        if(!rec._carNum) rec._carNum=c._carNum||'';
+        if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+        if(!rec._origin){
           const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
           if(truckRow) rec._origin=truckRow.origin||'';
-        } else if(c.type==='container_in'){
-          rec._carNum=c.name||'';
         }
-      } else {
-        // マスター登録会社の依頼時間・納品先・出荷元は入場時のみスナップショット保存
-        if(rec.enterTime&&!rec._reqTime) rec._reqTime=getReqTime(cid);
-        if(rec.enterTime&&c.type==='spot_charter'){
-          const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
-          if(charterRow&&!rec._dest) rec._dest=charterRow.dest||'';
-        } else if(rec.enterTime&&c.type==='truck_in'){
-          const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
-          if(truckRow&&!rec._origin) rec._origin=truckRow.origin||'';
-        }
+      } else if(c.type==='container_in'){
+        if(!rec._carNum) rec._carNum=c.name||'';
+        if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+      }
+    } else {
+      // マスター登録会社：依頼時間・納品先・出荷元は入場時刻が確定した時点でスナップショット保存
+      // _reqTimeConfirmed：このフラグが立っているレコードのみ「確実に正しく記録された」スナップショットとして
+      // reqTimeDataの現在値より優先する（過去の不具合期間に誤って書き込まれた値と区別するため）
+      if(rec.enterTime&&!rec._reqTime){
+        rec._reqTime=getReqTime(cid);
+        rec._reqTimeConfirmed=true;
+      }
+      if(rec.enterTime&&c.type==='spot_charter'&&!rec._dest){
+        const charterRow=todayCharterRows.find(r=>r.carrier===c.name)||masterCharterRows.find(r=>r.carrier===c.name);
+        if(charterRow) rec._dest=charterRow.dest||'';
+      } else if(rec.enterTime&&c.type==='truck_in'&&!rec._origin){
+        const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
+        if(truckRow) rec._origin=truckRow.origin||'';
       }
     }
   }
@@ -4845,7 +4853,7 @@ async function getAllRecordRows(date){
       dynInfo.realCarrier=rec._realCarrier||'';
       dynInfo.dest=rec._dest||'';
       dynInfo.origin=rec._origin||'';
-      dynInfo.reqTime=reqTimeData[baseKey]||rec._reqTime||'15:30';
+      dynInfo.reqTime=rec._reqTimeConfirmed?(rec._reqTime||'15:30'):(reqTimeData[baseKey]||rec._reqTime||'15:30');
       if(savedType==='container_in'){
         dynInfo.carNum=rec._carNum||savedName;
       } else {
@@ -4856,10 +4864,11 @@ async function getAllRecordRows(date){
     if(c&&!c._dyn){
       const rtKey=baseKey;
       // 正しい依頼時間の取得順序：
-      // ① reqTimeData（常に最新の正しい値）
-      // ② rec._reqTime（reqTimeDataにない場合のフォールバック）
-      // ③ '15:30'（デフォルト）
-      dynInfo.reqTime=reqTimeData[rtKey]||rec._reqTime||'15:30';
+      // ①「確実に記録された」rec._reqTime（_reqTimeConfirmed:trueの場合のみ最優先）
+      // ② reqTimeData（マスターの現在値。過去の不具合期間のレコードや未確認レコードのフォールバック）
+      // ③ rec._reqTime（確認フラグはないが値だけ残っている場合の最終フォールバック）
+      // ④ '15:30'（デフォルト）
+      dynInfo.reqTime=rec._reqTimeConfirmed?(rec._reqTime||'15:30'):(reqTimeData[rtKey]||rec._reqTime||'15:30');
       if(!dynInfo.realCarrier)dynInfo.realCarrier='';
       if(!dynInfo.carNum)dynInfo.carNum='';
       // _dest・_originがrecordにあれば優先、なければinboundDataから取得
@@ -5018,19 +5027,23 @@ window.downloadExcel=async function(){
       waitStr,
       rec.departTime?'完了':'進行中',
       ship?.count??'',ship?.qty??'',ship?.vol??'',
-      rec.fieldSign?'有':'',rec.driverSign?'有':''
+      rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
     ];
   });
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
-  const CW=[12,24,10,12,8,8,10,10,10,8,9,9,9,9,9,16,16];
+  // 列幅はheadersの列数(17列)と一致させる
+  const CW=[12,24,10,18,8,8,10,10,10,8,9,9,9,9,9,16,16];
   let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
+  // サイン画像の列位置はheadersのインデックスから動的に算出（列構成が変わっても常に一致させる）
+  const fieldSignCol=headers.indexOf('現場サイン');
+  const driverSignCol=headers.indexOf('ドライバーサイン');
   // サイン画像収集（hasDより先に実行）
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],ri=i+1;
-    for(const[k,col]of[['fieldSign',15],['driverSign',16]]){
+    for(const[k,col]of[['fieldSign',fieldSignCol],['driverSign',driverSignCol]]){
       if(rec[k]){try{const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}catch(e){console.warn('サイン画像取得失敗:',e);}}
     }
   }
