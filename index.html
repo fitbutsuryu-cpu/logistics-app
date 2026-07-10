@@ -5000,7 +5000,7 @@ window.downloadExcel=async function(){
   const sn=`${wh?wh.name:'記録'}_${from}${from!==to?'_'+to:''}`.slice(0,31);
   const strings=[];
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
-  const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','待機時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン'];
+  const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','待機時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン','持込確認サイン'];
   headers.forEach(h=>si(h));
   const dm=allRows.map(({date,c,rec,ship,dynInfo})=>{
     let realCVal=dynInfo?.realCarrier||'';
@@ -5020,6 +5020,13 @@ window.downloadExcel=async function(){
       const waitMin=Math.max(0,startMin-baseMin);
       waitStr=`${String(Math.floor(waitMin/60)).padStart(2,'0')}:${String(waitMin%60).padStart(2,'0')}`;
     }
+    // 持込確認サイン列（持込種別のみ）
+    let deliveryStr='';
+    if(c.type==='delivery'){
+      if(rec.deliverySign) deliveryStr='';
+      else if(rec.deliveryQRToken) deliveryStr='QR発行済・未サイン';
+      else deliveryStr='(なし)';
+    }
     return[
       date,c.name,tLabel(c.type),
       realCVal,dynInfo?.carNum||'',dynInfo?.reqTime||'',
@@ -5027,23 +5034,25 @@ window.downloadExcel=async function(){
       waitStr,
       rec.departTime?'完了':'進行中',
       ship?.count??'',ship?.qty??'',ship?.vol??'',
-      rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)'
+      rec.fieldSign?'':'(なし)',rec.driverSign?'':'(なし)',
+      deliveryStr
     ];
   });
   dm.forEach(r=>r.forEach(v=>si(v)));
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
-  // 列幅はheadersの列数(17列)と一致させる
-  const CW=[12,24,10,18,8,8,10,10,10,8,9,9,9,9,9,16,16];
+  // 列幅はheadersの列数(18列)と一致させる
+  const CW=[12,24,10,18,8,8,10,10,10,8,9,9,9,9,9,16,16,18];
   let sr=`<row r="1" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}1" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   allRows.forEach((_,ri)=>{const rn=ri+2;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
   // サイン画像の列位置はheadersのインデックスから動的に算出（列構成が変わっても常に一致させる）
   const fieldSignCol=headers.indexOf('現場サイン');
   const driverSignCol=headers.indexOf('ドライバーサイン');
+  const deliverySignCol=headers.indexOf('持込確認サイン');
   // サイン画像収集（hasDより先に実行）
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],ri=i+1;
-    for(const[k,col]of[['fieldSign',fieldSignCol],['driverSign',driverSignCol]]){
+    for(const[k,col]of[['fieldSign',fieldSignCol],['driverSign',driverSignCol],['deliverySign',deliverySignCol]]){
       if(rec[k]){try{const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}catch(e){console.warn('サイン画像取得失敗:',e);}}
     }
   }
