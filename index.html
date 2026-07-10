@@ -351,6 +351,23 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   </div>
 </div>
 
+<!-- 倉庫削除確認モーダル（倉庫名の入力一致で削除） -->
+<div class="charter-modal h" id="wh-del-modal">
+  <div class="charter-box">
+    <h3 style="color:var(--rd600);">⚠️ 倉庫を削除しますか？</h3>
+    <p style="font-size:13px;color:var(--ts);margin-bottom:6px;">この操作は取り消せません。本当に削除する場合は、下に倉庫名を正確に入力してください。</p>
+    <p style="font-size:15px;font-weight:700;color:var(--tx);background:var(--gy50);padding:10px;border-radius:var(--rs);text-align:center;margin-bottom:12px;" id="wh-del-target-name"></p>
+    <div class="fg">
+      <label style="font-size:12px;font-weight:600;color:var(--ts);">倉庫名を入力 *</label>
+      <input type="text" id="wh-del-confirm-input" placeholder="倉庫名を入力" style="width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:var(--rs);font-size:16px;font-family:inherit;margin-top:4px;">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button onclick="cancelDelWhModal()" style="flex:1;padding:13px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--gy50);cursor:pointer;font-size:14px;font-family:inherit;">キャンセル</button>
+      <button onclick="confirmDelWhModal()" style="flex:2;padding:13px;border-radius:var(--rs);border:none;background:var(--rd600);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;">削除する</button>
+    </div>
+  </div>
+</div>
+
 <!-- ローディング -->
 <div class="ov h" id="ov"><div class="sp"></div><p>接続中...</p></div>
 
@@ -3764,11 +3781,33 @@ window.addWh=async function(){
   await set(ref(db,'warehouses_list'),o);
   document.getElementById('wh-new').value='';renderWHSel();toast(`${name}を追加しました`);
 };
-window.delWH=async function(id){
+window.delWH=function(id){
   const w=WHs.find(x=>x.id===id);
-  if(!w||!confirm(`「${w.name}」を削除しますか？`))return;
+  if(!w)return;
+  document.getElementById('wh-del-target-name').textContent=w.name;
+  document.getElementById('wh-del-confirm-input').value='';
+  document.getElementById('wh-del-modal')._targetId=id;
+  document.getElementById('wh-del-modal')._targetName=w.name;
+  document.getElementById('wh-del-modal').classList.remove('h');
+  setTimeout(()=>document.getElementById('wh-del-confirm-input').focus(),100);
+};
+window.cancelDelWhModal=function(){
+  document.getElementById('wh-del-modal').classList.add('h');
+};
+window.confirmDelWhModal=async function(){
+  const modal=document.getElementById('wh-del-modal');
+  const id=modal._targetId;
+  const targetName=modal._targetName;
+  const inputVal=document.getElementById('wh-del-confirm-input').value.trim();
+  if(inputVal!==targetName){
+    toast('倉庫名が一致しません。正確に入力してください。');
+    return;
+  }
   WHs=WHs.filter(x=>x.id!==id);const o={};WHs.forEach(w=>o[w.id]=w);
-  await set(ref(db,'warehouses_list'),o);renderWHSel();toast('削除しました');
+  await set(ref(db,'warehouses_list'),o);
+  modal.classList.add('h');
+  renderWHSel();
+  toast('削除しました');
 };
 
 // ===== Firebase =====
