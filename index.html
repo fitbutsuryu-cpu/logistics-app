@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ALINCO LOGITIME — 物流時間管理システム</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 150'%3E%3Crect width='150' height='150' rx='28' fill='%230C447C'/%3E%3Cpath d='M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90' fill='none' stroke='%23FFFFFF' stroke-width='11' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M 102 117 L 129 117 L 129 75' fill='none' stroke='%2302C39A' stroke-width='11' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+<!-- PWA設定 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0C447C">
+<!-- iOS（Safari）でホーム画面に追加した際にアプリらしく表示するための設定 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LOGITIME">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <style>
 :root{
   --bl50:#E6F1FB;--bl200:#85B7EB;--bl600:#185FA5;--bl800:#0C447C;
@@ -5883,6 +5893,14 @@ signInAnonymously(auth).then(()=>{
   // 起動時に90日超えデータを削除（倉庫選択後に実行）
   setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
 }).catch(()=>loadWHs());
+</script>
+<!-- PWA: Service Worker登録（オフラインキャッシュなし・常に最新版を利用） -->
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.log('SW登録失敗:',e));
+  });
+}
 </script>
 </body>
 </html>
