@@ -3932,7 +3932,13 @@ function startListeners(){
   onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrent();});
   onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
-  onValue(ref(db,whPath('reqTime')),snap=>{state.reqTime=snap.val()||{};renderCurrent();});
+  onValue(ref(db,whPath('reqTime')),snap=>{
+    state.reqTime=snap.val()||{};
+    // マスタータブ編集中はカーソルが飛ぶため再描画しない。他タブ（事務所・現場・守衛連絡）は依頼時間表示のため更新
+    const a=document.querySelector('.page.active');
+    const id=a?a.id.replace('page-',''):'';
+    if(id&&id!=='master')renderCurrent();
+  });
   onValue(ref(db,whPath(`inboundData/${today()}`)),snap=>{
     const d=snap.val()||{};
     // 今日分はタッチ画面用変数にのみ保存（masterRowsは触らない）
