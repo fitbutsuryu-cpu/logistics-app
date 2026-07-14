@@ -3619,6 +3619,14 @@ function nextBizDay(){
 }
 function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫',delivery:'持込'}[t]||t;}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// 全角の数字・コロンを半角に変換（手入力での全角文字混入対策）
+function normalizeTime(s){
+  if(!s)return s;
+  return String(s)
+    .replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/[：﹕∶]/g,':')
+    .trim();
+}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('s');setTimeout(()=>t.classList.remove('s'),2800);}
 function setConn(on){const b=document.getElementById('conn');b.className='conn '+(on?'on':'off');document.getElementById('conn-txt').textContent=on?'接続中':'オフライン';}
 function whPath(p){return`warehouses/${CWH}/${p}`;}
@@ -3888,7 +3896,7 @@ async function fbSetRecord(cid,rec,overrideKey=null){
 async function fbSetCarriers(carriers){await set(ref(db,whPath('carriers')),carriers);}
 async function fbSetShip(cid,data){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`shipData/${today()}/${k}`)),data);}
 async function fbSetReqTime(cid,t){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`reqTime/${k}`)),t);}
-function getReqTime(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return(state.reqTime||{})[k]||'15:30';}
+function getReqTime(cid){const k=cid.replace(/[.#$/[\]]/g,'_');return normalizeTime((state.reqTime||{})[k]||'15:30');}
 async function fbSetVis(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`visibility/${today()}/${k}`)),v);}
 async function fbSetGuard(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`guardCheck/${k}`)),v);}
 
@@ -4956,6 +4964,8 @@ async function getAllRecordRows(date){
     const ship=dayShip[baseKey]||null;
     // 再入場の場合は会社名に回数を付与
     const displayC=entryN>1?{...c,name:`${c.name}（${entryN}回目）`,short:`${c.short||c.name}（${entryN}回目）`}:c;
+    // 表示・計算用に依頼時間を正規化（全角コロン等の混入対策）
+    if(dynInfo.reqTime) dynInfo.reqTime=normalizeTime(dynInfo.reqTime);
     rows.push({date,c:displayC,rec,ship,dynInfo,entryN,recKey:k});
   });
   return rows;
@@ -5000,7 +5010,7 @@ window.renderRecords=async function(){
     // 待機時間 = 荷役開始 - MAX(入場時間, 依頼時間) ※マイナスなら00:00
     let waitCell='—';
     if(rec.enterTime&&rec.loadStartTime&&reqT!=='—'){
-      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const toMin=t=>{const nt=normalizeTime(t);const[h,m]=nt.split(':').map(Number);return h*60+m;};
       const enterMin=toMin(rec.enterTime);
       const startMin=toMin(rec.loadStartTime);
       const reqMin=toMin(reqT);
@@ -5014,7 +5024,7 @@ window.renderRecords=async function(){
       waitCell=`<span style="${isOver30?'background:#FEF08A;color:#854D0E;font-weight:700;padding:2px 6px;border-radius:4px;':''}">${waitStr}${isOver30?' ⚠️':''}</span>`;
     } else if(rec.enterTime&&rec.loadStartTime){
       // 依頼時間がない場合は荷役開始-入場時間のみ
-      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const toMin=t=>{const nt=normalizeTime(t);const[h,m]=nt.split(':').map(Number);return h*60+m;};
       const waitMin=Math.max(0,toMin(rec.loadStartTime)-toMin(rec.enterTime));
       const wh=Math.floor(waitMin/60);
       const wm=waitMin%60;
@@ -5087,7 +5097,7 @@ window.downloadExcel=async function(){
     let waitStr='';
     const reqT=dynInfo?.reqTime||'';
     if(rec.enterTime&&rec.loadStartTime){
-      const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m;};
+      const toMin=t=>{const nt=normalizeTime(t);const[h,m]=nt.split(':').map(Number);return h*60+m;};
       const enterMin=toMin(rec.enterTime);
       const startMin=toMin(rec.loadStartTime);
       const baseMin=reqT?Math.max(enterMin,toMin(reqT)):enterMin;
@@ -5300,14 +5310,13 @@ function renderMaster(){
   list.querySelectorAll('input[data-cid]').forEach(input=>{
     input.addEventListener('input',function(){
       const cid=this.dataset.cid;
-      const val=this.value;
+      const val=normalizeTime(this.value);
       clearTimeout(reqDeb[cid]);
       reqDeb[cid]=setTimeout(async()=>{
         const k=cid.replace(/[.#$/[\]]/g,'_');
         await set(ref(db,whPath(`reqTime/${k}`)),val);
         if(!state.reqTime)state.reqTime={};
         state.reqTime[k]=val;
-        console.log('reqTime保存完了:', k, val);
       },1000);
     });
   });
@@ -5467,9 +5476,9 @@ function saveContainer(){debSave('k',async()=>{
   setTimeout(()=>document.getElementById('container-note').textContent='',3000);
 });}
 
-window.updC=function(i,f,v){if(!masterCharterRows[i])masterCharterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};masterCharterRows[i][f]=v;saveCharter();};
-window.updT=function(i,f,v){if(!masterTruckRows[i])masterTruckRows[i]={origin:'',carrier:'',carType:'',carNum:'',time:''};masterTruckRows[i][f]=v;saveTruck();};
-window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={containerNo:'',contType:'',time:''};masterContainerRows[i][f]=v;saveContainer();};
+window.updC=function(i,f,v){if(!masterCharterRows[i])masterCharterRows[i]={carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''};if(f==='time')v=normalizeTime(v);masterCharterRows[i][f]=v;saveCharter();};
+window.updT=function(i,f,v){if(!masterTruckRows[i])masterTruckRows[i]={origin:'',carrier:'',carType:'',carNum:'',time:''};if(f==='time')v=normalizeTime(v);masterTruckRows[i][f]=v;saveTruck();};
+window.updK=function(i,f,v){if(!masterContainerRows[i])masterContainerRows[i]={containerNo:'',contType:'',time:''};if(f==='time')v=normalizeTime(v);masterContainerRows[i][f]=v;saveContainer();};
 // フォーカスアウト時の自動行追加を廃止（行追加ボタンで対応）
 window.blurC=function(i){};
 window.blurT=function(i){};
