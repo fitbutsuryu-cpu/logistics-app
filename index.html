@@ -5129,7 +5129,7 @@ window.downloadExcel=async function(){
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
   // 列幅はheadersの列数(18列)と一致させる
-  const CW=[12,24,10,18,8,8,10,10,10,8,9,9,9,9,9,16,16,18];
+  const CW=[12,24,10,22,8,10,10,10,10,10,9,9,9,9,9,16,16,18];
   const lastCol=cl(headers.length-1); // 例：R（18列目）
   // 1行目：タイトル「集荷チェック表」（全列結合・大きめ太字）
   let sr=`<row r="1" ht="28" customHeight="1"><c r="A1" t="s" s="3"><v>${titleIdx}</v></c></row>`;
