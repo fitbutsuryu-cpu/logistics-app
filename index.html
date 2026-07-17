@@ -5123,8 +5123,7 @@ window.downloadExcel=async function(){
     ];
   });
   dm.forEach(r=>r.forEach(v=>si(v)));
-  const titleDateStr=from===to?from.replace(/-/g,''):`${from.replace(/-/g,'')}-${to.replace(/-/g,'')}`;
-  const titleText=`${wh?wh.name:''}_集荷チェック表${titleDateStr}`;
+  const titleText=`${wh?wh.name:''}_集荷チェック表`;
   const titleIdx=si(titleText);
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
