@@ -54,6 +54,17 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 .conn-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 .wh-sw{padding:4px 8px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:20px;cursor:pointer;font-size:10px;font-family:inherit;white-space:nowrap;margin-left:6px;}
 
+/* スマホ幅：右側の項目が多すぎてタブが押せなくなるのを防ぐ */
+@media(max-width:700px){
+  .nav-date{display:none;}          /* 日付は他画面でも確認できるため非表示 */
+  .nav-user{display:none;}          /* ログイン中のメールアドレス表示は設定タブで確認可能なため非表示 */
+  .conn{padding:4px 5px;}
+  #conn-txt{display:none;}          /* 「接続中」の文字を消し、色付きの点だけ残す */
+  .wh-sw{padding:5px 7px;font-size:13px;margin-left:3px;}
+  .wh-sw-label{display:none;}       /* ボタンの文字ラベルを消し、絵文字アイコンだけにする */
+  .nav-r{padding-right:4px;}
+}
+
 /* PAGES */
 .page{display:none;min-height:calc(100vh - 60px);}
 .page.active{display:block;}
@@ -455,9 +466,9 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     <div class="conn off" id="conn"><span class="conn-dot"></span><span id="conn-txt">接続中</span></div>
     <div class="nav-user" id="nav-user" title="ログイン中のアカウント"></div>
     <div class="nav-date" id="nav-date"></div>
-    <button class="wh-sw" onclick="forceReload()" title="最新版に更新">🔄 更新</button>
-    <button class="wh-sw" onclick="switchWh()">倉庫切替</button>
-    <button class="wh-sw" onclick="doLogout()" title="ログアウト">🚪 ログアウト</button>
+    <button class="wh-sw" onclick="forceReload()" title="最新版に更新">🔄<span class="wh-sw-label"> 更新</span></button>
+    <button class="wh-sw" onclick="switchWh()" title="倉庫切替">🏭<span class="wh-sw-label"> 倉庫切替</span></button>
+    <button class="wh-sw" onclick="doLogout()" title="ログアウト">🚪<span class="wh-sw-label"> ログアウト</span></button>
   </div>
 </nav>
 
