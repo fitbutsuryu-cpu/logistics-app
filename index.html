@@ -6037,6 +6037,47 @@ window.doLogout=function(){
 // ===== 初期化 =====
 updateDate();setInterval(updateDate,60000);
 
+// ===== deliveryQR 自動同期 =====
+// 外部ドライバー用のsign.htmlは匿名ユーザーでも安全な「deliveryQR」にしか
+// 書き込めない設計になっている。サイン完了（used:true）を検知したら、
+// ログイン済みの本体アプリ側が records・printQueue への反映を代行する。
+let deliveryQRSyncStarted=false;
+function startDeliveryQRSync(){
+  if(deliveryQRSyncStarted)return;
+  deliveryQRSyncStarted=true;
+  onValue(ref(db,'deliveryQR'),async snap=>{
+    const all=snap.val();
+    if(!all)return;
+    for(const [token,qrData] of Object.entries(all)){
+      if(qrData.used && !qrData.recordSynced){
+        try{
+          // 複数端末が同時に処理しても1回だけ反映されるようFirebase Transactionで排他制御
+          const syncedRef=ref(db,`deliveryQR/${token}/recordSynced`);
+          let shouldSync=false;
+          await runTransaction(syncedRef,current=>{
+            if(current===true){shouldSync=false;return current;}
+            shouldSync=true;return true;
+          });
+          if(!shouldSync)continue;
+
+          if(qrData.warehouseId&&qrData.carrierId&&qrData.date){
+            const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
+            const recSnap=await get(recRef);
+            const rec=recSnap.val()||{};
+            rec.deliverySign=qrData.deliverySign;
+            rec.deliverySignedAt=qrData.signedAt;
+            rec.deliverySignedDate=qrData.signedDate;
+            await set(recRef,rec);
+          }
+          await set(ref(db,`printQueue/${token}/status`),'signed');
+        }catch(e){
+          console.error('deliveryQR同期エラー:',e);
+        }
+      }
+    }
+  });
+}
+
 onAuthStateChanged(auth,user=>{
   if(user&&!user.isAnonymous){
     // 正式にメール/パスワードでログイン済み：ログイン画面を隠してアプリ本体を表示
@@ -6045,6 +6086,7 @@ onAuthStateChanged(auth,user=>{
     document.getElementById('nav-user').textContent=user.email||'';
     document.getElementById('login-password').value='';
     loadWHs();
+    startDeliveryQRSync();
     // 起動時に90日超えデータを削除（倉庫選択後に実行）
     setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
   } else {
