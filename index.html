@@ -71,6 +71,18 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 .wh-logo-mark svg{width:46px;height:46px;display:block;}
 .wh-title{font-size:26px;font-weight:700;color:#fff;margin-bottom:4px;letter-spacing:.5px;}
 .wh-sub{font-size:13px;color:rgba(255,255,255,.65);margin-bottom:28px;}
+
+/* ログイン画面 */
+.login-screen{position:fixed;inset:0;background:var(--bl800);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-screen.h{display:none;}
+.login-box{width:100%;max-width:340px;text-align:center;}
+.login-title{font-size:24px;font-weight:700;color:#fff;margin-bottom:4px;letter-spacing:.5px;}
+.login-sub{font-size:13px;color:rgba(255,255,255,.65);margin-bottom:24px;}
+.login-box .fg input{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);color:#fff;}
+.login-box .fg input::placeholder{color:rgba(255,255,255,.4);}
+.login-btn{width:100%;padding:13px;margin-top:6px;background:var(--tl600);color:#fff;border:none;border-radius:var(--rs);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;}
+.login-err{min-height:18px;margin-top:12px;font-size:12px;color:#F09595;}
+.nav-user{font-size:10px;color:rgba(255,255,255,.7);padding:0 8px;border-left:1px solid rgba(255,255,255,.15);white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;}
 .wh-grid{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;}
 .wh-btn{background:#fff;border:none;border-radius:var(--r);padding:18px 20px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;font-family:inherit;}
 .wh-btn:hover{background:var(--bl50);}
@@ -339,8 +351,32 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 </head>
 <body>
 
+<!-- ログイン画面（最優先で表示・ログインするまで他の画面は見えない） -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="wh-logo-mark" style="margin:0 auto 16px;">
+      <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 102 117 L 129 117 L 129 75" fill="none" stroke="#02C39A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="login-title">ALINCO LOGITIME</div>
+    <div class="login-sub">ログインしてください</div>
+    <div class="fg" style="text-align:left;">
+      <label style="color:rgba(255,255,255,.8);">メールアドレス（ID）</label>
+      <input type="email" id="login-email" placeholder="例：280soko@alinco-logitime.local" autocomplete="username">
+    </div>
+    <div class="fg" style="text-align:left;">
+      <label style="color:rgba(255,255,255,.8);">パスワード</label>
+      <input type="password" id="login-password" placeholder="パスワード" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">ログイン</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
 <!-- 倉庫選択 -->
-<div class="wh-sel" id="wh-sel">
+<div class="wh-sel h" id="wh-sel">
   <div class="wh-logo-mark">
     <svg viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
       <path d="M 33 117 L 60 39 L 75 39 L 102 117 M 45 90 L 90 90" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
@@ -417,9 +453,11 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   </div>
   <div class="nav-r">
     <div class="conn off" id="conn"><span class="conn-dot"></span><span id="conn-txt">接続中</span></div>
+    <div class="nav-user" id="nav-user" title="ログイン中のアカウント"></div>
     <div class="nav-date" id="nav-date"></div>
     <button class="wh-sw" onclick="forceReload()" title="最新版に更新">🔄 更新</button>
     <button class="wh-sw" onclick="switchWh()">倉庫切替</button>
+    <button class="wh-sw" onclick="doLogout()" title="ログアウト">🚪 ログアウト</button>
   </div>
 </nav>
 
@@ -599,6 +637,20 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div class="fg"><label>パスワード確認</label><input type="password" id="pw-confirm" placeholder="もう一度入力" maxlength="8"></div>
       <button class="add-btn" onclick="saveLockSettings()">💾 設定を保存</button>
       <button style="width:100%;margin-top:8px;padding:11px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearLockSettings()">🗑️ ロック設定を解除</button>
+    </div>
+
+    <div class="m-card" style="max-width:900px;margin-top:20px;">
+      <h2>📋 操作ログ（削除・修正の履歴）</h2>
+      <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">記録の削除・修正、運送会社・倉庫の削除など、重要な操作を「誰が・いつ・何をしたか」記録しています。</p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="fg" style="margin-bottom:0;"><label>開始日</label><input type="date" id="log-from"></div>
+        <div class="fg" style="margin-bottom:0;"><label>終了日</label><input type="date" id="log-to"></div>
+        <button class="add-btn" style="width:auto;padding:9px 18px;" onclick="renderChangeLog()">🔍 表示</button>
+        <button class="dl-btn" style="width:auto;padding:9px 18px;" onclick="downloadChangeLogExcel()">⬇️ Excel</button>
+      </div>
+      <div id="log-container" style="max-height:480px;overflow-y:auto;">
+        <div class="empty">期間を選んで「表示」を押してください</div>
+      </div>
     </div>
   </div>
 </div>
@@ -3562,7 +3614,8 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {initializeAppCheck,ReCaptchaEnterpriseProvider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 
 const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
@@ -3574,6 +3627,22 @@ const FB={
   appId:"1:148508185008:web:bd7a729832528f2fec0675"
 };
 const app=initializeApp(FB);
+
+// ===== App Check（正規のアプリ以外からのアクセスを拒否する） =====
+// ⚠️ 'RECAPTCHA_ENTERPRISE_SITE_KEY' は必ず以下の手順で発行した、
+//    本物のreCAPTCHA Enterpriseサイトキーに書き換えてください。
+//    ① Google Cloud Console → reCAPTCHA Enterprise → キーを作成（ウェブサイトタイプ）
+//    ② Firebaseコンソール → App Check → アプリを登録 → 「reCAPTCHA Enterprise」を選択
+//       → ①で作成したサイトキーを指定
+//    書き換えないままだとApp Checkのトークン取得に失敗し、コンソールに警告が出ますが、
+//    App Check強制（Enforce）を有効化するまではアプリの動作自体は止まりません。
+try{
+  initializeAppCheck(app,{
+    provider:new ReCaptchaEnterpriseProvider('6LfHsHQtAAAAAMFW5aUMsbUj_AJM6mmm7g2naiJT'),
+    isTokenAutoRefreshEnabled:true
+  });
+}catch(e){console.warn('App Check初期化エラー:',e);}
+
 const db=getDatabase(app);
 const auth=getAuth(app);
 
@@ -3585,10 +3654,6 @@ let selOff=null,selFld=null;
 let signMode='',signCid='';
 let signCtx,signDraw=false;
 let selectedInboundDate=today();
-// Teams通知送信済みキャリアのローカルキャッシュ（Firebase書き込み完了前の二重送信防止）
-const teamsNotifiedLocal=new Set();
-const teamsProcessing=new Set(); // 処理中フラグ（非同期の二重実行防止）
-let isInitialLoad=true; // 初回ロード時の通知スキップフラグ
 // タッチ画面用（今日分のみ・Firebaseリスナーで自動更新）
 let todayCharterRows=[];
 let todayTruckRows=[];
@@ -3706,6 +3771,96 @@ window.clearLockSettings=function(){
   unlockedPages=new Set();
   toast('ロック設定を解除しました');
 };
+
+// ===== 操作ログ表示 =====
+const actionLabels={
+  delete_record:'🗑️ 記録の削除',
+  edit_record:'✏️ 記録の修正',
+  delete_carrier:'🗑️ 運送会社の削除',
+  delete_warehouse:'🗑️ 倉庫の削除',
+  login:'🔓 ログイン'
+};
+// 指定期間の操作ログをまとめて取得する共通関数
+async function fetchChangeLogRange(from,to){
+  const dates=[];let cur=new Date(from);const end=new Date(to);
+  while(cur<=end){dates.push(cur.toISOString().slice(0,10));cur.setDate(cur.getDate()+1);}
+  const allLogs=[];
+  for(const d of dates){
+    const snap=await get(ref(db,`changeLog/${d}`));
+    const v=snap.val();
+    if(v)Object.values(v).forEach(entry=>allLogs.push(entry));
+  }
+  allLogs.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  return allLogs;
+}
+
+window.renderChangeLog=async function(){
+  const from=document.getElementById('log-from').value;
+  const to=document.getElementById('log-to').value;
+  const container=document.getElementById('log-container');
+  if(!from||!to){container.innerHTML='<div class="empty">開始日・終了日を選択してください</div>';return;}
+  if(from>to){toast('開始日は終了日以前にしてください');return;}
+  container.innerHTML='<div class="empty">読込中...</div>';
+  const allLogs=await fetchChangeLogRange(from,to);
+  if(!allLogs.length){container.innerHTML='<div class="empty">この期間に操作ログはありません</div>';return;}
+  container.innerHTML=`<table class="rt"><thead><tr>
+    <th>日時</th><th>操作者</th><th>倉庫</th><th>操作内容</th><th>対象</th><th>詳細</th>
+  </tr></thead><tbody>${allLogs.map(l=>{
+    const dateStr=(l.ts||'').slice(0,10);
+    return`<tr>
+      <td>${esc(dateStr)} ${esc(l.time||'')}</td>
+      <td>${esc(l.user||'不明')}</td>
+      <td>${esc(l.warehouse||'—')}</td>
+      <td>${actionLabels[l.action]||esc(l.action||'')}</td>
+      <td>${esc(l.target||'')}</td>
+      <td>${esc(l.detail||'')}</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+};
+
+// 操作ログをExcel（CSV形式・Excelでそのまま開ける）でダウンロード
+window.downloadChangeLogExcel=async function(){
+  const from=document.getElementById('log-from').value;
+  const to=document.getElementById('log-to').value;
+  if(!from||!to){toast('開始日・終了日を選択してください');return;}
+  if(from>to){toast('開始日は終了日以前にしてください');return;}
+  const allLogs=await fetchChangeLogRange(from,to);
+  if(!allLogs.length){toast('この期間に操作ログはありません');return;}
+  toast('Excel用ファイルを生成中...');
+
+  const csvEsc=s=>{
+    const v=String(s??'');
+    return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
+  };
+  const headers=['日付','時刻','操作者','倉庫','操作内容','対象','詳細'];
+  const rows=[headers.join(',')];
+  allLogs.forEach(l=>{
+    const dateStr=(l.ts||'').slice(0,10);
+    rows.push([
+      dateStr,
+      l.time||'',
+      l.user||'不明',
+      l.warehouse||'',
+      actionLabels[l.action]||l.action||'',
+      l.target||'',
+      l.detail||''
+    ].map(csvEsc).join(','));
+  });
+  // 先頭にBOMを付与（Excelで開いた際に日本語が文字化けしないように）
+  const csvContent='\uFEFF'+rows.join('\r\n');
+  const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const wh=WHs.find(w=>w.id===CWH);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`操作ログ_${wh?wh.name:''}_${from}${from!==to?'_'+to:''}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('ダウンロードしました');
+};
+
 function loadLockUI(){
   const cfg=getLockCfg();
   if(cfg.tabs){
@@ -3770,10 +3925,6 @@ window.selWH=function(id){
   document.getElementById('m-wh-lbl').textContent=`対象倉庫：${w?w.name:id}`;
   document.getElementById('wh-sel').classList.add('h');
   document.getElementById('ov').classList.remove('h');
-  // 倉庫選択のたびに初回ロードフラグとキャッシュをリセット
-  isInitialLoad=true;
-  teamsNotifiedLocal.clear();
-  teamsProcessing.clear();
   startListeners();
 };
 // PWA（ホーム画面アプリ）用：最新版に強制更新するボタン
@@ -3806,7 +3957,6 @@ window.switchWh=function(){
   truckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carType:'',carNum:'',time:''}];
   containerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
   selOff=null;selFld=null;CWH=null;
-  teamsNotifiedLocal.clear();
   document.getElementById('wh-sel').classList.remove('h');
   renderWHSel();
 };
@@ -3842,12 +3992,36 @@ window.confirmDelWhModal=async function(){
   }
   WHs=WHs.filter(x=>x.id!==id);const o={};WHs.forEach(w=>o[w.id]=w);
   await set(ref(db,'warehouses_list'),o);
+  await logChange('delete_warehouse',targetName,`倉庫ID:${id}`);
   modal.classList.add('h');
   renderWHSel();
   toast('削除しました');
 };
 
 // ===== Firebase =====
+// 操作ログ（誰が・いつ・何を・どうしたか）を記録する
+// action: 'delete_record' | 'edit_record' | 'delete_carrier' | 'delete_warehouse' など
+// target: 対象を表す文字列（会社名・日付など）
+// detail: 変更内容の詳細（任意の文字列）
+async function logChange(action,target,detail){
+  try{
+    const who=auth.currentUser?auth.currentUser.email:'不明';
+    const d=today();
+    const key=`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    await set(ref(db,`changeLog/${d}/${key}`),{
+      ts:new Date().toISOString(),
+      time:nowTime(),
+      user:who,
+      warehouse:CWH||'',
+      action,
+      target:target||'',
+      detail:detail||''
+    });
+  }catch(e){
+    console.warn('操作ログの記録に失敗しました:',e);
+  }
+}
+
 async function fbSetRecord(cid,rec,overrideKey=null){
   const k=overrideKey||cid.replace(/[.#$/[\]]/g,'_');
   // 会社名・種別・実車情報・依頼時間・納品先・出荷元は「未保存のフィールドのみ」個別にスナップショット保存する。
@@ -3912,58 +4086,6 @@ function startListeners(){
   });
   onValue(ref(db,whPath(`records/${today()}`)),async snap=>{
     const newRec=snap.val()||{};
-    // 初回ロード時はスキップ（ページリロード時の誤通知防止）
-    if(isInitialLoad){
-      Object.entries(newRec).forEach(([k,r])=>{
-        if(r.enterTime) teamsNotifiedLocal.add(k);
-      });
-      isInitialLoad=false;
-      state.records[today()]=newRec;renderCurrent();
-      return;
-    }
-    // 通知チェック：Firebaseのtransactionで1台のみ送信を保証
-    for(const [k,r] of Object.entries(newRec)){
-      if(r.enterTime && !r.teamsNotified && !teamsNotifiedLocal.has(k) && !teamsProcessing.has(k)){
-        teamsNotifiedLocal.add(k);
-        teamsProcessing.add(k);
-        try{
-          const flagRef=ref(db,whPath(`records/${today()}/${k}/teamsNotified`));
-          let shouldSend=false;
-          await runTransaction(flagRef,(current)=>{
-            if(current===true){shouldSend=false;return current;}
-            shouldSend=true;return true;
-          });
-          if(!shouldSend){teamsProcessing.delete(k);continue;}
-          // 再入場かどうか判定
-          const reentryMatch=k.match(/^(.+)__r(\d)$/);
-          const baseKey=reentryMatch?reentryMatch[1]:k;
-          const entryN=reentryMatch?parseInt(reentryMatch[2]):1;
-          const c=state.carriers.find(x=>x.id.replace(/[.#$/[\]]/g,'_')===baseKey)||getDynCarriers().find(x=>x.id.replace(/[.#$/[\]]/g,'_')===k);
-          if(c){
-            const extra={};
-            if(entryN>1) extra.entryN=entryN; // 再入場回数
-            if(c._dyn){
-              if(c.type==='spot_charter'){
-                if(c._realCarrier) extra.realCarrier=c._realCarrier;
-                if(c._carNum)      extra.carNum=c._carNum;
-                const row=masterCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id)||
-                          todayCharterRows.find(r=>r._uid&&('dyn_'+r._uid)===c.id);
-                if(row&&row.dest) extra.dest=row.dest;
-              } else if(c.type==='truck_in'){
-                if(c._info) extra.truckInfo=c._info;
-              } else if(c.type==='container_in'){
-                extra.containerNo=c.name;
-              }
-            }
-            await sendTeamsNotify(c.name, r.enterTime, c.type, extra);
-          }
-        }catch(e){
-          console.error('Teams通知処理エラー:',e);
-        }finally{
-          teamsProcessing.delete(k);
-        }
-      }
-    }
     state.records[today()]=newRec;renderCurrent();
   });
   onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
@@ -3996,75 +4118,6 @@ function startListeners(){
   });
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
-// ===== Teams通知（Power Automate経由） =====
-const TEAMS_WEBHOOK_URL='https://default864dfd3d1bc04b8da5ba416741696c.94.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/c47ddbcdda034be3b78483bfa3d4b626/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=fpEvXXKMEKqKSrcMWHYTFVoYPhU_9TqcwoYVcXT5R-4';
-
-async function sendTeamsNotify(carrierName, enterTime, type='', extra={}){
-  if(!TEAMS_WEBHOOK_URL)return;
-
-  const typeLabel={
-    regular:'定期便', irregular:'不定期便',
-    spot_charter:'チャーター出荷', charter:'専属チャーター',
-    truck_in:'トラック入庫', container_in:'コンテナ入庫',
-    delivery:'持込'
-  }[type]||'運送会社';
-
-  // カード本文のブロックを組み立て
-  const facts=[];
-
-  // チャーター出荷は納品先を一番上に
-  if(type==='spot_charter'&&extra.dest){
-    facts.push({title:'📍 納品先',value:extra.dest});
-  }
-
-  facts.push({title:`🚚 ${typeLabel}`,value:carrierName});
-
-  if(type==='spot_charter'){
-    if(extra.realCarrier) facts.push({title:'🚛 実車名',value:extra.realCarrier});
-    if(extra.carNum)      facts.push({title:'🔢 車番',value:extra.carNum});
-  } else if(type==='truck_in'){
-    if(extra.truckInfo)   facts.push({title:'📋 詳細',value:extra.truckInfo});
-  } else if(type==='container_in'){
-    if(extra.containerNo) facts.push({title:'📦 コンテナNo',value:extra.containerNo});
-  }
-  facts.push({title:'⏰ 入場時刻',value:enterTime});
-  facts.push({title:'📅 日付',value:today()});
-  if(extra.entryN) facts.push({title:'🔄 入場回数',value:`${extra.entryN}回目`});
-
-  try{
-    await fetch(TEAMS_WEBHOOK_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        type:'message',
-        attachments:[{
-          contentType:'application/vnd.microsoft.card.adaptive',
-          content:{
-            '$schema':'http://adaptivecards.io/schemas/adaptive-card.json',
-            type:'AdaptiveCard',
-            version:'1.4',
-            body:[
-              {
-                type:'TextBlock',
-                text:'🚪 入場記録 — ALINCO LOGITIME',
-                weight:'Bolder',
-                size:'Medium',
-                color:'Accent'
-              },
-              {
-                type:'FactSet',
-                facts: facts
-              }
-            ]
-          }
-        }]
-      })
-    });
-  }catch(e){
-    console.warn('Teams通知の送信に失敗しました:',e);
-  }
-}
-
 // ===== 1週間分の日付タブ =====
 function get7Days(){
   const days=[];
@@ -4162,6 +4215,10 @@ window.showPage=function(id){
   selOff=null;selFld=null;
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
+  else if(id==='settings'){
+    const lf=document.getElementById('log-from'),lt=document.getElementById('log-to');
+    if(lf&&!lf.value){const t=today();lf.value=t;lt.value=t;}
+  }
   else if(id==='master'){
     // 必ず今日のデータをFirebaseから読み直す（前回編集した別日付のデータが残らないように）
     switchInboundDate(today());
@@ -4697,7 +4754,7 @@ async function issueDeliveryQR(cid, c, rec){
     deliverySign:null
   };
   await set(ref(db,`deliveryQR/${token}`),qrData);
-  // deliveryQRTokenだけを部分更新（teamsNotifiedフラグを上書きしないため）
+  // deliveryQRTokenだけを部分更新（records全体を上書きしないため）
   await set(ref(db,whPath(`records/${today()}/${k}/deliveryQRToken`)),token);
   return token;
 }
@@ -4763,7 +4820,8 @@ function setPrintPageStyle(css){
 }
 
 async function showQRPrintPreview(token, carrierName, date){
-  const SIGN_PAGE_URL='https://fitbutsuryu-cpu.github.io/logistics-app/sign.html';
+  // 署名ページは本アプリと同じホスト・同じディレクトリから配信する（配信元の移設に追従）
+  const SIGN_PAGE_URL=new URL('sign.html',location.href).href;
   const signUrl=`${SIGN_PAGE_URL}?token=${token}`;
   const wh=WHs.find(w=>w.id===CWH);
   const whName=wh?wh.name:'';
@@ -5180,7 +5238,9 @@ window.addCarrier=async function(){
 };
 window.deleteCarrier=async function(id){
   const c=state.carriers.find(x=>x.id===id);if(!c||!confirm(`「${c.name}」を削除しますか？`))return;
-  await fbSetCarriers(state.carriers.filter(x=>x.id!==id));toast('削除しました');
+  await fbSetCarriers(state.carriers.filter(x=>x.id!==id));
+  await logChange('delete_carrier',c.name,`種別:${tLabel(c.type)}`);
+  toast('削除しました');
 };
 window.toggleVis=async function(cid){await fbSetVis(cid,!isVis(cid));};
 window.toggleGuard=async function(cid){await fbSetGuard(cid,!isGuard(cid));};
@@ -5689,10 +5749,10 @@ window.saveContainerNow=async function(){
 };
 
 // ===== 記録修正 =====
-let editDate='', editCid='';
+let editDate='', editCid='', editName='';
 
 window.openEditModal=async function(date, cid, name){
-  editDate=date; editCid=cid;
+  editDate=date; editCid=cid; editName=name;
   document.getElementById('edit-sub').textContent=`${name}　${date}`;
   const snap=await get(ref(db,whPath(`records/${date}/${cid}`)));
   const rec=snap.val()||{};
@@ -5779,6 +5839,13 @@ window.saveEdit=async function(){
     delete updated.charterCarrierName; delete updated.charterCarNumber;
   }
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),updated);
+  // どの項目が変わったかを操作ログに記録
+  const changes=[];
+  if((existing.enterTime||'')!==(enterTime||''))         changes.push(`入場:${existing.enterTime||'—'}→${enterTime||'—'}`);
+  if((existing.loadStartTime||'')!==(loadStartTime||''))  changes.push(`荷役開始:${existing.loadStartTime||'—'}→${loadStartTime||'—'}`);
+  if((existing.loadEndTime||'')!==(loadEndTime||''))      changes.push(`荷役終了:${existing.loadEndTime||'—'}→${loadEndTime||'—'}`);
+  if((existing.departTime||'')!==(departTime||''))        changes.push(`退場:${existing.departTime||'—'}→${departTime||'—'}`);
+  await logChange('edit_record',`${editName}（${editDate}）`,changes.join('、')||'変更なし');
   toast('記録を修正しました');
   closeEditModal();
   renderRecords();
@@ -5792,6 +5859,7 @@ window.deleteRecord=async function(){
     :'この運送会社のこの日の記録を削除しますか？\nサインデータも含めて完全に削除されます。';
   if(!confirm(msg))return;
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),null);
+  await logChange('delete_record',`${editName}（${editDate}）`,`キー:${editCid}`);
   toast('記録を削除しました');
   closeEditModal();
   renderRecords();
@@ -5861,6 +5929,16 @@ async function cleanOldRecords(){
       });
     }
 
+    // ⑥ changeLog（操作ログ・日付キー）
+    const logSnap=await get(ref(db,'changeLog'));
+    if(logSnap.val()){
+      Object.keys(logSnap.val()).forEach(dateKey=>{
+        if(dateKey<cutoffStr){
+          promises.push(set(ref(db,`changeLog/${dateKey}`),null));
+        }
+      });
+    }
+
     if(promises.length){
       await Promise.all(promises);
       console.log(`90日超えデータ削除: ${promises.length}件`);
@@ -5921,13 +5999,58 @@ setInterval(()=>{
   }
 },60000); // 1分ごとにチェック
 
+// ===== ログイン / ログアウト =====
+window.doLogin=function(){
+  const email=document.getElementById('login-email').value.trim();
+  const password=document.getElementById('login-password').value;
+  const errBox=document.getElementById('login-err');
+  errBox.textContent='';
+  if(!email||!password){errBox.textContent='メールアドレスとパスワードを入力してください';return;}
+  signInWithEmailAndPassword(auth,email,password).then(cred=>{
+    logChange('login',cred.user.email,'ログイン');
+  }).catch(err=>{
+    console.warn('ログイン失敗:',err.code);
+    if(err.code==='auth/invalid-credential'||err.code==='auth/wrong-password'||err.code==='auth/user-not-found'){
+      errBox.textContent='メールアドレスまたはパスワードが正しくありません';
+    } else if(err.code==='auth/too-many-requests'){
+      errBox.textContent='試行回数が多すぎます。しばらく待ってから再度お試しください';
+    } else if(err.code==='auth/invalid-email'){
+      errBox.textContent='メールアドレスの形式が正しくありません';
+    } else {
+      errBox.textContent='ログインに失敗しました（'+err.code+'）';
+    }
+  });
+};
+window.doLogout=function(){
+  if(!confirm('ログアウトしますか？'))return;
+  signOut(auth);
+};
+
 // ===== 初期化 =====
 updateDate();setInterval(updateDate,60000);
-signInAnonymously(auth).then(()=>{
-  loadWHs();
-  // 起動時に90日超えデータを削除（倉庫選択後に実行）
-  setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
-}).catch(()=>loadWHs());
+
+onAuthStateChanged(auth,user=>{
+  if(user&&!user.isAnonymous){
+    // 正式にメール/パスワードでログイン済み：ログイン画面を隠してアプリ本体を表示
+    document.getElementById('login-screen').classList.add('h');
+    document.getElementById('wh-sel').classList.remove('h');
+    document.getElementById('nav-user').textContent=user.email||'';
+    document.getElementById('login-password').value='';
+    loadWHs();
+    // 起動時に90日超えデータを削除（倉庫選択後に実行）
+    setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
+  } else {
+    if(user&&user.isAnonymous){
+      // 過去（改修前）に作られた匿名セッションが残っている場合は破棄する
+      signOut(auth);
+    }
+    // 未ログイン：ログイン画面のみ表示
+    document.getElementById('login-screen').classList.remove('h');
+    document.getElementById('wh-sel').classList.add('h');
+    document.getElementById('nav-user').textContent='';
+    setTimeout(()=>document.getElementById('login-email')?.focus(),100);
+  }
+});
 </script>
 <!-- PWA: Service Worker登録（オフラインキャッシュなし・常に最新版を利用） -->
 <script>
