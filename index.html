@@ -3615,7 +3615,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {initializeAppCheck,ReCaptchaEnterpriseProvider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 
 const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
@@ -3629,16 +3629,13 @@ const FB={
 const app=initializeApp(FB);
 
 // ===== App Check（正規のアプリ以外からのアクセスを拒否する） =====
-// ⚠️ 'RECAPTCHA_ENTERPRISE_SITE_KEY' は必ず以下の手順で発行した、
-//    本物のreCAPTCHA Enterpriseサイトキーに書き換えてください。
-//    ① Google Cloud Console → reCAPTCHA Enterprise → キーを作成（ウェブサイトタイプ）
-//    ② Firebaseコンソール → App Check → アプリを登録 → 「reCAPTCHA Enterprise」を選択
-//       → ①で作成したサイトキーを指定
+// ⚠️ 'RECAPTCHA_V3_SITE_KEY' は必ずFirebaseコンソール（Build > App Check）で
+//    このWebアプリを登録して発行された、本物のreCAPTCHA v3サイトキーに書き換えてください。
 //    書き換えないままだとApp Checkのトークン取得に失敗し、コンソールに警告が出ますが、
 //    App Check強制（Enforce）を有効化するまではアプリの動作自体は止まりません。
 try{
   initializeAppCheck(app,{
-    provider:new ReCaptchaEnterpriseProvider('6LfHsHQtAAAAAMFW5aUMsbUj_AJM6mmm7g2naiJT'),
+    provider:new ReCaptchaV3Provider('6LfNsHQtAAAAAExkyEH7Ku5b6de8J8SlTtEEPamb'),
     isTokenAutoRefreshEnabled:true
   });
 }catch(e){console.warn('App Check初期化エラー:',e);}
