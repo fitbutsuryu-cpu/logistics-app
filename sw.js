@@ -20,9 +20,13 @@ const messaging=firebase.messaging();
 // アプリを閉じている・バックグラウンドの時に通知が来た場合の表示
 messaging.onBackgroundMessage((payload)=>{
   const title=(payload.notification&&payload.notification.title)||'ALINCO LOGITIME';
+  // 同じ出来事には同じタグが付いているため、万一同じ通知が2回届いても
+  // ブラウザが「上書き」してくれるので、画面上には1件しか表示されない
+  const tag=(payload.data&&payload.data.tag)||undefined;
   const options={
     body:(payload.notification&&payload.notification.body)||'',
-    icon:'icons/icon-192.png'
+    icon:'icons/icon-192.png',
+    tag
   };
   self.registration.showNotification(title,options);
 });
@@ -44,4 +48,3 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(fetch(event.request));
 });
-
