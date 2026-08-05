@@ -83,6 +83,9 @@ const auth=getAuth(app);
 // URLからトークン取得
 const token=new URLSearchParams(location.search).get('token');
 
+// 表示前に文字列を無害化する（悪意ある文字列が実行されないようにする）
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
 let qrData=null;
 let signCtx=null,signDraw=false,hasSigned=false;
 
@@ -101,12 +104,12 @@ async function init(){
   if(qrData.used){
     showUsed();return;
   }
-  // 情報表示
+  // 情報表示（エスケープ処理を通してから埋め込む）
   document.getElementById('info-box').innerHTML=`
-    <div class="info-row"><span class="info-label">運送会社</span><span class="info-val">${qrData.carrierName||'—'}</span></div>
-    <div class="info-row"><span class="info-label">倉庫</span><span class="info-val">${qrData.warehouseName||'—'}</span></div>
-    <div class="info-row"><span class="info-label">発行日</span><span class="info-val">${qrData.date||'—'}</span></div>
-    <div class="info-row"><span class="info-label">退場時刻</span><span class="info-val">${qrData.issuedAt||'—'}</span></div>
+    <div class="info-row"><span class="info-label">運送会社</span><span class="info-val">${esc(qrData.carrierName)||'—'}</span></div>
+    <div class="info-row"><span class="info-label">倉庫</span><span class="info-val">${esc(qrData.warehouseName)||'—'}</span></div>
+    <div class="info-row"><span class="info-label">発行日</span><span class="info-val">${esc(qrData.date)||'—'}</span></div>
+    <div class="info-row"><span class="info-label">退場時刻</span><span class="info-val">${esc(qrData.issuedAt)||'—'}</span></div>
   `;
   document.getElementById('loading').style.display='none';
   document.getElementById('content').style.display='block';
