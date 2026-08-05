@@ -651,6 +651,19 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
     </div>
 
     <div class="m-card" style="max-width:900px;margin-top:20px;">
+      <h2>🔔 プッシュ通知</h2>
+      <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">
+        有効にすると、この端末（この画面を開いているiPad・スマホ・PC）に、
+        入場記録があったタイミングで通知が届くようになります。<br>
+        ※iPhone/iPadの場合は、ホーム画面に追加した状態（PWA）でご利用ください。
+        Safariのタブとして開いているだけでは通知が届きません。
+      </p>
+      <p id="notify-status" style="font-size:14px;font-weight:600;margin-bottom:12px;">確認中...</p>
+      <button id="notify-enable-btn" class="add-btn" style="width:auto;padding:10px 20px;" onclick="enableNotifications()">🔔 この端末で通知を受け取る</button>
+      <button id="notify-disable-btn" style="display:none;width:auto;padding:10px 20px;background:var(--gy50);color:var(--tx);border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="disableNotifications()">🔕 この端末の通知を止める</button>
+    </div>
+
+    <div class="m-card" style="max-width:900px;margin-top:20px;">
       <h2>📋 操作ログ（削除・修正の履歴）</h2>
       <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">記録の削除・修正、運送会社・倉庫の削除など、重要な操作を「誰が・いつ・何をしたか」記録しています。</p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
@@ -3627,6 +3640,7 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase
 import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
+import {getMessaging,getToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
@@ -3653,6 +3667,96 @@ try{
 
 const db=getDatabase(app);
 const auth=getAuth(app);
+
+// ===== プッシュ通知（Firebase Cloud Messaging） =====
+// ⚠️ 'FCM_VAPID_KEY' は必ずFirebaseコンソール（プロジェクトの設定 > Cloud Messaging >
+//    ウェブ構成 > ウェブ プッシュ証明書）で生成した、本物のキーペア文字列に書き換えてください。
+const FCM_VAPID_KEY='BPhyU7DxyHSvfzQIP_0k_phU9lZC03SzC3ICQNMWDgP1KBGQWIDEH7S8S0W1Eqy9VhaU56J4VkFwuk2995gsv54';
+let messaging=null;
+let currentFcmToken=null;
+
+async function initMessaging(){
+  try{
+    const supported=await isSupported();
+    if(!supported){
+      console.warn('この環境ではプッシュ通知はサポートされていません。');
+      return;
+    }
+    messaging=getMessaging(app);
+    // アプリが開いている間（フォアグラウンド）に通知が来た場合はトースト表示
+    onMessage(messaging,payload=>{
+      const title=payload.notification?.title||'ALINCO LOGITIME';
+      const body=payload.notification?.body||'';
+      toast(`🔔 ${title}：${body}`);
+    });
+    updateNotifyUI();
+  }catch(e){
+    console.warn('Messaging初期化エラー:',e);
+  }
+}
+
+// 通知を有効にする（許可を求めてトークンを取得・保存）
+window.enableNotifications=async function(){
+  if(!messaging){toast('この端末・ブラウザでは通知機能が使えません');return;}
+  try{
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      toast('通知が許可されませんでした（ブラウザの設定をご確認ください）');
+      return;
+    }
+    const swReg=await navigator.serviceWorker.getRegistration();
+    const token=await getToken(messaging,{vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:swReg});
+    if(!token){toast('通知の登録に失敗しました');return;}
+    currentFcmToken=token;
+    await set(ref(db,`fcmTokens/${token}`),{
+      email:auth.currentUser?.email||'',
+      warehouseId:CWH||'',
+      updatedAt:new Date().toISOString()
+    });
+    toast('✅ この端末で通知を受け取るようにしました');
+    updateNotifyUI();
+  }catch(e){
+    console.error('通知有効化エラー:',e);
+    toast('通知の設定に失敗しました');
+  }
+};
+
+// 通知を無効にする（このトークンを削除）
+window.disableNotifications=async function(){
+  if(!currentFcmToken){toast('この端末では通知が有効になっていません');return;}
+  try{
+    await set(ref(db,`fcmTokens/${currentFcmToken}`),null);
+    currentFcmToken=null;
+    toast('通知を無効にしました');
+    updateNotifyUI();
+  }catch(e){
+    console.error('通知無効化エラー:',e);
+  }
+};
+
+function updateNotifyUI(){
+  const statusEl=document.getElementById('notify-status');
+  const enableBtn=document.getElementById('notify-enable-btn');
+  const disableBtn=document.getElementById('notify-disable-btn');
+  if(!statusEl)return;
+  const perm=typeof Notification!=='undefined'?Notification.permission:'unsupported';
+  if(perm==='granted'&&currentFcmToken){
+    statusEl.textContent='✅ この端末は通知が有効です';
+    statusEl.style.color='var(--gn600)';
+    if(enableBtn)enableBtn.style.display='none';
+    if(disableBtn)disableBtn.style.display='inline-block';
+  } else if(perm==='denied'){
+    statusEl.textContent='❌ ブラウザの設定で通知がブロックされています';
+    statusEl.style.color='var(--rd600)';
+    if(enableBtn)enableBtn.style.display='inline-block';
+    if(disableBtn)disableBtn.style.display='none';
+  } else {
+    statusEl.textContent='通知は無効です';
+    statusEl.style.color='var(--th)';
+    if(enableBtn)enableBtn.style.display='inline-block';
+    if(disableBtn)disableBtn.style.display='none';
+  }
+}
 
 // ===== STATE =====
 let CWH=null; // 現在の倉庫ID
@@ -6087,6 +6191,7 @@ onAuthStateChanged(auth,user=>{
     document.getElementById('login-password').value='';
     loadWHs();
     startDeliveryQRSync();
+    initMessaging();
     // 起動時に90日超えデータを削除（倉庫選択後に実行）
     setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
   } else {
