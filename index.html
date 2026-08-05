@@ -3671,7 +3671,7 @@ const auth=getAuth(app);
 // ===== プッシュ通知（Firebase Cloud Messaging） =====
 // ⚠️ 'FCM_VAPID_KEY' は必ずFirebaseコンソール（プロジェクトの設定 > Cloud Messaging >
 //    ウェブ構成 > ウェブ プッシュ証明書）で生成した、本物のキーペア文字列に書き換えてください。
-const FCM_VAPID_KEY='BPhyU7DxyHSvfzQIP_0k_phU9lZC03SzC3ICQNMWDgP1KBGQWIDEH7S8S0W1Eqy9VhaU56J4VkFwuk2995gsv54';
+const FCM_VAPID_KEY='FCM_VAPID_KEY';
 let messaging=null;
 let currentFcmToken=null;
 
@@ -6047,6 +6047,16 @@ async function cleanOldRecords(){
       Object.keys(logSnap.val()).forEach(dateKey=>{
         if(dateKey<cutoffStr){
           promises.push(set(ref(db,`changeLog/${dateKey}`),null));
+        }
+      });
+    }
+
+    // ⑦ _processedEvents（プッシュ通知の重複配信防止マーカー・日付キー）
+    const procSnap=await get(ref(db,'_processedEvents'));
+    if(procSnap.val()){
+      Object.keys(procSnap.val()).forEach(dateKey=>{
+        if(dateKey<cutoffStr){
+          promises.push(set(ref(db,`_processedEvents/${dateKey}`),null));
         }
       });
     }
