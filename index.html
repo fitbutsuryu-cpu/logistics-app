@@ -3641,7 +3641,7 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase
 import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
-import {getMessaging,getToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
 const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
@@ -3785,6 +3785,14 @@ window.disableNotifications=async function(){
   if(!currentFcmToken){toast('この端末では通知が有効になっていません');return;}
   try{
     await set(ref(db,`fcmTokens/${currentFcmToken}`),null);
+    // ★ブラウザ側の購読情報（キャッシュ）自体も確実に破棄する。
+    //   これをしないと、次に「有効にする」を押した際に
+    //   ブラウザが古いキャッシュされた情報を使い回してしまうことがある。
+    try{
+      if(messaging)await deleteToken(messaging);
+    }catch(e){
+      console.warn('購読情報の破棄に失敗（無視して続行）:',e);
+    }
     currentFcmToken=null;
     toast('通知を無効にしました');
     updateNotifyUI();
