@@ -2,34 +2,28 @@
 // PWA化のための最小構成（オフラインキャッシュなし・常に最新版を取得）
 // + プッシュ通知（Firebase Cloud Messaging）のバックグラウンド受信
 
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+// ★Firebase純正の「firebase.messaging().onBackgroundMessage()」は、
+//   data専用メッセージだと正しく反応しないことがある既知の癖があるため、
+//   ブラウザ標準の「push」イベントを直接受け取る、より確実な方式にしている。
+//   （firebase-messaging-compat.js は読み込まない）
 
-firebase.initializeApp({
-  apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
-  authDomain:"logitime-86b56.firebaseapp.com",
-  databaseURL:"https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"logitime-86b56",
-  storageBucket:"logitime-86b56.firebasestorage.app",
-  messagingSenderId:"148508185008",
-  appId:"1:148508185008:web:bd7a729832528f2fec0675"
-});
-
-const messaging=firebase.messaging();
-
-// アプリを閉じている・バックグラウンドの時に通知が来た場合の表示
-// ★「notification」項目ではなく「data」項目から読み取る（data-onlyメッセージ）。
-//   これにより、ブラウザが自動で表示する処理と競合して2重表示される
-//   可能性を排除し、表示は必ずこの処理だけで行われるようにしている。
-messaging.onBackgroundMessage((payload)=>{
-  const title=(payload.data&&payload.data.title)||'ALINCO LOGITIME';
-  const tag=(payload.data&&payload.data.tag)||undefined;
+self.addEventListener('push',(event)=>{
+  if(!event.data)return;
+  let payload;
+  try{
+    payload=event.data.json();
+  }catch(e){
+    return;
+  }
+  // FCMのプッシュ内容は payload.data の中に入っている
+  const data=payload.data||{};
+  const title=data.title||'ALINCO LOGITIME';
   const options={
-    body:(payload.data&&payload.data.body)||'',
+    body:data.body||'',
     icon:'icons/icon-192.png',
-    tag
+    tag:data.tag||undefined
   };
-  self.registration.showNotification(title,options);
+  event.waitUntil(self.registration.showNotification(title,options));
 });
 
 self.addEventListener('install', (event) => {
