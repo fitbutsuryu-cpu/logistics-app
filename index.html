@@ -659,6 +659,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
         Safariのタブとして開いているだけでは通知が届きません。
       </p>
       <p id="notify-status" style="font-size:14px;font-weight:600;margin-bottom:12px;">確認中...</p>
+      <div id="notify-wh-list" style="margin-bottom:14px;"></div>
       <button id="notify-enable-btn" class="add-btn" style="width:auto;padding:10px 20px;" onclick="enableNotifications()">🔔 この端末で通知を受け取る</button>
       <button id="notify-disable-btn" style="display:none;width:auto;padding:10px 20px;background:var(--gy50);color:var(--tx);border:1px solid var(--bd);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="disableNotifications()">🔕 この端末の通知を止める</button>
     </div>
@@ -3690,11 +3691,58 @@ async function initMessaging(){
       const body=payload.data?.body||'';
       toast(`🔔 ${title}：${body}`);
     });
+    renderNotifyWhList();
+    // 既に通知が許可済みなら、現在のトークンを取得して
+    // 過去に選んだ倉庫の選択状態をチェックボックスに復元する
+    if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+      try{
+        const swReg=await navigator.serviceWorker.getRegistration();
+        const token=await getToken(messaging,{vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:swReg});
+        if(token){
+          currentFcmToken=token;
+          const snap=await get(ref(db,`fcmTokens/${token}`));
+          const data=snap.val();
+          if(data&&data.warehouseIds){
+            document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
+              cb.checked=!!data.warehouseIds[cb.value];
+            });
+          }
+        }
+      }catch(e){console.warn('既存トークンの取得に失敗:',e);}
+    }
     updateNotifyUI();
   }catch(e){
     console.warn('Messaging初期化エラー:',e);
   }
 }
+
+// 通知を受け取る倉庫を選ぶチェックボックス一覧を表示する
+function renderNotifyWhList(){
+  const container=document.getElementById('notify-wh-list');
+  if(!container||!WHs.length)return;
+  container.innerHTML=`<div style="font-size:12px;color:var(--ts);margin-bottom:6px;">通知を受け取る倉庫を選択：</div>` +
+    WHs.map(w=>`
+      <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer;">
+        <input type="checkbox" class="notify-wh-cb" value="${esc(w.id)}" ${w.id===CWH?'checked':''} onchange="onNotifyWhChange()">
+        ${esc(w.name)}
+      </label>
+    `).join('');
+}
+
+// 倉庫の選択が変わったら、既に通知が有効な端末なら即座にFirebaseへ反映する
+window.onNotifyWhChange=async function(){
+  if(!currentFcmToken)return; // まだ通知を有効にしていない場合は何もしない（有効化時にまとめて保存される）
+  const warehouseIds={};
+  document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
+    if(cb.checked)warehouseIds[cb.value]=true;
+  });
+  try{
+    await set(ref(db,`fcmTokens/${currentFcmToken}/warehouseIds`),warehouseIds);
+    toast('通知を受け取る倉庫を更新しました');
+  }catch(e){
+    console.error('倉庫選択の更新エラー:',e);
+  }
+};
 
 // 通知を有効にする（許可を求めてトークンを取得・保存）
 window.enableNotifications=async function(){
@@ -3709,9 +3757,19 @@ window.enableNotifications=async function(){
     const token=await getToken(messaging,{vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:swReg});
     if(!token){toast('通知の登録に失敗しました');return;}
     currentFcmToken=token;
+    // チェックされている倉庫を集める（1つも選ばれていなければ、今開いている倉庫を初期値にする）
+    const warehouseIds={};
+    document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
+      if(cb.checked)warehouseIds[cb.value]=true;
+    });
+    if(Object.keys(warehouseIds).length===0&&CWH){
+      warehouseIds[CWH]=true;
+      const cb=document.querySelector(`.notify-wh-cb[value="${CWH}"]`);
+      if(cb)cb.checked=true;
+    }
     await set(ref(db,`fcmTokens/${token}`),{
       email:auth.currentUser?.email||'',
-      warehouseId:CWH||'',
+      warehouseIds,
       updatedAt:new Date().toISOString()
     });
     toast('✅ この端末で通知を受け取るようにしました');
@@ -6193,14 +6251,14 @@ function startDeliveryQRSync(){
   });
 }
 
-onAuthStateChanged(auth,user=>{
+onAuthStateChanged(auth,async user=>{
   if(user&&!user.isAnonymous){
     // 正式にメール/パスワードでログイン済み：ログイン画面を隠してアプリ本体を表示
     document.getElementById('login-screen').classList.add('h');
     document.getElementById('wh-sel').classList.remove('h');
     document.getElementById('nav-user').textContent=user.email||'';
     document.getElementById('login-password').value='';
-    loadWHs();
+    await loadWHs(); // 倉庫一覧が揃うのを待ってから、通知機能の初期化に進む
     startDeliveryQRSync();
     initMessaging();
     // 起動時に90日超えデータを削除（倉庫選択後に実行）
