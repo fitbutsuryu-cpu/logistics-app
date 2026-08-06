@@ -3684,9 +3684,10 @@ async function initMessaging(){
     }
     messaging=getMessaging(app);
     // アプリが開いている間（フォアグラウンド）に通知が来た場合はトースト表示
+    // ★「notification」項目ではなく「data」項目から読み取る（data-onlyメッセージ）
     onMessage(messaging,payload=>{
-      const title=payload.notification?.title||'ALINCO LOGITIME';
-      const body=payload.notification?.body||'';
+      const title=payload.data?.title||'ALINCO LOGITIME';
+      const body=payload.data?.body||'';
       toast(`🔔 ${title}：${body}`);
     });
     updateNotifyUI();
