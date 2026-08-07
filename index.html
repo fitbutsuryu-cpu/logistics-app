@@ -792,7 +792,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 <div class="toast" id="toast"></div>
 <div id="print-area"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" crossorigin="anonymous"></script>
 <!-- QRCode library is bundled inline below to avoid CDN restrictions -->
 <script>(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.QRCode = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 'use strict';
@@ -3638,7 +3638,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -3862,7 +3862,14 @@ function nextBizDay(){
   return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
 }
 function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫',delivery:'持込'}[t]||t;}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+// サイン画像として安全に描画してよい値か検証する（data:image/png・jpegのbase64のみ許可）。
+// 外部ドライバー（匿名ユーザー）が書き込む deliverySign は、この検証を必ず通してから
+// img の src や Excel出力のfetch対象として使うこと。検証NGの場合は空文字を返す。
+function safeImgSrc(s){
+  if(typeof s!=='string')return'';
+  return /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/.test(s)&&s.length<300000 ? s : '';
+}
 // 全角の数字・コロンを半角に変換（手入力での全角文字混入対策）
 function normalizeTime(s){
   if(!s)return s;
@@ -3924,10 +3931,18 @@ function getLockCfg(){try{return JSON.parse(localStorage.getItem('lock_cfg_v1')|
 function saveLockCfgLocal(cfg){localStorage.setItem('lock_cfg_v1',JSON.stringify(cfg));}
 function isLocked(pageId){
   const cfg=getLockCfg();
-  if(!cfg.pw||!cfg.tabs)return false;
+  if(!cfg.pwHash||!cfg.tabs)return false;
   return cfg.tabs.includes(pageId)&&!unlockedPages.has(pageId);
 }
-window.saveLockSettings=function(){
+// ★この画面ロックは「共用端末での誤操作防止」のためのUI上の目隠しであり、
+//   実際のアクセス権限制御はFirebase Authentication・セキュリティルールが担う。
+//   パスワードは平文のままlocalStorageに残さないよう、SHA-256でハッシュ化して保存する。
+async function sha256Hex(text){
+  const data=new TextEncoder().encode(text);
+  const hashBuf=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+window.saveLockSettings=async function(){
   const pw=document.getElementById('pw-input').value;
   const pc=document.getElementById('pw-confirm').value;
   if(!pw){toast('パスワードを入力してください');return;}
@@ -3940,7 +3955,8 @@ window.saveLockSettings=function(){
   if(document.getElementById('lock-master').checked)tabs.push('master');
   if(document.getElementById('lock-guard').checked)tabs.push('guard');
   if(document.getElementById('lock-settings').checked)tabs.push('settings');
-  saveLockCfgLocal({pw,tabs});
+  const pwHash=await sha256Hex(pw);
+  saveLockCfgLocal({pwHash,tabs});
   unlockedPages=new Set();
   toast('ロック設定を保存しました');
 };
@@ -4049,10 +4065,11 @@ function loadLockUI(){
     });
   }
 }
-window.unlockPage=function(){
+window.unlockPage=async function(){
   const cfg=getLockCfg();
   const input=document.getElementById('lock-input').value;
-  if(input===cfg.pw){
+  const inputHash=await sha256Hex(input);
+  if(inputHash===cfg.pwHash){
     if(pendingPage)unlockedPages.add(pendingPage);
     document.getElementById('lock-modal').classList.add('h');
     document.getElementById('lock-err').textContent='';
@@ -4884,7 +4901,7 @@ window.confirmSign=async function(){
     const wrapId=editSignKey==='fieldSign'?'edit-field-sign-wrap':'edit-driver-sign-wrap';
     const wrap=document.getElementById(wrapId);
     if(wrap){
-      wrap.innerHTML=`<img class="sign-thumb" src="${img}" onclick="viewSign('${esc(img)}','${label}')" style="width:70px;height:35px;">
+      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(img))}" onclick="viewSign('${esc(img)}','${label}')" style="width:70px;height:35px;">
         <button class="sign-done-btn" onclick="openEditSign('${editSignKey}','${label}')">再サイン</button>
         <span class="reset-link" style="font-size:10px;margin-left:4px;" onclick="clearEditSign('${editSignKey}')">削除</span>`;
     }
@@ -4918,8 +4935,15 @@ window.confirmSign=async function(){
 window.cancelSign=function(){document.getElementById('sign-modal').classList.add('h');};
 
 // ===== 持込QR発行（管理・記録画面から手動実行） =====
+// 推測困難なトークンを生成する（crypto.getRandomValuesによる128bit相当の乱数）
+function generateSecureToken(prefix){
+  const bytes=new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex=Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return `${prefix}_${hex}`;
+}
 async function issueDeliveryQR(cid, c, rec){
-  const token='dlv_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
+  const token=generateSecureToken('dlv');
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const qrData={
     token,
@@ -5101,7 +5125,7 @@ window.clearEditSign=async function(signKey){
   }
   if(editDate===today())renderCurrent();
 };
-window.viewSign=function(src,t){document.getElementById('sv-title').textContent=t;document.getElementById('sv-img').src=src;document.getElementById('sv-modal').classList.add('o');};
+window.viewSign=function(src,t){document.getElementById('sv-title').textContent=t;document.getElementById('sv-img').src=safeImgSrc(src);document.getElementById('sv-modal').classList.add('o');};
 
 // ===== RECORDS =====
 async function fetchDayRecords(date){
@@ -5229,8 +5253,8 @@ window.renderRecords=async function(){
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo,recKey})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
-    const fs=rec.fieldSign?`<img class="sign-th" src="${rec.fieldSign}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
-    const ds=rec.driverSign?`<img class="sign-th" src="${rec.driverSign}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
+    const fs=rec.fieldSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.fieldSign))}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
+    const ds=rec.driverSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.driverSign))}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
@@ -5274,7 +5298,7 @@ window.renderRecords=async function(){
     let deliveryCell='—';
     if(c.type==='delivery'){
       if(rec.deliverySign){
-        deliveryCell=`<img class="sign-th" src="${rec.deliverySign}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
+        deliveryCell=`<img class="sign-th" src="${esc(safeImgSrc(rec.deliverySign))}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
       } else if(rec.deliveryQRToken){
         deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="printDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">🖨️ 再印刷</button>`;
       } else if(rec.departTime){
@@ -5312,7 +5336,7 @@ window.downloadExcel=async function(){
   if(!allRows.length){toast('この期間の記録がありません');return;}
   toast('Excelを生成中...');
   if(!window.JSZip){
-    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';s.crossOrigin='anonymous';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   }
   const zip=new JSZip(),EMU=9525;
   async function buf(u){const r=await fetch(u);return r.arrayBuffer();}
@@ -5381,7 +5405,8 @@ window.downloadExcel=async function(){
   for(let i=0;i<allRows.length;i++){
     const{rec}=allRows[i],ri=i+2;
     for(const[k,col]of[['fieldSign',fieldSignCol],['driverSign',driverSignCol],['deliverySign',deliverySignCol]]){
-      if(rec[k]){try{const b=await buf(rec[k]);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}catch(e){console.warn('サイン画像取得失敗:',e);}}
+      const safe=safeImgSrc(rec[k]);
+      if(safe){try{const b=await buf(safe);imgs.push({name:`i${imgs.length}.png`,buffer:b});draws.push({row:ri,col,idx:imgs.length-1});}catch(e){console.warn('サイン画像取得失敗:',e);}}
     }
   }
   const hasD=draws.length>0;
@@ -5484,19 +5509,11 @@ async function flushAllShipData(){
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden') flushAllShipData();
 });
-// ページを閉じる・リロードするとき
-window.addEventListener('beforeunload',()=>{
-  clearTimeout(shipGlobalTimer);
-  shipPending.forEach(cid=>{
-    const k=cid.replace(/[.#$/[\]]/g,'_');
-    const ce=document.getElementById(`sc-${k}`),qe=document.getElementById(`sq-${k}`),ve=document.getElementById(`sv-${k}`);
-    if(!ce)return;
-    const updated={count:ce.value??'',qty:qe.value??'',vol:ve.value??''};
-    const url=`https://logitime-86b56-default-rtdb.asia-southeast1.firebasedatabase.app/warehouses/${CWH}/shipData/${today()}/${k}.json`;
-    const blob=new Blob([JSON.stringify(updated)],{type:'application/json'});
-    navigator.sendBeacon(url,blob);
-  });
-});
+// ※以前はページを閉じる際（beforeunload）にsendBeaconで直接REST APIへ
+//   保存を試みていたが、認証情報（authトークン）を付与できないため
+//   セキュリティルールに必ず拒否される、実際には機能しない処理だった。
+//   タブ非表示時のflushAllShipData()（上記）で正しく保存されるため、
+//   このbeforeunload処理は廃止した。
 const reqDeb={};
 window.onReqTimeInput=function(cid,val){
   clearTimeout(reqDeb[cid]);
@@ -5943,7 +5960,7 @@ window.openEditModal=async function(date, cid, name){
   function signUI(sign, signKey, label, wrapId){
     const wrap=document.getElementById(wrapId);
     if(sign){
-      wrap.innerHTML=`<img class="sign-thumb" src="${sign}" onclick="viewSign('${esc(sign)}','${label}')" style="width:70px;height:35px;">
+      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(sign))}" onclick="viewSign('${esc(sign)}','${label}')" style="width:70px;height:35px;">
         <button class="sign-done-btn" onclick="openEditSign('${signKey}','${label}')">再サイン</button>
         <span class="reset-link" style="font-size:10px;" onclick="clearEditSign('${signKey}')">削除</span>`;
     } else {
@@ -6108,15 +6125,10 @@ async function cleanOldRecords(){
       });
     }
 
-    // ⑥ changeLog（操作ログ・日付キー）
-    const logSnap=await get(ref(db,'changeLog'));
-    if(logSnap.val()){
-      Object.keys(logSnap.val()).forEach(dateKey=>{
-        if(dateKey<cutoffStr){
-          promises.push(set(ref(db,`changeLog/${dateKey}`),null));
-        }
-      });
-    }
+    // ⑥ changeLog（操作ログ）の削除はここでは行わない。
+    //   操作ログを「追記専用（誰も後から削除・改ざんできない）」にするため、
+    //   90日超え分の削除はCloud Functions（サーバー側・管理者権限）の
+    //   定期実行（cleanupOldChangeLog）で行うよう変更した。
 
     // ⑦ _processedEvents（プッシュ通知の重複配信防止マーカー・日付キー）
     const procSnap=await get(ref(db,'_processedEvents'));
@@ -6241,14 +6253,26 @@ function startDeliveryQRSync(){
           });
           if(!shouldSync)continue;
 
-          if(qrData.warehouseId&&qrData.carrierId&&qrData.date){
+          // ★パス構成要素の検証（外部ドライバー＝匿名ユーザーが書き込んだ値を
+          //   そのままFirebaseのパスに使わない）。
+          //   ・warehouseIdは実在する倉庫一覧に含まれるものだけ許可
+          //   ・dateはYYYY-MM-DD形式のみ許可
+          //   ・carrierIdは英数字とアンダースコアのみ許可（/ . # $ [ ] を含まない）
+          const wIdOk = qrData.warehouseId && WHs.some(w=>w.id===qrData.warehouseId);
+          const dateOk = typeof qrData.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(qrData.date);
+          const cidOk = typeof qrData.carrierId==='string' && /^[A-Za-z0-9_]+$/.test(qrData.carrierId);
+          const safeDeliverySign = safeImgSrc(qrData.deliverySign);
+
+          if(wIdOk && dateOk && cidOk){
             const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
-            const recSnap=await get(recRef);
-            const rec=recSnap.val()||{};
-            rec.deliverySign=qrData.deliverySign;
-            rec.deliverySignedAt=qrData.signedAt;
-            rec.deliverySignedDate=qrData.signedDate;
-            await set(recRef,rec);
+            // ★set()でノード全体を置き換えず、update()で対象3フィールドのみ更新する
+            await update(recRef,{
+              deliverySign:safeDeliverySign,
+              deliverySignedAt:typeof qrData.signedAt==='string'?qrData.signedAt:'',
+              deliverySignedDate:typeof qrData.signedDate==='string'?qrData.signedDate:''
+            });
+          }else{
+            console.warn('deliveryQRの内容が不正なため、記録への反映をスキップしました。',token);
           }
           await set(ref(db,`printQueue/${token}/status`),'signed');
         }catch(e){
