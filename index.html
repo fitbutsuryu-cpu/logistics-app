@@ -3863,12 +3863,22 @@ function nextBizDay(){
 }
 function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫',delivery:'持込'}[t]||t;}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
-// サイン画像として安全に描画してよい値か検証する（data:image/png・jpegのbase64のみ許可）。
+// インラインonclick等の「JavaScript文字列リテラル」へ埋め込む値専用のエスケープ。
+// esc()の&#39;はHTMLの解析時に'へ復号されてしまい、onclickの中では防御にならないため、
+// 復号を受けないJavaScriptのユニコードエスケープ（\u0027など）へ変換する。
+// HTML本文・属性値にはesc()を、onclick内の'...'にはescJs()を使う。
+function escJs(s){return String(s??'')
+  .replace(/\\/g,'\\\\')
+  .replace(/'/g,'\\u0027').replace(/"/g,'\\u0022')
+  .replace(/&/g,'\\u0026').replace(/</g,'\\u003C').replace(/>/g,'\\u003E')
+  .replace(/\r/g,'\\r').replace(/\n/g,'\\n');}
+// サイン画像として安全に描画してよい値か検証する（data:image/png のbase64のみ許可）。
+// Firebase側の.validateルール（deliveryQR/$token/deliverySign）と条件を統一している。
 // 外部ドライバー（匿名ユーザー）が書き込む deliverySign は、この検証を必ず通してから
 // img の src や Excel出力のfetch対象として使うこと。検証NGの場合は空文字を返す。
 function safeImgSrc(s){
   if(typeof s!=='string')return'';
-  return /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+=*$/.test(s)&&s.length<300000 ? s : '';
+  return s.startsWith('data:image/png;base64,')&&s.length<=300000 ? s : '';
 }
 // 全角の数字・コロンを半角に変換（手入力での全角文字混入対策）
 function normalizeTime(s){
@@ -4025,6 +4035,9 @@ window.downloadChangeLogExcel=async function(){
 
   const csvEsc=s=>{
     const v=String(s??'');
+    // 先頭が = + - @ Tab CR の値はExcelが数式として解釈するため、
+    // シングルクォートを前置して必ず文字列として扱わせる（CSVインジェクション対策）
+    if(/^[=+\-@\t\r]/.test(v)) return '"\''+v.replace(/"/g,'""')+'"';
     return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
   };
   const headers=['日付','時刻','操作者','倉庫','操作内容','対象','詳細'];
@@ -4901,7 +4914,7 @@ window.confirmSign=async function(){
     const wrapId=editSignKey==='fieldSign'?'edit-field-sign-wrap':'edit-driver-sign-wrap';
     const wrap=document.getElementById(wrapId);
     if(wrap){
-      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(img))}" onclick="viewSign('${esc(img)}','${label}')" style="width:70px;height:35px;">
+      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(img))}" onclick="viewSign('${escJs(img)}','${label}')" style="width:70px;height:35px;">
         <button class="sign-done-btn" onclick="openEditSign('${editSignKey}','${label}')">再サイン</button>
         <span class="reset-link" style="font-size:10px;margin-left:4px;" onclick="clearEditSign('${editSignKey}')">削除</span>`;
     }
@@ -5253,8 +5266,8 @@ window.renderRecords=async function(){
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo,recKey})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
-    const fs=rec.fieldSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.fieldSign))}" onclick="viewSign('${esc(rec.fieldSign)}','現場サイン — ${esc(c.short||c.name)}')">` :'—';
-    const ds=rec.driverSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.driverSign))}" onclick="viewSign('${esc(rec.driverSign)}','ドライバーサイン — ${esc(c.short||c.name)}')">` :'—';
+    const fs=rec.fieldSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.fieldSign))}" onclick="viewSign('${escJs(rec.fieldSign)}','現場サイン — ${escJs(c.short||c.name)}')">` :'—';
+    const ds=rec.driverSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.driverSign))}" onclick="viewSign('${escJs(rec.driverSign)}','ドライバーサイン — ${escJs(c.short||c.name)}')">` :'—';
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
@@ -5298,11 +5311,11 @@ window.renderRecords=async function(){
     let deliveryCell='—';
     if(c.type==='delivery'){
       if(rec.deliverySign){
-        deliveryCell=`<img class="sign-th" src="${esc(safeImgSrc(rec.deliverySign))}" onclick="viewSign('${esc(rec.deliverySign)}','持込確認サイン — ${esc(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">QR再発行</button>`;
+        deliveryCell=`<img class="sign-th" src="${esc(safeImgSrc(rec.deliverySign))}" onclick="viewSign('${escJs(rec.deliverySign)}','持込確認サイン — ${escJs(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">QR再発行</button>`;
       } else if(rec.deliveryQRToken){
-        deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="printDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">🖨️ 再印刷</button>`;
+        deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="printDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">🖨️ 再印刷</button>`;
       } else if(rec.departTime){
-        deliveryCell=`<button class="edit-btn" onclick="printDeliveryQR('${esc(date)}','${esc(cid)}','${esc(c.name)}')">🖨️ QR印刷</button>`;
+        deliveryCell=`<button class="edit-btn" onclick="printDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">🖨️ QR印刷</button>`;
       } else {
         deliveryCell=`<span style="font-size:10px;color:var(--th);">退場後に印刷可</span>`;
       }
@@ -5318,7 +5331,7 @@ window.renderRecords=async function(){
       <td>${fs}</td><td>${ds}</td>
       <td>${deliveryCell}</td>
       <td style="text-align:center;">${waitCell}</td>
-      <td><button class="edit-btn" onclick="openEditModal('${esc(date)}','${esc(cid)}','${esc(c.name)}')">✏️ 修正</button></td>
+      <td><button class="edit-btn" onclick="openEditModal('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">✏️ 修正</button></td>
     </tr>`;
   });
   html+='</tbody></table>';container.innerHTML=html;
@@ -5881,10 +5894,10 @@ window.printGuard=function(){
     const tbl=document.getElementById(id);if(!tbl)return'';
     const ths=Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
     const trs=Array.from(tbl.querySelectorAll('tbody tr')).map(tr=>Array.from(tr.querySelectorAll('td')).map(td=>td.textContent));
-    return`<div class="guard-print-section"><div class="guard-print-section-title">${title}</div><table><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return`<div class="guard-print-section"><div class="guard-print-section-title">${title}</div><table><thead><tr>${ths.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${trs.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   const content=`<div class="guard-print-wrap">
-    <div class="guard-print-title">守衛連絡リスト　${wh?wh.name:''}　${date}</div>
+    <div class="guard-print-title">守衛連絡リスト　${esc(wh?wh.name:'')}　${esc(date)}</div>
     ${tblHtml('tbl-r','🚌 路線出荷')}${tblHtml('tbl-c','📦 チャーター出荷')}${tblHtml('tbl-t','🛻 トラック入庫')}${tblHtml('tbl-k','📦 コンテナ入庫')}
   </div>`;
   document.getElementById('print-area').innerHTML=content;
@@ -5960,7 +5973,7 @@ window.openEditModal=async function(date, cid, name){
   function signUI(sign, signKey, label, wrapId){
     const wrap=document.getElementById(wrapId);
     if(sign){
-      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(sign))}" onclick="viewSign('${esc(sign)}','${label}')" style="width:70px;height:35px;">
+      wrap.innerHTML=`<img class="sign-thumb" src="${esc(safeImgSrc(sign))}" onclick="viewSign('${escJs(sign)}','${label}')" style="width:70px;height:35px;">
         <button class="sign-done-btn" onclick="openEditSign('${signKey}','${label}')">再サイン</button>
         <span class="reset-link" style="font-size:10px;" onclick="clearEditSign('${signKey}')">削除</span>`;
     } else {
