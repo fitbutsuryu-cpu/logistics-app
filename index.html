@@ -3638,7 +3638,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction,query,orderByChild,equalTo} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -3767,8 +3767,14 @@ window.enableNotifications=async function(){
       const cb=document.querySelector(`.notify-wh-cb[value="${CWH}"]`);
       if(cb)cb.checked=true;
     }
+    // ★業務用メールアドレスをfcmTokensに集約しない（項目3対応）。
+    //   ログイン済みなら誰でもfcmTokensを閲覧できる構造のため、
+    //   全員分のメールアドレスが一箇所に集まってしまうのを避ける。
+    //   代わりにFirebase AuthのUID（それ単体では意味を持たない識別子）を
+    //   保存し、これを使って「本人だけが自分のトークンを操作できる」
+    //   というセキュリティルール（項目7対応）を成立させる。
     await set(ref(db,`fcmTokens/${token}`),{
-      email:auth.currentUser?.email||'',
+      uid:auth.currentUser?.uid||'',
       warehouseIds,
       updatedAt:new Date().toISOString()
     });
@@ -3879,6 +3885,15 @@ function escJs(s){return String(s??'')
 function safeImgSrc(s){
   if(typeof s!=='string')return'';
   return s.startsWith('data:image/png;base64,')&&s.length<=300000 ? s : '';
+}
+// サインの表示用HTMLを組み立てる。値はあるのに検証に失敗した場合は、
+// 壊れた画像アイコンではなく「検証エラー」と分かる表示にする（項目5対応）。
+// labelは無加工の文字列を渡すこと（エスケープはこの関数の中で行う）。
+function signCellHtml(rawSign,label){
+  if(!rawSign)return'—';
+  const safe=safeImgSrc(rawSign);
+  if(!safe)return'<span style="font-size:10px;color:var(--rd600);" title="サインデータの形式が不正なため表示できません">⚠️検証エラー</span>';
+  return `<img class="sign-th" src="${esc(safe)}" onclick="viewSign('${escJs(rawSign)}','${escJs(label)}')">`;
 }
 // 全角の数字・コロンを半角に変換（手入力での全角文字混入対策）
 function normalizeTime(s){
@@ -4121,12 +4136,12 @@ async function loadWHs(){
 }
 function renderWHSel(){
   document.getElementById('wh-grid').innerHTML=WHs.map(w=>`
-    <button class="wh-btn" onclick="selWH('${w.id}')">
+    <button class="wh-btn" onclick="selWH('${escJs(w.id)}')">
       <span class="wh-btn-icon">${w.icon||'🏭'}</span>
       <div><div class="wh-btn-name">${esc(w.name)}</div><div class="wh-btn-desc">タップして選択</div></div>
     </button>`).join('');
   document.getElementById('wh-del-list').innerHTML=WHs.map(w=>`
-    <div class="wh-del-item"><span>${w.icon||'🏭'} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${w.id}')">削除</button>`:''}</div>`).join('');
+    <div class="wh-del-item"><span>${w.icon||'🏭'} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${escJs(w.id)}')">削除</button>`:''}</div>`).join('');
 }
 window.selWH=function(id){
   CWH=id;const w=WHs.find(x=>x.id===id);
@@ -4364,7 +4379,7 @@ async function renderInboundDateTabs(){
     if(d===td)cls+=' today';
     if(d===selectedInboundDate)cls+=' active';
     if(hasDataMap[d])cls+=' has-data';
-    return`<button class="${cls}" onclick="switchInboundDate('${d}')">${label}</button>`;
+    return`<button class="${cls}" onclick="switchInboundDate('${escJs(d)}')">${label}</button>`;
   }).join('');
 }
 
@@ -5266,8 +5281,8 @@ window.renderRecords=async function(){
   </tr></thead><tbody>`;
   allRows.forEach(({date,c,rec,ship,dynInfo,recKey})=>{
     const pill=rec.departTime?`<span class="s-pill c">完了</span>`:`<span class="s-pill p">進行中</span>`;
-    const fs=rec.fieldSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.fieldSign))}" onclick="viewSign('${escJs(rec.fieldSign)}','現場サイン — ${escJs(c.short||c.name)}')">` :'—';
-    const ds=rec.driverSign?`<img class="sign-th" src="${esc(safeImgSrc(rec.driverSign))}" onclick="viewSign('${escJs(rec.driverSign)}','ドライバーサイン — ${escJs(c.short||c.name)}')">` :'—';
+    const fs=signCellHtml(rec.fieldSign,`現場サイン — ${c.short||c.name}`);
+    const ds=signCellHtml(rec.driverSign,`ドライバーサイン — ${c.short||c.name}`);
     const realC=dynInfo?.realCarrier||'—';
     const carN=dynInfo?.carNum||'—';
     const reqT=dynInfo?.reqTime||'—';
@@ -5311,7 +5326,13 @@ window.renderRecords=async function(){
     let deliveryCell='—';
     if(c.type==='delivery'){
       if(rec.deliverySign){
-        deliveryCell=`<img class="sign-th" src="${esc(safeImgSrc(rec.deliverySign))}" onclick="viewSign('${escJs(rec.deliverySign)}','持込確認サイン — ${escJs(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">QR再発行</button>`;
+        const safeDS=safeImgSrc(rec.deliverySign);
+        if(safeDS){
+          deliveryCell=`<img class="sign-th" src="${esc(safeDS)}" onclick="viewSign('${escJs(rec.deliverySign)}','持込確認サイン — ${escJs(c.short||c.name)}')"> <span style="font-size:10px;color:var(--gn600);font-weight:600;">確認済</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">QR再発行</button>`;
+        }else{
+          // サインは届いているが、形式検証に失敗して保存できなかったケース（項目5対応）
+          deliveryCell=`<span style="font-size:10px;color:var(--rd600);font-weight:600;" title="サインデータの形式が不正なため保存できませんでした">⚠️検証エラー</span><br><button class="edit-btn" style="margin-top:3px;" onclick="reissueDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">QR再発行</button>`;
+        }
       } else if(rec.deliveryQRToken){
         deliveryCell=`<span style="font-size:10px;color:var(--am600);">QR発行済・未サイン</span><br><button class="edit-btn" style="margin-top:3px;" onclick="printDeliveryQR('${escJs(date)}','${escJs(cid)}','${escJs(c.name)}')">🖨️ 再印刷</button>`;
       } else if(rec.departTime){
@@ -5563,17 +5584,17 @@ function renderMaster(){
           <div class="c-item-meta">${c.short!==c.name?'略称:'+esc(c.short)+'　':''}${esc(c.note||'')}</div>
         </div>
         <div class="c-item-acts">
-          <label class="guard-chk"><input type="checkbox" ${gd?'checked':''} onchange="toggleGuard('${c.id}')">守衛</label>
-          <button class="tog-btn ${vis?'on':'off'}" onclick="toggleVis('${c.id}')">${vis?'表示中':'非表示'}</button>
-          <button class="del-btn" onclick="deleteCarrier('${c.id}')">削除</button>
+          <label class="guard-chk"><input type="checkbox" ${gd?'checked':''} onchange="toggleGuard('${escJs(c.id)}')">守衛</label>
+          <button class="tog-btn ${vis?'on':'off'}" onclick="toggleVis('${escJs(c.id)}')">${vis?'表示中':'非表示'}</button>
+          <button class="del-btn" onclick="deleteCarrier('${escJs(c.id)}')">削除</button>
         </div>
       </div>
       <div class="ship-row">
-        <input type="number" id="sc-${k}" value="${esc(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${c.id}')">
-        <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${c.id}')">
-        <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${c.id}')">
+        <input type="number" id="sc-${k}" value="${esc(String(sd.count??''))}" placeholder="件数" oninput="onShipInput('${escJs(c.id)}')">
+        <input type="number" id="sq-${k}" value="${esc(String(sd.qty??''))}" placeholder="個数" oninput="onShipInput('${escJs(c.id)}')">
+        <input type="number" id="sv-${k}" value="${esc(String(sd.vol??''))}" placeholder="才数" oninput="onShipInput('${escJs(c.id)}')">
         <input type="text" id="rt-${k}" data-cid="${esc(c.id)}" value="${esc(rt)}" placeholder="依頼時間" style="max-width:70px;background:#FFF9C4;" title="入場依頼時間">
-        <button onclick="saveShipNow('${c.id}')" style="padding:5px 10px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;white-space:nowrap;">💾 保存</button>
+        <button onclick="saveShipNow('${escJs(c.id)}')" style="padding:5px 10px;background:var(--bl600);color:#fff;border:none;border-radius:var(--rs);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;white-space:nowrap;">💾 保存</button>
       </div>
       <div style="font-size:10px;color:var(--th);margin-top:3px;display:flex;align-items:center;gap:8px;">
         <span>件数/個数/才数 入力後10秒で自動保存</span>
@@ -6143,15 +6164,11 @@ async function cleanOldRecords(){
     //   90日超え分の削除はCloud Functions（サーバー側・管理者権限）の
     //   定期実行（cleanupOldChangeLog）で行うよう変更した。
 
-    // ⑦ _processedEvents（プッシュ通知の重複配信防止マーカー・日付キー）
-    const procSnap=await get(ref(db,'_processedEvents'));
-    if(procSnap.val()){
-      Object.keys(procSnap.val()).forEach(dateKey=>{
-        if(dateKey<cutoffStr){
-          promises.push(set(ref(db,`_processedEvents/${dateKey}`),null));
-        }
-      });
-    }
+    // ※ 以前ここにあった _processedEvents（プッシュ通知の重複配信防止用）の
+    //   削除処理は撤去した。通知の重複防止は現在、通知の「タグ」による
+    //   ブラウザ側の表示制御のみで行っており、このデータ自体を
+    //   使わなくなったため（Firebase側にも権限分離ルールを追加する
+    //   必要がなくなった）。
 
     if(promises.length){
       await Promise.all(promises);
@@ -6251,12 +6268,30 @@ let deliveryQRSyncStarted=false;
 function startDeliveryQRSync(){
   if(deliveryQRSyncStarted)return;
   deliveryQRSyncStarted=true;
-  onValue(ref(db,'deliveryQR'),async snap=>{
+  // ★deliveryQR全体ではなく「サイン済み（used:true）」のものだけに購読対象を
+  //   絞り込む（未使用のQRデータまで毎回全件ダウンロードしないようにする）。
+  //   このクエリを効率よく動かすには、セキュリティルール側で
+  //   deliveryQRに .indexOn:["used"] を設定しておく必要がある。
+  const q=query(ref(db,'deliveryQR'),orderByChild('used'),equalTo(true));
+  onValue(q,async snap=>{
     const all=snap.val();
     if(!all)return;
     for(const [token,qrData] of Object.entries(all)){
-      if(qrData.used && !qrData.recordSynced){
+      if(!qrData.recordSynced){
         try{
+          // ★検証は「同期済みフラグの確定（Transaction）」より先に行う。
+          //   これを後回しにすると、検証に失敗したデータまで
+          //   「処理済み」として扱われてしまい、二度と反映されないまま
+          //   放置される（気づけない）不具合につながる。
+          const wIdOk = qrData.warehouseId && WHs.some(w=>w.id===qrData.warehouseId);
+          const dateOk = typeof qrData.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(qrData.date);
+          const cidOk = typeof qrData.carrierId==='string' && /^[A-Za-z0-9_]+$/.test(qrData.carrierId);
+
+          if(!wIdOk || !dateOk || !cidOk){
+            console.warn('deliveryQRの内容が不正なため、記録への反映をスキップしました（未処理のまま保持・要調査）。',token);
+            continue; // recordSyncedを立てないため、次回も検知され続け、放置されない
+          }
+
           // 複数端末が同時に処理しても1回だけ反映されるようFirebase Transactionで排他制御
           const syncedRef=ref(db,`deliveryQR/${token}/recordSynced`);
           let shouldSync=false;
@@ -6266,27 +6301,14 @@ function startDeliveryQRSync(){
           });
           if(!shouldSync)continue;
 
-          // ★パス構成要素の検証（外部ドライバー＝匿名ユーザーが書き込んだ値を
-          //   そのままFirebaseのパスに使わない）。
-          //   ・warehouseIdは実在する倉庫一覧に含まれるものだけ許可
-          //   ・dateはYYYY-MM-DD形式のみ許可
-          //   ・carrierIdは英数字とアンダースコアのみ許可（/ . # $ [ ] を含まない）
-          const wIdOk = qrData.warehouseId && WHs.some(w=>w.id===qrData.warehouseId);
-          const dateOk = typeof qrData.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(qrData.date);
-          const cidOk = typeof qrData.carrierId==='string' && /^[A-Za-z0-9_]+$/.test(qrData.carrierId);
           const safeDeliverySign = safeImgSrc(qrData.deliverySign);
-
-          if(wIdOk && dateOk && cidOk){
-            const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
-            // ★set()でノード全体を置き換えず、update()で対象3フィールドのみ更新する
-            await update(recRef,{
-              deliverySign:safeDeliverySign,
-              deliverySignedAt:typeof qrData.signedAt==='string'?qrData.signedAt:'',
-              deliverySignedDate:typeof qrData.signedDate==='string'?qrData.signedDate:''
-            });
-          }else{
-            console.warn('deliveryQRの内容が不正なため、記録への反映をスキップしました。',token);
-          }
+          const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
+          // ★set()でノード全体を置き換えず、update()で対象3フィールドのみ更新する
+          await update(recRef,{
+            deliverySign:safeDeliverySign,
+            deliverySignedAt:typeof qrData.signedAt==='string'?qrData.signedAt:'',
+            deliverySignedDate:typeof qrData.signedDate==='string'?qrData.signedDate:''
+          });
           await set(ref(db,`printQueue/${token}/status`),'signed');
         }catch(e){
           console.error('deliveryQR同期エラー:',e);
