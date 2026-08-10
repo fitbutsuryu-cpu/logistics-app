@@ -82,6 +82,9 @@ const auth=getAuth(app);
 
 // URLからトークン取得
 const token=new URLSearchParams(location.search).get('token');
+// トークンの形式検証（本アプリが発行する形式：dlv_ + 32桁の16進数）に
+// 一致しないものは、Firebaseへの問い合わせすら行わずその場で弾く
+const isValidTokenFormat=typeof token==='string'&&/^dlv_[0-9a-f]{32}$/.test(token);
 
 // 表示前に文字列を無害化する（悪意ある文字列が実行されないようにする）
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -90,7 +93,7 @@ let qrData=null;
 let signCtx=null,signDraw=false,hasSigned=false;
 
 async function init(){
-  if(!token){showErr('QRコードが無効です。');return;}
+  if(!token||!isValidTokenFormat){showErr('QRコードが無効です。');return;}
   try{
     await signInAnonymously(auth);
   }catch(e){
