@@ -3704,7 +3704,9 @@ async function saveDeliverySign(warehouseId,date,carrierKey,dataUrl,signedAt,sig
 async function deleteSignField(warehouseId,date,carrierKey,fieldName){
   const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
   try{
-    await setDoc(ref_,{[fieldName]:deleteField()},{merge:true});
+    // ★docIdとの整合性チェック（Firestoreルール）を必ず満たすため、
+    //   削除のたびにwarehouseId/date/carrierKeyも明示的に含めて送る
+    await setDoc(ref_,{warehouseId,date,carrierKey,[fieldName]:deleteField()},{merge:true});
   }catch(e){
     console.warn('サイン欄の削除に失敗（元々存在しない場合は無視してよい）:',e);
   }
@@ -3729,6 +3731,8 @@ async function fetchSignDoc(warehouseId,date,carrierKey){
 }
 // 指定した倉庫・日付の、その日全件分のサインをまとめて取得する
 // （管理・記録タブの一覧表示・Excel出力で使用）
+// ※等価条件（==）×2の組み合わせのため、単一フィールドインデックスの
+//   マージ結合で処理され、複合インデックスは原則不要（作成不要）。
 async function fetchDaySigns(warehouseId,date){
   try{
     const q=fsQuery(collection(fsdb,'signs'),fsWhere('warehouseId','==',warehouseId),fsWhere('date','==',date));
@@ -3737,7 +3741,7 @@ async function fetchDaySigns(warehouseId,date){
     snap.forEach(d=>{result[d.data().carrierKey]=d.data();});
     return result;
   }catch(e){
-    console.error('サイン一括取得エラー（Firestoreの複合インデックスが未作成の可能性があります。コンソールのエラー詳細をご確認ください）:',e);
+    console.error('サイン一括取得エラー:',e);
     return {};
   }
 }
@@ -4071,7 +4075,8 @@ const actionLabels={
   edit_record:'✏️ 記録の修正',
   delete_carrier:'🗑️ 運送会社の削除',
   delete_warehouse:'🗑️ 倉庫の削除',
-  login:'🔓 ログイン'
+  login:'🔓 ログイン',
+  system_warning:'⚠️ システム警告'
 };
 // 指定期間の操作ログをまとめて取得する共通関数
 async function fetchChangeLogRange(from,to){
@@ -6258,6 +6263,10 @@ async function cleanOldRecords(){
 
     // ⑤-2 signs（Firestore・東京リージョンに保存しているサイン画像）
     //    90日超え分をこの倉庫（CWH）分について削除する
+    //    ★このクエリ（等価＋範囲の組み合わせ）は複合インデックスが必須。
+    //    失敗した場合、コンソールの警告だけだと誰も気づけないまま
+    //    古いサインが消えずに残り続けてしまうため、操作ログにも
+    //    記録し、「設定」タブの操作ログ画面で気づけるようにしている。
     try{
       const oldSignsQ=fsQuery(
         collection(fsdb,'signs'),
@@ -6267,9 +6276,9 @@ async function cleanOldRecords(){
       const oldSignsSnap=await getDocs(oldSignsQ);
       oldSignsSnap.forEach(d=>{promises.push(deleteDoc(d.ref));});
     }catch(e){
-      // 初回実行時、Firestore側で複合インデックスの作成を求められることがある。
-      // エラーメッセージ内のリンクからインデックスを作成すれば、以降は動作する。
       console.warn('signsの自動削除でエラー（複合インデックス未作成の可能性）:',e);
+      await logChange('system_warning','Firestore(signs)の90日自動削除',
+        `失敗しました。複合インデックスが未作成の可能性があります。詳細:${String(e&&e.message||e)}`);
     }
 
     // ⑥ changeLog（操作ログ）の削除はここでは行わない。
@@ -6415,14 +6424,20 @@ function startDeliveryQRSync(){
           if(!shouldSync)continue;
 
           const safeDeliverySign = safeImgSrc(qrData.deliverySign);
-          // ★持込確認サインもFirestore（東京リージョン）へ保存する。
-          //   records本体（RTDB）にはサイン画像を一切保存しなくなった。
+          // ★持込確認サインをFirestore（東京リージョン）へ保存する。
+          //   records本体（RTDB）にはサイン画像を一切保存しない設計。
           await saveDeliverySign(
             qrData.warehouseId,qrData.date,qrData.carrierId,
             safeDeliverySign,
             typeof qrData.signedAt==='string'?qrData.signedAt:'',
             typeof qrData.signedDate==='string'?qrData.signedDate:''
           );
+          // ★Firestoreへのコピーが完了したら、RTDB（シンガポール）側に
+          //   残っているサイン画像本体（deliverySignフィールド）は消去する。
+          //   used・token・carrierId等の追跡用メタ情報は残してよいが、
+          //   個人情報にあたる画像データそのものは国内（Firestore）だけに
+          //   存在する状態にするため、必ずこの後始末が必要。
+          await update(ref(db,`deliveryQR/${token}`),{deliverySign:null});
           await set(ref(db,`printQueue/${token}/status`),'signed');
         }catch(e){
           console.error('deliveryQR同期エラー:',e);
