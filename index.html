@@ -6255,6 +6255,22 @@ async function cleanOldRecords(){
       });
     }
 
+    // ⑤-2 signs（Firestore・東京リージョンに保存しているサイン画像）
+    //    90日超え分をこの倉庫（CWH）分について削除する
+    try{
+      const oldSignsQ=fsQuery(
+        collection(fsdb,'signs'),
+        fsWhere('warehouseId','==',CWH),
+        fsWhere('date','<',cutoffStr)
+      );
+      const oldSignsSnap=await getDocs(oldSignsQ);
+      oldSignsSnap.forEach(d=>{promises.push(deleteDoc(d.ref));});
+    }catch(e){
+      // 初回実行時、Firestore側で複合インデックスの作成を求められることがある。
+      // エラーメッセージ内のリンクからインデックスを作成すれば、以降は動作する。
+      console.warn('signsの自動削除でエラー（複合インデックス未作成の可能性）:',e);
+    }
+
     // ⑥ changeLog（操作ログ）の削除はここでは行わない。
     //   操作ログを「追記専用（誰も後から削除・改ざんできない）」にするため、
     //   90日超え分の削除はCloud Functions（サーバー側・管理者権限）の
