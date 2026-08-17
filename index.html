@@ -6408,8 +6408,13 @@ function startDeliveryQRSync(){
           const wIdOk = qrData.warehouseId && WHs.some(w=>w.id===qrData.warehouseId);
           const dateOk = typeof qrData.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(qrData.date);
           const cidOk = typeof qrData.carrierId==='string' && /^[A-Za-z0-9_]+$/.test(qrData.carrierId);
+          // ★deliverySignの形式検証も、フラグ確定より前に行う。
+          //   Firestoreのルール（isSign）は空文字を拒否するため、
+          //   これを後回しにするとrecordSyncedだけが立って書き込みが
+          //   失敗し、二度と再試行されなくなる（サインが恒久的に消失する）。
+          const signOk = !!safeImgSrc(qrData.deliverySign);
 
-          if(!wIdOk || !dateOk || !cidOk){
+          if(!wIdOk || !dateOk || !cidOk || !signOk){
             console.warn('deliveryQRの内容が不正なため、記録への反映をスキップしました（未処理のまま保持・要調査）。',token);
             continue; // recordSyncedを立てないため、次回も検知され続け、放置されない
           }
@@ -6440,7 +6445,12 @@ function startDeliveryQRSync(){
           await update(ref(db,`deliveryQR/${token}`),{deliverySign:null});
           await set(ref(db,`printQueue/${token}/status`),'signed');
         }catch(e){
+          // ★recordSynced確定後（Firestore保存成功後を含む）に失敗した場合、
+          //   再試行はさせない（onValueの即時再発火による無限ループを防ぐため）。
+          //   代わりに操作ログへ記録し、「設定」タブから気づけるようにする。
           console.error('deliveryQR同期エラー:',e);
+          await logChange('system_warning','持込確認サインの同期',
+            `token:${token} の反映に失敗しました。RTDB側に画像が残っている可能性があります。詳細:${String(e&&e.message||e)}`);
         }
       }
     }
