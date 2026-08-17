@@ -3642,6 +3642,7 @@ import {getDatabase,ref,set,get,update,onValue,off,runTransaction,query,orderByC
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
+import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const FB={
   apiKey:"AIzaSyBhTFwABLHnO8e9ukJfBGAbgVW0qkqnPAo",
@@ -3668,6 +3669,77 @@ try{
 
 const db=getDatabase(app);
 const auth=getAuth(app);
+// ===== Firestore（個人情報にあたるサイン画像専用。国内リージョンで運用） =====
+// 入退場記録本体（時刻・件数等）は今まで通りRealtime Databaseに保存し、
+// 「サイン画像（現場サイン・ドライバーサイン・持込確認サイン）」だけを
+// Firestore（東京リージョン）に分離して保存する。
+const fsdb=getFirestore(app);
+
+// サインのドキュメントIDを組み立てる（倉庫・日付・記録キーの組み合わせ）
+function signDocId(warehouseId,date,carrierKey){
+  return `${warehouseId}_${date}_${carrierKey}`;
+}
+// 1件分のサイン欄（field/driver/deliveryのいずれか）を保存する
+async function saveSignField(warehouseId,date,carrierKey,fieldName,dataUrl){
+  const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
+  await setDoc(ref_,{
+    warehouseId,date,carrierKey,
+    [fieldName]:dataUrl,
+    updatedAt:new Date().toISOString()
+  },{merge:true});
+}
+// 持込確認サイン専用（サイン本体＋時刻2項目をまとめて保存）
+async function saveDeliverySign(warehouseId,date,carrierKey,dataUrl,signedAt,signedDate){
+  const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
+  await setDoc(ref_,{
+    warehouseId,date,carrierKey,
+    deliverySign:dataUrl,
+    deliverySignedAt:signedAt,
+    deliverySignedDate:signedDate,
+    updatedAt:new Date().toISOString()
+  },{merge:true});
+}
+// 特定のサイン欄だけを削除する（他の欄は残す）
+async function deleteSignField(warehouseId,date,carrierKey,fieldName){
+  const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
+  try{
+    await setDoc(ref_,{[fieldName]:deleteField()},{merge:true});
+  }catch(e){
+    console.warn('サイン欄の削除に失敗（元々存在しない場合は無視してよい）:',e);
+  }
+}
+// 記録が削除された時、対応するサインのドキュメントごと削除する
+async function deleteSignDoc(warehouseId,date,carrierKey){
+  try{
+    await deleteDoc(doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey)));
+  }catch(e){
+    console.warn('サインドキュメントの削除に失敗（元々存在しない場合は無視してよい）:',e);
+  }
+}
+// 1件分のサインをまとめて取得する（修正モーダルでの表示用）
+async function fetchSignDoc(warehouseId,date,carrierKey){
+  try{
+    const snap=await getDoc(doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey)));
+    return snap.exists()?snap.data():{};
+  }catch(e){
+    console.error('サイン取得エラー:',e);
+    return {};
+  }
+}
+// 指定した倉庫・日付の、その日全件分のサインをまとめて取得する
+// （管理・記録タブの一覧表示・Excel出力で使用）
+async function fetchDaySigns(warehouseId,date){
+  try{
+    const q=fsQuery(collection(fsdb,'signs'),fsWhere('warehouseId','==',warehouseId),fsWhere('date','==',date));
+    const snap=await getDocs(q);
+    const result={};
+    snap.forEach(d=>{result[d.data().carrierKey]=d.data();});
+    return result;
+  }catch(e){
+    console.error('サイン一括取得エラー（Firestoreの複合インデックスが未作成の可能性があります。コンソールのエラー詳細をご確認ください）:',e);
+    return {};
+  }
+}
 
 // ===== プッシュ通知（Firebase Cloud Messaging） =====
 // ⚠️ 'FCM_VAPID_KEY' は必ずFirebaseコンソール（プロジェクトの設定 > Cloud Messaging >
@@ -4918,10 +4990,8 @@ window.confirmSign=async function(){
   // 修正モーダルからのサイン追加
   if(signMode==='edit_sign'){
     const k=editCid;
-    const snap=await get(ref(db,whPath(`records/${editDate}/${k}`)));
-    const rec=snap.val()||{};
-    rec[editSignKey]=img;
-    await set(ref(db,whPath(`records/${editDate}/${k}`)),rec);
+    // ★サインはFirestore（東京リージョン）に保存する
+    await saveSignField(CWH,editDate,k,editSignKey,img);
     document.getElementById('sign-modal').classList.add('h');
     toast('サインを保存しました');
     // 修正モーダルのサインUIを更新
@@ -4941,10 +5011,15 @@ window.confirmSign=async function(){
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
   const rec=c?(c._dyn?getRecord(signCid):(last?last.rec:null)):null;
   const recKey=last?last.key:null;
+  // ★RTDB上のキー（fbSetRecord内部の解決ロジックと必ず一致させる）を
+  //   Firestore側のドキュメントIDにも使う
+  const effectiveKey=recKey||signCid.replace(/[.#$/[\]]/g,'_');
   if(signMode==='dep'){
     if(!rec)return;
-    rec.departTime=nowTime();rec.driverSign=img;
+    rec.departTime=nowTime();
+    // ★ドライバーサインはFirestoreへ（recには含めず、RTDBには保存しない）
     await fbSetRecord(signCid,rec,recKey||undefined);
+    await saveSignField(CWH,today(),effectiveKey,'driverSign',img);
     const nLabel=last&&last.n>1?`（${last.n}回目）`:'';
     toast(`${c.short||c.name}${nLabel} 退場完了: ${rec.departTime}`);
     if(c.type==='delivery'){
@@ -4954,8 +5029,10 @@ window.confirmSign=async function(){
   else if(signMode==='el'){
     const fRec=c._dyn?getRecord(signCid):(last?last.rec:null);
     if(!fRec)return;
-    fRec.loadEndTime=nowTime();fRec.fieldSign=img;
+    fRec.loadEndTime=nowTime();
+    // ★現場サインはFirestoreへ（fRecには含めず、RTDBには保存しない）
     await fbSetRecord(signCid,fRec,recKey||undefined);
+    await saveSignField(CWH,today(),effectiveKey,'fieldSign',img);
     toast(`${c.short||c.name} 荷役終了: ${fRec.loadEndTime}`);
   }
   document.getElementById('sign-modal').classList.add('h');
@@ -5139,10 +5216,8 @@ async function showQRPrintPreview(token, carrierName, date){
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
   const k=editCid;
-  const snap=await get(ref(db,whPath(`records/${editDate}/${k}`)));
-  const rec=snap.val()||{};
-  delete rec[signKey];
-  await set(ref(db,whPath(`records/${editDate}/${k}`)),rec);
+  // ★サインはFirestore（東京リージョン）から削除する
+  await deleteSignField(CWH,editDate,k,signKey);
   toast('サインを削除しました');
   const label=signKey==='fieldSign'?'現場サイン':'ドライバーサイン';
   const wrapId=signKey==='fieldSign'?'edit-field-sign-wrap':'edit-driver-sign-wrap';
@@ -5187,6 +5262,20 @@ async function getAllRecordRows(date){
   const dayRec=await fetchDayRecords(date);
   const dayShip=await fetchDayShip(date);
   const dayInbound=await fetchDayInbound(date);
+  // ★サイン画像はFirestore（東京リージョン）に分離保存しているため、
+  //   ここでその日の分をまとめて取得し、各記録にマージする。
+  //   これ以降のコードは今まで通り rec.fieldSign 等をそのまま参照できる。
+  const daySigns=await fetchDaySigns(CWH,date);
+  Object.entries(dayRec).forEach(([k,rec])=>{
+    const s=daySigns[k];
+    if(s){
+      if(s.fieldSign)rec.fieldSign=s.fieldSign;
+      if(s.driverSign)rec.driverSign=s.driverSign;
+      if(s.deliverySign)rec.deliverySign=s.deliverySign;
+      if(s.deliverySignedAt)rec.deliverySignedAt=s.deliverySignedAt;
+      if(s.deliverySignedDate)rec.deliverySignedDate=s.deliverySignedDate;
+    }
+  });
   const reqTimeSnap=await get(ref(db,whPath('reqTime')));
   const reqTimeData=reqTimeSnap.val()||{};
   const rows=[];
@@ -5990,6 +6079,8 @@ window.openEditModal=async function(date, cid, name){
   document.getElementById('edit-load-start').value= rec.loadStartTime||'';
   document.getElementById('edit-load-end').value  = rec.loadEndTime||'';
   document.getElementById('edit-depart').value    = rec.departTime||'';
+  // ★サインはFirestore（東京リージョン）から別途取得する
+  const signData=await fetchSignDoc(CWH,date,cid);
   // サインUI
   function signUI(sign, signKey, label, wrapId){
     const wrap=document.getElementById(wrapId);
@@ -6002,8 +6093,8 @@ window.openEditModal=async function(date, cid, name){
         <button class="sign-add-btn" onclick="openEditSign('${signKey}','${label}')">+ サイン追加</button>`;
     }
   }
-  signUI(rec.fieldSign, 'fieldSign', '現場サイン', 'edit-field-sign-wrap');
-  signUI(rec.driverSign, 'driverSign', 'ドライバーサイン', 'edit-driver-sign-wrap');
+  signUI(signData.fieldSign, 'fieldSign', '現場サイン', 'edit-field-sign-wrap');
+  signUI(signData.driverSign, 'driverSign', 'ドライバーサイン', 'edit-driver-sign-wrap');
   document.getElementById('edit-modal').classList.remove('h');
 };
 
@@ -6065,8 +6156,11 @@ window.saveEdit=async function(){
   if(departTime)    updated.departTime=departTime;    else delete updated.departTime;
   // サインは入場リセット時に削除
   if(!enterTime){
-    delete updated.fieldSign; delete updated.driverSign;
+    delete updated.fieldSign; delete updated.driverSign; // 念のため（通常ここには存在しない）
     delete updated.charterCarrierName; delete updated.charterCarNumber;
+    // ★Firestore（東京リージョン）側のサインもあわせて削除する
+    await deleteSignField(CWH,editDate,editCid,'fieldSign');
+    await deleteSignField(CWH,editDate,editCid,'driverSign');
   }
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),updated);
   // どの項目が変わったかを操作ログに記録
@@ -6089,6 +6183,8 @@ window.deleteRecord=async function(){
     :'この運送会社のこの日の記録を削除しますか？\nサインデータも含めて完全に削除されます。';
   if(!confirm(msg))return;
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),null);
+  // ★Firestore（東京リージョン）側のサインドキュメントもあわせて削除する
+  await deleteSignDoc(CWH,editDate,editCid);
   await logChange('delete_record',`${editName}（${editDate}）`,`キー:${editCid}`);
   toast('記録を削除しました');
   closeEditModal();
@@ -6302,13 +6398,14 @@ function startDeliveryQRSync(){
           if(!shouldSync)continue;
 
           const safeDeliverySign = safeImgSrc(qrData.deliverySign);
-          const recRef=ref(db,`warehouses/${qrData.warehouseId}/records/${qrData.date}/${qrData.carrierId}`);
-          // ★set()でノード全体を置き換えず、update()で対象3フィールドのみ更新する
-          await update(recRef,{
-            deliverySign:safeDeliverySign,
-            deliverySignedAt:typeof qrData.signedAt==='string'?qrData.signedAt:'',
-            deliverySignedDate:typeof qrData.signedDate==='string'?qrData.signedDate:''
-          });
+          // ★持込確認サインもFirestore（東京リージョン）へ保存する。
+          //   records本体（RTDB）にはサイン画像を一切保存しなくなった。
+          await saveDeliverySign(
+            qrData.warehouseId,qrData.date,qrData.carrierId,
+            safeDeliverySign,
+            typeof qrData.signedAt==='string'?qrData.signedAt:'',
+            typeof qrData.signedDate==='string'?qrData.signedDate:''
+          );
           await set(ref(db,`printQueue/${token}/status`),'signed');
         }catch(e){
           console.error('deliveryQR同期エラー:',e);
