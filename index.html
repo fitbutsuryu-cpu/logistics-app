@@ -3720,9 +3720,11 @@ async function refreshMyPermissions(){
     await auth.currentUser.getIdToken(true); // 強制的に最新のトークンを取得
     const tokenResult=await auth.currentUser.getIdTokenResult();
     const claims=tokenResult.claims||{};
-    myRole=claims.role==='admin'?'admin':'staff';
+    const validRoles=['admin','operator','staff'];
+    myRole=validRoles.includes(claims.role)?claims.role:'staff';
     myAllWarehouses=!!claims.allWarehouses;
     myWarehouses=claims.warehouses||{};
+    console.log('[権限情報]',{role:myRole,allWarehouses:myAllWarehouses,warehouses:myWarehouses,rawClaims:claims});
   }catch(e){
     console.warn('権限情報の取得に失敗しました（初期値のまま動作します）:',e);
   }
@@ -4335,13 +4337,34 @@ function renderWHSel(){
     <button class="wh-btn" onclick="selWH('${escJs(w.id)}')">
       <span class="wh-btn-icon">${esc(w.icon||'🏭')}</span>
       <div><div class="wh-btn-name">${esc(w.name)}</div><div class="wh-btn-desc">タップして選択</div></div>
-    </button>`).join('')||'<div style="grid-column:1/-1;text-align:center;color:var(--th);padding:20px;">アクセスできる倉庫がありません。管理者にお問い合わせください。</div>';
+    </button>`).join('')||`
+    <div style="grid-column:1/-1;text-align:center;color:var(--th);padding:20px;">
+      アクセスできる倉庫がありません。管理者にお問い合わせください。<br>
+      <span style="font-size:11px;">（権限を設定した直後の場合は、下のボタンをお試しください）</span>
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button class="wh-btn" style="width:auto;padding:10px 16px;" onclick="retryMyPermissions()">🔄 権限情報を再取得</button>
+        <button class="wh-btn" style="width:auto;padding:10px 16px;background:var(--rd50);color:var(--rd600);" onclick="doLogoutFromWhSel()">🚪 ログアウト</button>
+      </div>
+    </div>`;
   // ★倉庫の追加・削除（マスター管理）は管理者のみ表示する
   const addBox=document.querySelector('.wh-add-box');
   if(addBox)addBox.style.display=isManager()?'':'none';
   document.getElementById('wh-del-list').innerHTML=WHs.map(w=>`
     <div class="wh-del-item"><span>${esc(w.icon||'🏭')} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${escJs(w.id)}')">削除</button>`:''}</div>`).join('');
 }
+// 倉庫選択画面から直接、権限情報の再取得・ログアウトができるようにする
+// （通常のナビゲーションバーは、倉庫を選ぶまで表示されないため、
+//   「アクセスできる倉庫が0件」の詰み状態から抜け出す手段として用意している）
+window.retryMyPermissions=async function(){
+  toast('権限情報を再取得しています...');
+  await refreshMyPermissions();
+  renderWHSel();
+  toast(`再取得しました（現在の役割：${myRole}）`);
+};
+window.doLogoutFromWhSel=async function(){
+  if(!confirm('ログアウトしますか？'))return;
+  await signOut(auth);
+};
 window.selWH=function(id){
   CWH=id;const w=WHs.find(x=>x.id===id);
   document.getElementById('nav-wh').textContent=w?w.name:id;
