@@ -3693,6 +3693,20 @@ const fsdb=getFirestore(app);
 const functionsInst=getFunctions(app,'asia-southeast1');
 const callListUsers=httpsCallable(functionsInst,'listUsers');
 const callSetUserPermissions=httpsCallable(functionsInst,'setUserPermissions');
+// 【初回セットアップ専用】ブラウザのConsoleから bootstrapFirstAdmin() と
+// 入力すると、まだ誰も管理者がいない場合に限り、今ログイン中の本人を
+// 管理者にできる。管理者が既に1人でもいる場合はエラーになる安全な仕組み。
+window.bootstrapFirstAdmin=async function(){
+  try{
+    const call=httpsCallable(functionsInst,'bootstrapFirstAdmin');
+    const res=await call();
+    console.log('✅ 成功:',res.data);
+    alert(`管理者に設定しました（${res.data.email}）。この後「🔄 権限情報を再取得」ボタンを押してください。`);
+  }catch(e){
+    console.error('❌ 失敗:',e);
+    alert('失敗しました：'+(e&&e.message?e.message:String(e)));
+  }
+};
 
 // ログイン中の本人の権限（ログイン成功時にrefreshMyPermissions()で設定される）
 let myRole='staff';          // 'admin'（管理者）/ 'operator'（事務所スタッフ）/ 'staff'（現場作業員）
