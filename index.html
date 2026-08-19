@@ -5225,32 +5225,29 @@ async function issueDeliveryQR(cid, c, rec){
   return token;
 }
 
-// 管理・記録画面からQR発行＋B5印刷プレビュー表示
+// 管理・記録画面からQR発行＋B5印刷プレビュー表示（事務所タッチ画面と共通）
 window.printDeliveryQR=async function(date, cid, carrierName){
-  // 既存トークンがあれば再利用、なければ新規発行
+  // ★QRの「再発行」（新しいトークンに切り替える操作）は、
+  //   管理・記録タブの「QR再発行」ボタン（reissueDeliveryQR）でのみ
+  //   行う。この関数は「まだ発行されていなければ新規発行、
+  //   既に発行済みならそのまま（同じQRを）印刷する」だけの
+  //   シンプルな動作にする（サイン済みかどうかでの自動判定はしない）。
   const k=cid;
   const recSnap=await get(ref(db,whPath(`records/${date}/${k}`)));
   const rec=recSnap.val()||{};
-  let token=rec.deliveryQRToken;
+  const token=rec.deliveryQRToken;
 
-  // 既存トークンが「使用済み」なら新規発行、なければそのまま使う
-  if(token){
-    const qrSnap=await get(ref(db,`deliveryQR/${token}`));
-    const qrVal=qrSnap.val();
-    if(!qrVal||qrVal.used){
-      token=null; // 使用済み or 存在しない → 再発行
-    }
-  }
+  let finalToken=token;
   let needsRefresh=false;
-  if(!token){
+  if(!finalToken){
     const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
-    token=await issueDeliveryQR(k,c,rec);
+    finalToken=await issueDeliveryQR(k,c,rec);
     toast(`📦 ${carrierName} の持込QRを発行しました`);
     needsRefresh=true;
   }
 
   // 先に印刷プレビューを表示してから、裏でテーブルを再描画する
-  await showQRPrintPreview(token, carrierName, date);
+  await showQRPrintPreview(finalToken, carrierName, date);
   if(needsRefresh&&date===today())renderRecords();
 };
 
