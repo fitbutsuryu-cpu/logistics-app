@@ -677,7 +677,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div id="user-perm-list" style="font-size:13px;color:var(--th);">まだ読み込んでいません。上のボタンを押してください。</div>
     </div>
 
-    <div class="m-card" style="max-width:900px;margin-top:20px;">
+    <div class="m-card" id="log-card" style="max-width:900px;margin-top:20px;">
       <h2>📋 操作ログ（削除・修正の履歴）</h2>
       <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">記録の削除・修正、運送会社・倉庫の削除など、重要な操作を「誰が・いつ・何をしたか」記録しています。</p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
@@ -3693,20 +3693,9 @@ const fsdb=getFirestore(app);
 const functionsInst=getFunctions(app,'asia-southeast1');
 const callListUsers=httpsCallable(functionsInst,'listUsers');
 const callSetUserPermissions=httpsCallable(functionsInst,'setUserPermissions');
-// 【初回セットアップ専用】ブラウザのConsoleから bootstrapFirstAdmin() と
-// 入力すると、まだ誰も管理者がいない場合に限り、今ログイン中の本人を
-// 管理者にできる。管理者が既に1人でもいる場合はエラーになる安全な仕組み。
-window.bootstrapFirstAdmin=async function(){
-  try{
-    const call=httpsCallable(functionsInst,'bootstrapFirstAdmin');
-    const res=await call();
-    console.log('✅ 成功:',res.data);
-    alert(`管理者に設定しました（${res.data.email}）。この後「🔄 権限情報を再取得」ボタンを押してください。`);
-  }catch(e){
-    console.error('❌ 失敗:',e);
-    alert('失敗しました：'+(e&&e.message?e.message:String(e)));
-  }
-};
+// ★bootstrapFirstAdmin（初回セットアップ専用の管理者昇格機能）は、
+//   初期セットアップ完了後の残置リスクとなるため、クライアント側の
+//   呼び出しコードとサーバー側の関数の両方を撤去した。
 
 // ログイン中の本人の権限（ログイン成功時にrefreshMyPermissions()で設定される）
 let myRole='staff';          // 'admin'（管理者）/ 'operator'（事務所スタッフ）/ 'staff'（現場作業員）
@@ -3745,6 +3734,9 @@ async function refreshMyPermissions(){
   // 管理者専用UI（ユーザー権限管理カード）の表示切替
   const permCard=document.getElementById('user-perm-card');
   if(permCard)permCard.style.display=(myRole==='admin')?'':'none';
+  // 操作ログは管理者・事務所スタッフのみ表示する（データベース側の制限と揃える）
+  const logCard=document.getElementById('log-card');
+  if(logCard)logCard.style.display=isManager()?'':'none';
 }
 
 // ===== ユーザー権限管理（管理者専用UI） =====
@@ -4740,9 +4732,9 @@ function makeCarrierBtn(c,mode){
     const showReqTime=!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery');
     const hideType=showReqTime;
     const typeHtml=hideType?'':
-      `<span class="c-type">${c._label||tLabel(c.type)}</span>`;
+      `<span class="c-type">${esc(c._label||tLabel(c.type))}</span>`;
     const reqHtml=showReqTime
-      ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${getReqTime(c.id)}${c.type==='delivery'?' (持込)':''}</span>`:'';
+      ?`<span class="c-type" style="color:var(--am600);font-weight:600;">⏰ ${esc(getReqTime(c.id))}${c.type==='delivery'?' (持込)':''}</span>`:'';
     btn.innerHTML=`<span class="c-name">${esc(c.short||c.name)}</span>${typeHtml}${reqHtml}<span class="c-st ${st.c}">${st.l}</span>${extra}`;
   }
   btn.onclick=()=>{
@@ -4826,16 +4818,16 @@ function updateOffPanel(){
       if(rec.enterTime)tl.innerHTML+=`<span class="tc">入場<span>${esc(rec.enterTime)}</span></span>`;
       if(rec.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${esc(rec.loadStartTime)}</span></span>`;
       if(rec.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${esc(rec.loadEndTime)}</span></span>`;
-      if(rec.departTime)tl.innerHTML+=`<span class="tc">退場<span>${rec.departTime}</span></span>`;
+      if(rec.departTime)tl.innerHTML+=`<span class="tc">退場<span>${esc(rec.departTime)}</span></span>`;
     }
   } else {
     // マスター登録済みは全回分を表示
     allRecs.forEach(({rec:r,n})=>{
       if(n>1)tl.innerHTML+=`<span class="tc" style="color:var(--am600);font-weight:600;">${n}回目</span>`;
-      if(r.enterTime){let s=`入場<span>${r.enterTime}</span>`;if(r.charterCarrierName)s+=`<span style="margin-left:4px;font-size:10px;color:var(--pu600);">${r.charterCarrierName}/${r.charterCarNumber}</span>`;tl.innerHTML+=`<span class="tc">${s}</span>`;}
-      if(r.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${r.loadStartTime}</span></span>`;
-      if(r.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${r.loadEndTime}</span></span>`;
-      if(r.departTime)tl.innerHTML+=`<span class="tc">退場<span>${r.departTime}</span></span>`;
+      if(r.enterTime){let s=`入場<span>${esc(r.enterTime)}</span>`;if(r.charterCarrierName)s+=`<span style="margin-left:4px;font-size:10px;color:var(--pu600);">${esc(r.charterCarrierName)}/${esc(r.charterCarNumber)}</span>`;tl.innerHTML+=`<span class="tc">${s}</span>`;}
+      if(r.loadStartTime)tl.innerHTML+=`<span class="tc">荷役開始<span>${esc(r.loadStartTime)}</span></span>`;
+      if(r.loadEndTime)tl.innerHTML+=`<span class="tc">荷役終了<span>${esc(r.loadEndTime)}</span></span>`;
+      if(r.departTime)tl.innerHTML+=`<span class="tc">退場<span>${esc(r.departTime)}</span></span>`;
     });
   }
 }
@@ -5597,13 +5589,13 @@ window.renderRecords=async function(){
       }
     }
     html+=`<tr>
-      <td>${date}</td><td><strong>${esc(c.name)}</strong></td>
-      <td><span class="t-badge ${c.type}">${tLabel(c.type)}</span></td>
+      <td>${esc(date)}</td><td><strong>${esc(c.name)}</strong></td>
+      <td><span class="t-badge ${esc(c.type)}">${esc(tLabel(c.type))}</span></td>
       <td>${realCCell}</td><td>${esc(carN)}</td><td>${esc(reqT)}</td>
-      <td>${rec.enterTime||'—'}</td><td>${rec.loadStartTime||'—'}</td>
-      <td>${rec.loadEndTime||'—'}</td><td>${rec.departTime||'—'}</td>
+      <td>${esc(rec.enterTime||'—')}</td><td>${esc(rec.loadStartTime||'—')}</td>
+      <td>${esc(rec.loadEndTime||'—')}</td><td>${esc(rec.departTime||'—')}</td>
       <td>${pill}</td>
-      <td>${ship?.count??'—'}</td><td>${ship?.qty??'—'}</td><td>${ship?.vol??'—'}</td>
+      <td>${esc(ship?.count??'—')}</td><td>${esc(ship?.qty??'—')}</td><td>${esc(ship?.vol??'—')}</td>
       <td>${fs}</td><td>${ds}</td>
       <td>${deliveryCell}</td>
       <td style="text-align:center;">${waitCell}</td>
@@ -6421,38 +6413,6 @@ async function cleanOldRecords(){
     }
   }catch(e){console.error('自動削除エラー:',e);}
 }
-
-// ===== 緊急修正：誤って書き込まれた_reqTimeを削除 =====
-// バグで全レコードに_reqTime:15:30が書き込まれた場合に使用
-window.fixReqTime=async function(){
-  if(!confirm('過去90日分のレコードから誤った_reqTimeを削除します。よろしいですか？'))return;
-  toast('修正中...');
-  const reqTimeSnap=await get(ref(db,whPath('reqTime')));
-  const reqTimeData=reqTimeSnap.val()||{};
-  const recSnap=await get(ref(db,whPath('records')));
-  const allRecs=recSnap.val()||{};
-  let count=0;
-  const promises=[];
-  Object.entries(allRecs).forEach(([date,dayRec])=>{
-    Object.entries(dayRec).forEach(([k,rec])=>{
-      if(rec._reqTime){
-        // reqTimeDataの正しい値と比較
-        const correct=reqTimeData[k];
-        // _reqTimeが正しいreqTimeDataの値と異なる場合は削除（誤書き込み）
-        // または入場時刻がない（入場前に書き込まれた）場合も削除
-        if(!rec.enterTime||!correct||(rec._reqTime===correct)){
-          // 入場時刻がない場合は誤書き込みなので削除
-          if(!rec.enterTime){
-            promises.push(set(ref(db,whPath(`records/${date}/${k}/_reqTime`)),null));
-            count++;
-          }
-        }
-      }
-    });
-  });
-  await Promise.all(promises);
-  toast(`✅ ${count}件修正しました。ページをリロードしてください。`);
-};
 
 // ===== 日付変更の自動検知 =====
 let lastCheckedDate=today();
