@@ -4200,6 +4200,7 @@ const actionLabels={
   delete_carrier:'🗑️ 運送会社の削除',
   delete_warehouse:'🗑️ 倉庫の削除',
   login:'🔓 ログイン',
+  daily_active:'📅 当日の利用開始',
   system_warning:'⚠️ システム警告'
 };
 // 指定期間の操作ログをまとめて取得する共通関数
@@ -4473,6 +4474,30 @@ async function logChange(action,target,detail){
     });
   }catch(e){
     console.warn('操作ログの記録に失敗しました:',e);
+  }
+}
+
+// ★ログインしっぱなしの端末でも「その日、誰がこの端末を使っていたか」を
+//   記録する。ランダムなキーではなく「日付＋本人のUID」という固定の
+//   キーを使うことで、changeLogの「追記専用（既存キーへの上書き不可）」
+//   ルールを利用し、同じ日に何度呼ばれても最初の1回だけ記録される
+//   （2回目以降は権限エラーになるが、これは想定内の正常な動作）。
+async function markDailyActive(){
+  try{
+    if(!auth.currentUser||auth.currentUser.isAnonymous)return;
+    const d=today();
+    const key=`daily_${auth.currentUser.uid}`;
+    await set(ref(db,`changeLog/${d}/${key}`),{
+      ts:new Date().toISOString(),
+      time:nowTime(),
+      user:auth.currentUser.email,
+      warehouse:CWH||'',
+      action:'daily_active',
+      target:'',
+      detail:'ログイン状態を維持したまま、この端末で利用'
+    });
+  }catch(e){
+    // 既に今日の分が記録済みの場合はここに来るのが正常（何もしない）
   }
 }
 
@@ -6417,6 +6442,9 @@ setInterval(()=>{
   const nowDate=today();
   if(nowDate!==lastCheckedDate){
     lastCheckedDate=nowDate;
+    // ログインしっぱなしで日付をまたいだ場合も、新しい日付分の
+    // 「利用記録」を残す（ログアウトを強制せずに済むようにするため）
+    markDailyActive();
     // 日付が変わったら選択日付を今日にリセット
     selectedInboundDate=nowDate;
     // マスタータブが開いていれば日付タブを再描画
@@ -6545,6 +6573,7 @@ onAuthStateChanged(auth,async user=>{
     document.getElementById('nav-user').textContent=user.email||'';
     document.getElementById('login-password').value='';
     await refreshMyPermissions(); // 権限情報（役割・担当倉庫）を先に読み込む
+    markDailyActive(); // 「今日、この端末をこの人が使っている」記録（再読込・持ち越しログインの両方をカバー）
     await loadWHs(); // 倉庫一覧が揃うのを待ってから、通知機能の初期化に進む
     startDeliveryQRSync();
     initMessaging();
