@@ -4355,7 +4355,7 @@ function renderWHSel(){
     </div>`;
   // ★倉庫の追加・削除（マスター管理）は管理者のみ表示する
   const addBox=document.querySelector('.wh-add-box');
-  if(addBox)addBox.style.display=isManager()?'':'none';
+  if(addBox)addBox.style.display=(myRole==='admin')?'':'none';
   document.getElementById('wh-del-list').innerHTML=WHs.map(w=>`
     <div class="wh-del-item"><span>${esc(w.icon||'🏭')} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${escJs(w.id)}')">削除</button>`:''}</div>`).join('');
 }
@@ -4373,6 +4373,10 @@ window.doLogoutFromWhSel=async function(){
   await signOut(auth);
 };
 window.selWH=function(id){
+  // ★画面に表示していない倉庫が選ばれた場合の保険（多重防御）。
+  //   実際のアクセス制御はFirebase側のルールが行うが、
+  //   画面側でも受け付けないようにしておく。
+  if(!canAccessWarehouse(id)){toast('この倉庫へのアクセス権限がありません');return;}
   CWH=id;const w=WHs.find(x=>x.id===id);
   document.getElementById('nav-wh').textContent=w?w.name:id;
   document.getElementById('m-wh-lbl').textContent=`対象倉庫：${w?w.name:id}`;
@@ -4414,7 +4418,7 @@ window.switchWh=function(){
   renderWHSel();
 };
 window.addWh=async function(){
-  if(!isManager()){toast('倉庫の追加は管理者・事務所スタッフのみ行えます');return;}
+  if(myRole!=='admin'){toast('倉庫の追加は管理者のみ行えます');return;}
   const name=document.getElementById('wh-new').value.trim();
   if(!name){toast('倉庫名を入力してください');return;}
   const wh={id:'wh_'+Date.now(),name,icon:'🏭'};
@@ -4423,7 +4427,7 @@ window.addWh=async function(){
   document.getElementById('wh-new').value='';renderWHSel();toast(`${name}を追加しました`);
 };
 window.delWH=function(id){
-  if(!isManager()){toast('倉庫の削除は管理者・事務所スタッフのみ行えます');return;}
+  if(myRole!=='admin'){toast('倉庫の削除は管理者のみ行えます');return;}
   const w=WHs.find(x=>x.id===id);
   if(!w)return;
   document.getElementById('wh-del-target-name').textContent=w.name;
@@ -5851,7 +5855,7 @@ function renderMaster(){
       <div class="c-item-row">
         <span class="c-drag-handle" title="ドラッグして並べ替え">☰</span>
         <div class="c-item-info">
-          <div class="c-item-name">${esc(c.name)}<span class="t-badge ${c.type}">${tLabel(c.type)}</span></div>
+          <div class="c-item-name">${esc(c.name)}<span class="t-badge ${esc(c.type)}">${esc(tLabel(c.type))}</span></div>
           <div class="c-item-meta">${c.short!==c.name?'略称:'+esc(c.short)+'　':''}${esc(c.note||'')}</div>
         </div>
         <div class="c-item-acts">
@@ -5919,6 +5923,7 @@ function initCarrierDragSort(list){
       const fromIdx=items.indexOf(dragSrc);
       const toIdx=items.indexOf(item);
       if(fromIdx<0||toIdx<0)return;
+      if(!isManager()){toast('並べ替えは管理者・事務所スタッフのみ行えます');renderMaster();return;}
       const newOrder=[...state.carriers];
       const [moved]=newOrder.splice(fromIdx,1);
       newOrder.splice(toIdx,0,moved);
@@ -5963,6 +5968,7 @@ function initCarrierDragSort(list){
         const fromIdx=items.indexOf(touchItem);
         const toIdx=items.indexOf(targetItem);
         if(fromIdx>=0&&toIdx>=0&&fromIdx!==toIdx){
+          if(!isManager()){toast('並べ替えは管理者・事務所スタッフのみ行えます');renderMaster();return;}
           const newOrder=[...state.carriers];
           const [moved]=newOrder.splice(fromIdx,1);
           newOrder.splice(toIdx,0,moved);
@@ -6398,25 +6404,13 @@ async function cleanOldRecords(){
     //   生じるため、Cloud Functions（サーバー側・管理者権限）の定期実行
     //   （cleanupOldOperationalData）に一本化した。
 
-    // ⑤-2 signs（Firestore・東京リージョンに保存しているサイン画像）
-    //    90日超え分をこの倉庫（CWH）分について削除する
-    //    ★このクエリ（等価＋範囲の組み合わせ）は複合インデックスが必須。
-    //    失敗した場合、コンソールの警告だけだと誰も気づけないまま
-    //    古いサインが消えずに残り続けてしまうため、操作ログにも
-    //    記録し、「設定」タブの操作ログ画面で気づけるようにしている。
-    try{
-      const oldSignsQ=fsQuery(
-        collection(fsdb,'signs'),
-        fsWhere('warehouseId','==',CWH),
-        fsWhere('date','<',cutoffStr)
-      );
-      const oldSignsSnap=await getDocs(oldSignsQ);
-      oldSignsSnap.forEach(d=>{promises.push(deleteDoc(d.ref));});
-    }catch(e){
-      console.warn('signsの自動削除でエラー（複合インデックス未作成の可能性）:',e);
-      await logChange('system_warning','Firestore(signs)の90日自動削除',
-        `失敗しました。複合インデックスが未作成の可能性があります。詳細:${String(e&&e.message||e)}`);
-    }
+    // ★signs（Firestore・サイン画像）の削除も、同じ理由でここでは行わない。
+    //   以前はここでクライアント側から削除を試みていたが、Lの対応
+    //   （削除を管理者・事務所スタッフに限定）により、一般担当者の
+    //   端末では常に失敗し、90日削除が実質的に一度も動かない状態に
+    //   なっていた。Cloud Functions側のcleanupOldOperationalDataに
+    //   signsの削除も統合し、権限やログイン中の人に関係なく、
+    //   確実に毎日実行されるようにした。
 
     // ⑥ changeLog（操作ログ）の削除はここでは行わない。
     //   操作ログを「追記専用（誰も後から削除・改ざんできない）」にするため、
