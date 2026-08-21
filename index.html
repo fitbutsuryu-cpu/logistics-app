@@ -3697,6 +3697,21 @@ const callSetUserPermissions=httpsCallable(functionsInst,'setUserPermissions');
 //   初期セットアップ完了後の残置リスクとなるため、クライアント側の
 //   呼び出しコードとサーバー側の関数の両方を撤去した。
 
+// 【一時的な診断用】ブラウザのConsoleから getSignsStats() と入力すると、
+// Firestore(signs)の現在の件数・一番古い日付を確認できる（7.3対応）。
+// 確認が済んだら、この関数とサーバー側のgetSignsStatsは削除してよい。
+window.getSignsStats=async function(){
+  try{
+    const call=httpsCallable(functionsInst,'getSignsStats');
+    const res=await call();
+    console.log('📊 サイン画像の蓄積状況:',res.data);
+    alert(`現在の件数：${res.data.count}件\n一番古いデータの日付：${res.data.oldestDate||'（データなし）'}`);
+  }catch(e){
+    console.error('❌ 失敗:',e);
+    alert('失敗しました：'+(e&&e.message?e.message:String(e)));
+  }
+};
+
 // ログイン中の本人の権限（ログイン成功時にrefreshMyPermissions()で設定される）
 let myRole='staff';          // 'admin'（管理者）/ 'operator'（事務所スタッフ）/ 'staff'（現場作業員）
 let myAllWarehouses=false;   // true なら倉庫制限を受けない
