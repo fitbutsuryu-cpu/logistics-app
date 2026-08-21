@@ -3651,7 +3651,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction,query,orderByChild,equalTo} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -3813,17 +3813,11 @@ async function saveSignField(warehouseId,date,carrierKey,fieldName,dataUrl){
     updatedAt:new Date().toISOString()
   },{merge:true});
 }
-// 持込確認サイン専用（サイン本体＋時刻2項目をまとめて保存）
-async function saveDeliverySign(warehouseId,date,carrierKey,dataUrl,signedAt,signedDate){
-  const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
-  await setDoc(ref_,{
-    warehouseId,date,carrierKey,
-    deliverySign:dataUrl,
-    deliverySignedAt:signedAt,
-    deliverySignedDate:signedDate,
-    updatedAt:new Date().toISOString()
-  },{merge:true});
-}
+// ★saveDeliverySign（持込確認サインの保存）は、7.2の対応でCloud Functions
+//   （syncDeliverySign）に処理を移管したため、クライアント側からは
+//   使われなくなり削除した。持込確認サインの保存は、現在は完全に
+//   サーバー側で行われる。
+
 // 特定のサイン欄だけを削除する（他の欄は残す）
 async function deleteSignField(warehouseId,date,carrierKey,fieldName){
   const ref_=doc(fsdb,'signs',signDocId(warehouseId,date,carrierKey));
@@ -6486,78 +6480,12 @@ updateDate();setInterval(updateDate,60000);
 
 // ===== deliveryQR 自動同期 =====
 // 外部ドライバー用のsign.htmlは匿名ユーザーでも安全な「deliveryQR」にしか
-// 書き込めない設計になっている。サイン完了（used:true）を検知したら、
-// ログイン済みの本体アプリ側が records・printQueue への反映を代行する。
-let deliveryQRSyncStarted=false;
-function startDeliveryQRSync(){
-  if(deliveryQRSyncStarted)return;
-  deliveryQRSyncStarted=true;
-  // ★deliveryQR全体ではなく「サイン済み（used:true）」のものだけに購読対象を
-  //   絞り込む（未使用のQRデータまで毎回全件ダウンロードしないようにする）。
-  //   このクエリを効率よく動かすには、セキュリティルール側で
-  //   deliveryQRに .indexOn:["used"] を設定しておく必要がある。
-  const q=query(ref(db,'deliveryQR'),orderByChild('used'),equalTo(true));
-  onValue(q,async snap=>{
-    const all=snap.val();
-    if(!all)return;
-    for(const [token,qrData] of Object.entries(all)){
-      if(!qrData.recordSynced){
-        try{
-          // ★検証は「同期済みフラグの確定（Transaction）」より先に行う。
-          //   これを後回しにすると、検証に失敗したデータまで
-          //   「処理済み」として扱われてしまい、二度と反映されないまま
-          //   放置される（気づけない）不具合につながる。
-          const wIdOk = qrData.warehouseId && WHs.some(w=>w.id===qrData.warehouseId);
-          const dateOk = typeof qrData.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(qrData.date);
-          const cidOk = typeof qrData.carrierId==='string' && /^[A-Za-z0-9_]+$/.test(qrData.carrierId);
-          // ★deliverySignの形式検証も、フラグ確定より前に行う。
-          //   Firestoreのルール（isSign）は空文字を拒否するため、
-          //   これを後回しにするとrecordSyncedだけが立って書き込みが
-          //   失敗し、二度と再試行されなくなる（サインが恒久的に消失する）。
-          const signOk = !!safeImgSrc(qrData.deliverySign);
-
-          if(!wIdOk || !dateOk || !cidOk || !signOk){
-            console.warn('deliveryQRの内容が不正なため、記録への反映をスキップしました（未処理のまま保持・要調査）。',token);
-            continue; // recordSyncedを立てないため、次回も検知され続け、放置されない
-          }
-
-          // 複数端末が同時に処理しても1回だけ反映されるようFirebase Transactionで排他制御
-          const syncedRef=ref(db,`deliveryQR/${token}/recordSynced`);
-          let shouldSync=false;
-          await runTransaction(syncedRef,current=>{
-            if(current===true){shouldSync=false;return current;}
-            shouldSync=true;return true;
-          });
-          if(!shouldSync)continue;
-
-          const safeDeliverySign = safeImgSrc(qrData.deliverySign);
-          // ★持込確認サインをFirestore（東京リージョン）へ保存する。
-          //   records本体（RTDB）にはサイン画像を一切保存しない設計。
-          await saveDeliverySign(
-            qrData.warehouseId,qrData.date,qrData.carrierId,
-            safeDeliverySign,
-            typeof qrData.signedAt==='string'?qrData.signedAt:'',
-            typeof qrData.signedDate==='string'?qrData.signedDate:''
-          );
-          // ★Firestoreへのコピーが完了したら、RTDB（シンガポール）側に
-          //   残っているサイン画像本体（deliverySignフィールド）は消去する。
-          //   used・token・carrierId等の追跡用メタ情報は残してよいが、
-          //   個人情報にあたる画像データそのものは国内（Firestore）だけに
-          //   存在する状態にするため、必ずこの後始末が必要。
-          await update(ref(db,`deliveryQR/${token}`),{deliverySign:null});
-          await set(ref(db,`printQueue/${token}/status`),'signed');
-        }catch(e){
-          // ★recordSynced確定後（Firestore保存成功後を含む）に失敗した場合、
-          //   再試行はさせない（onValueの即時再発火による無限ループを防ぐため）。
-          //   代わりに操作ログへ記録し、「設定」タブから気づけるようにする。
-          console.error('deliveryQR同期エラー:',e);
-          await logChange('system_warning','持込確認サインの同期',
-            `token:${token} の反映に失敗しました。RTDB側に画像が残っている可能性があります。詳細:${String(e&&e.message||e)}`);
-        }
-      }
-    }
-  });
-}
+// 書き込めない設計になっている。
+// ★持込確認サインの清書処理（deliveryQR → Firestore）は、
+//   Cloud Functions（syncDeliverySign）に完全移管した。
+//   以前はここで、ログイン中のスタッフのブラウザが監視して
+//   代行していたが、「誰かの端末が開いていないと処理が進まない」
+//   という弱点があったため、サーバー側で確実に行う方式に変更した。
 
 onAuthStateChanged(auth,async user=>{
   if(user&&!user.isAnonymous){
@@ -6569,7 +6497,8 @@ onAuthStateChanged(auth,async user=>{
     await refreshMyPermissions(); // 権限情報（役割・担当倉庫）を先に読み込む
     markDailyActive(); // 「今日、この端末をこの人が使っている」記録（再読込・持ち越しログインの両方をカバー）
     await loadWHs(); // 倉庫一覧が揃うのを待ってから、通知機能の初期化に進む
-    startDeliveryQRSync();
+    // ★持込確認サインの清書処理は、Cloud Functions（syncDeliverySign）に
+    //   完全移管したため、ここでの呼び出しは不要になった。
     initMessaging();
     // 起動時に90日超えデータを削除（倉庫選択後に実行）
     setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
