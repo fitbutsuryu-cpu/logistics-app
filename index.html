@@ -3901,8 +3901,21 @@ async function initMessaging(){
           const snap=await get(ref(db,`fcmTokens/${token}`));
           const data=snap.val();
           if(data&&data.warehouseIds){
+            // ★この端末の登録内容に、担当外の倉庫が残っていないか確認する。
+            //   残っていれば取り除いて保存し直す（担当を外れた後も通知が
+            //   届き続けるのを防ぐため）。
+            const cleaned={};
+            Object.keys(data.warehouseIds).forEach(id=>{
+              if(data.warehouseIds[id]&&canAccessWarehouse(id))cleaned[id]=true;
+            });
+            if(Object.keys(cleaned).length!==Object.keys(data.warehouseIds).length){
+              try{
+                await set(ref(db,`fcmTokens/${token}/warehouseIds`),cleaned);
+                console.log('担当外の倉庫を通知設定から取り除きました');
+              }catch(e){console.warn('通知設定の是正に失敗:',e);}
+            }
             document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
-              cb.checked=!!data.warehouseIds[cb.value];
+              cb.checked=!!cleaned[cb.value];
             });
           }
         }
@@ -3918,8 +3931,16 @@ async function initMessaging(){
 function renderNotifyWhList(){
   const container=document.getElementById('notify-wh-list');
   if(!container||!WHs.length)return;
+  // ★担当している倉庫だけを並べる（倉庫選択画面と同じ絞り込みを行う）。
+  //   担当外の倉庫が並んでいると、悪意がなくてもチェックを入れられてしまい、
+  //   担当外倉庫の入退場通知が届き続ける状態になるため。
+  const visibleWHs=WHs.filter(w=>canAccessWarehouse(w.id));
+  if(!visibleWHs.length){
+    container.innerHTML=`<div style="font-size:12px;color:var(--th);">通知を受け取れる倉庫がありません。</div>`;
+    return;
+  }
   container.innerHTML=`<div style="font-size:12px;color:var(--ts);margin-bottom:6px;">通知を受け取る倉庫を選択：</div>` +
-    WHs.map(w=>`
+    visibleWHs.map(w=>`
       <label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:13px;cursor:pointer;">
         <input type="checkbox" class="notify-wh-cb" value="${esc(w.id)}" ${w.id===CWH?'checked':''} onchange="onNotifyWhChange()">
         ${esc(w.name)}
@@ -3932,13 +3953,15 @@ window.onNotifyWhChange=async function(){
   if(!currentFcmToken)return; // まだ通知を有効にしていない場合は何もしない（有効化時にまとめて保存される）
   const warehouseIds={};
   document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
-    if(cb.checked)warehouseIds[cb.value]=true;
+    // ★保存する直前にも担当倉庫かどうかを確認する（画面を細工されても通さないため）
+    if(cb.checked&&canAccessWarehouse(cb.value))warehouseIds[cb.value]=true;
   });
   try{
     await set(ref(db,`fcmTokens/${currentFcmToken}/warehouseIds`),warehouseIds);
     toast('通知を受け取る倉庫を更新しました');
   }catch(e){
     console.error('倉庫選択の更新エラー:',e);
+    toast('通知設定の保存に失敗しました');
   }
 };
 
@@ -3956,9 +3979,10 @@ window.enableNotifications=async function(){
     if(!token){toast('通知の登録に失敗しました');return;}
     currentFcmToken=token;
     // チェックされている倉庫を集める（1つも選ばれていなければ、今開いている倉庫を初期値にする）
+    // ★担当倉庫かどうかを、ここでも確認する
     const warehouseIds={};
     document.querySelectorAll('.notify-wh-cb').forEach(cb=>{
-      if(cb.checked)warehouseIds[cb.value]=true;
+      if(cb.checked&&canAccessWarehouse(cb.value))warehouseIds[cb.value]=true;
     });
     if(Object.keys(warehouseIds).length===0&&CWH){
       warehouseIds[CWH]=true;
@@ -4001,7 +4025,10 @@ window.disableNotifications=async function(){
     toast('通知を無効にしました');
     updateNotifyUI();
   }catch(e){
+    // ★以前はここで画面に何も表示しておらず、「押しても反応しない」
+    //   ように見えてしまっていた（ルール拒否等で失敗しても無言だった）。
     console.error('通知無効化エラー:',e);
+    toast('通知の無効化に失敗しました。管理者にご連絡ください。');
   }
 };
 
@@ -4066,6 +4093,17 @@ function nextBizDay(){
   return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;
 }
 function tLabel(t){return{regular:'定期便',irregular:'不定期便',spot_charter:'チャーター',charter:'専属チャーター',truck_in:'トラック入庫',container_in:'コンテナ入庫',delivery:'持込'}[t]||t;}
+// ★どこかで保存に失敗したとき、黙って終わらないようにするための保険。
+//   これまで「保存できたつもりで、実は拒否されていた」ことに
+//   誰も気づけない不具合（90日削除が動いていなかった件など）が
+//   起きているため、権限・形式が原因の失敗は必ず画面に出す。
+window.addEventListener('unhandledrejection',ev=>{
+  const msg=(ev.reason&&ev.reason.message)?ev.reason.message:String(ev.reason||'');
+  if(/PERMISSION_DENIED|permission-denied|Permission denied/i.test(msg)){
+    console.error('保存が拒否されました:',ev.reason);
+    if(typeof toast==='function')toast('⚠️ 保存できませんでした（権限またはデータ形式）。管理者にご連絡ください。');
+  }
+});
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // インラインonclick等の「JavaScript文字列リテラル」へ埋め込む値専用のエスケープ。
 // esc()の&#39;はHTMLの解析時に'へ復号されてしまい、onclickの中では防御にならないため、
@@ -4331,7 +4369,14 @@ window.closeLockModal=function(){
 async function loadWHs(){
   const snap=await get(ref(db,'warehouses_list'));
   if(snap.val()){WHs=Object.values(snap.val());}
-  else{WHs=[...DEFAULT_WH];const o={};WHs.forEach(w=>o[w.id]=w);await set(ref(db,'warehouses_list'),o);}
+  else{
+    WHs=[...DEFAULT_WH];const o={};WHs.forEach(w=>o[w.id]=w);
+    // ★Qの対応で倉庫一覧の書き込みは管理者のみになった。
+    //   管理者以外がこの状況に遭遇しても、画面が真っ白のまま
+    //   止まらないようにする。
+    try{ await set(ref(db,'warehouses_list'),o); }
+    catch(e){ console.warn('倉庫一覧の初期化に失敗しました（管理者アカウントで実施してください）:',e); }
+  }
   renderWHSel();
 }
 function renderWHSel(){
@@ -4561,8 +4606,6 @@ function startListeners(){
     state.carriers=v?(Array.isArray(v)?v.filter(Boolean):Object.values(v)):[];
     document.getElementById('ov').classList.add('h');
     renderCurrent();
-    // 最初のデータ受信後に90日削除実行
-    cleanOldRecords();
   });
   onValue(ref(db,whPath(`records/${today()}`)),async snap=>{
     const newRec=snap.val()||{};
@@ -6388,44 +6431,17 @@ window.downloadYesterday=async function(){
 };
 
 // ===== 90日自動削除 =====
-async function cleanOldRecords(){
-  try{
-    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-90);
-    const cutoffStr=`${cutoff.getFullYear()}-${S2(cutoff.getMonth()+1)}-${S2(cutoff.getDate())}`;
-    const promises=[];
-
-    // ①〜⑤（records・shipData・inboundData・deliveryQR・printQueue）の
-    //   削除処理は、ここでは行わない。
-    //   役割分離（管理者のみ削除可能）のルールを追加したことに伴い、
-    //   「一般担当者がログインしている時に実行されると失敗する」問題が
-    //   生じるため、Cloud Functions（サーバー側・管理者権限）の定期実行
-    //   （cleanupOldOperationalData）に一本化した。
-
-    // ★signs（Firestore・サイン画像）の削除も、同じ理由でここでは行わない。
-    //   以前はここでクライアント側から削除を試みていたが、Lの対応
-    //   （削除を管理者・事務所スタッフに限定）により、一般担当者の
-    //   端末では常に失敗し、90日削除が実質的に一度も動かない状態に
-    //   なっていた。Cloud Functions側のcleanupOldOperationalDataに
-    //   signsの削除も統合し、権限やログイン中の人に関係なく、
-    //   確実に毎日実行されるようにした。
-
-    // ⑥ changeLog（操作ログ）の削除はここでは行わない。
-    //   操作ログを「追記専用（誰も後から削除・改ざんできない）」にするため、
-    //   90日超え分の削除はCloud Functions（サーバー側・管理者権限）の
-    //   定期実行（cleanupOldChangeLog）で行うよう変更した。
-
-    // ※ 以前ここにあった _processedEvents（プッシュ通知の重複配信防止用）の
-    //   削除処理は撤去した。通知の重複防止は現在、通知の「タグ」による
-    //   ブラウザ側の表示制御のみで行っており、このデータ自体を
-    //   使わなくなったため（Firebase側にも権限分離ルールを追加する
-    //   必要がなくなった）。
-
-    if(promises.length){
-      await Promise.all(promises);
-      console.log(`90日超えデータ削除: ${promises.length}件`);
-    }
-  }catch(e){console.error('自動削除エラー:',e);}
-}
+// ★90日超えデータの自動削除は、クライアント側（このアプリ）では
+//   行わない。以前はここに削除処理があったが、役割分離（管理者のみ
+//   削除可能）のルールを追加したことで、一般担当者がログインしている
+//   時には失敗する問題が生じたため、Cloud Functions（サーバー側・
+//   管理者権限）の定期実行に一本化した。
+//   ・records・shipData・inboundData・deliveryQR・printQueue・signs
+//     → cleanupOldOperationalData（毎日深夜3時15分）
+//   ・changeLog（追記専用のため、こちらも削除はサーバー側のみ）
+//     → cleanupOldChangeLog（毎日深夜3時）
+//   ・_processedEvents（プッシュ通知の重複防止用）は現在使用しておらず、
+//     削除処理・ルールともに撤去済み
 
 // ===== 日付変更の自動検知 =====
 let lastCheckedDate=today();
@@ -6502,9 +6518,9 @@ onAuthStateChanged(auth,async user=>{
     await loadWHs(); // 倉庫一覧が揃うのを待ってから、通知機能の初期化に進む
     // ★持込確認サインの清書処理は、Cloud Functions（syncDeliverySign）に
     //   完全移管したため、ここでの呼び出しは不要になった。
+    // ★90日超えデータの自動削除も、Cloud Functions側の定期実行に
+    //   一本化したため、ここでの呼び出しは不要になった。
     initMessaging();
-    // 起動時に90日超えデータを削除（倉庫選択後に実行）
-    setTimeout(()=>{if(CWH)cleanOldRecords();},5000);
   } else {
     if(user&&user.isAnonymous){
       // 過去（改修前）に作られた匿名セッションが残っている場合は破棄する
