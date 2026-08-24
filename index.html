@@ -4236,7 +4236,8 @@ const actionLabels={
   delete_warehouse:'🗑️ 倉庫の削除',
   login:'🔓 ログイン',
   daily_active:'📅 当日の利用開始',
-  system_warning:'⚠️ システム警告'
+  system_warning:'⚠️ システム警告',
+  reissue_delivery_qr:'📦 持込QR再発行'
 };
 // 指定期間の操作ログをまとめて取得する共通関数
 async function fetchChangeLogRange(from,to){
@@ -5321,12 +5322,35 @@ window.printDeliveryQR=async function(date, cid, carrierName){
 };
 
 // QR再発行（強制的に新しいトークンを作る）
+// 古い持込QRを「使用済み」にして無効化する。
+// ★再発行・記録削除をしても、古いQRはそのまま使える状態で残り続けていた。
+//   紙のQRや、その写真が手元に残っている人が、後からサインできてしまうため、
+//   新しいQRを作る前に、古いほうを必ず使用済みにする。
+//   Firebase側のルールは「まだ使われていないQRを使用済みにする」ことを
+//   許しているため、ルールの変更は不要。
+async function invalidateOldDeliveryQR(date, cid){
+  try{
+    const oldSnap=await get(ref(db,whPath(`records/${date}/${cid}/deliveryQRToken`)));
+    const oldToken=oldSnap.val();
+    if(!oldToken)return;
+    const usedSnap=await get(ref(db,`deliveryQR/${oldToken}/used`));
+    // 既にサイン済み（used = true）のものには手を触れない
+    if(usedSnap.val()!==false)return;
+    await set(ref(db,`deliveryQR/${oldToken}/used`),true);
+  }catch(e){
+    console.warn('古い持込QRの無効化に失敗しました:',e);
+  }
+}
+// QR再発行（強制的に新しいトークンを作る）
 window.reissueDeliveryQR=async function(date, cid, carrierName){
   if(!confirm(`${carrierName} の持込QRを再発行しますか？\n（再発行すると古いQRは無効になります）`))return;
   const k=cid;
+  // ★新しいQRを作る前に、古いQRを無効化する
+  await invalidateOldDeliveryQR(date, k);
   const c={id:k,name:carrierName,short:carrierName,type:'delivery'};
   const rec={};
   const token=await issueDeliveryQR(k,c,rec);
+  await logChange('reissue_delivery_qr',`${carrierName}（${date}）`,`旧QRを無効化して再発行`);
   toast(`📦 ${carrierName} の持込QRを再発行しました`);
   await showQRPrintPreview(token, carrierName, date);
   renderRecords();
@@ -6414,6 +6438,9 @@ window.deleteRecord=async function(){
     ?'この回の記録を削除しますか？\nサインデータも含めて削除されます。'
     :'この運送会社のこの日の記録を削除しますか？\nサインデータも含めて完全に削除されます。';
   if(!confirm(msg))return;
+  // ★記録を消す前に、この記録に紐づく持込QRを無効化する。
+  //   記録が消えた後では、どのQRだったかを辿れなくなるため、必ず先に行う。
+  await invalidateOldDeliveryQR(editDate, editCid);
   await set(ref(db,whPath(`records/${editDate}/${editCid}`)),null);
   // ★Firestore（東京リージョン）側のサインドキュメントもあわせて削除する
   await deleteSignDoc(CWH,editDate,editCid);
