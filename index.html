@@ -4028,6 +4028,22 @@ window.enableNotifications=async function(){
 window.disableNotifications=async function(){
   if(!currentFcmToken){toast('この端末では通知が有効になっていません');return;}
   try{
+    // ★削除する前に、まず登録者欄（uid）を自分に書き換える。
+    //   共用端末で前に使っていた人の登録が残っていると、削除の際に
+    //   「自分の登録である」というルールの判定を満たせず拒否される
+    //   （削除では「新しく書き込まれる内容」が存在しないため、
+    //   登録者欄を見て判定することができない）。
+    //   先に自分名義にしてから消せば、この2段階でどちらも通る。
+    try{
+      await update(ref(db,`fcmTokens/${currentFcmToken}`),{
+        uid:auth.currentUser?.uid||'',
+        updatedAt:new Date().toISOString()
+      });
+    }catch(e){
+      // 既に自分の登録である場合など、ここが失敗しても
+      // 次の削除が通ることがあるため、止めずに続行する
+      console.warn('登録者欄の付け替えに失敗（続行）:',e);
+    }
     await set(ref(db,`fcmTokens/${currentFcmToken}`),null);
     // ★ブラウザ側の購読情報（キャッシュ）自体も確実に破棄する。
     //   これをしないと、次に「有効にする」を押した際に
