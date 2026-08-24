@@ -3910,7 +3910,14 @@ async function initMessaging(){
             });
             if(Object.keys(cleaned).length!==Object.keys(data.warehouseIds).length){
               try{
-                await set(ref(db,`fcmTokens/${token}/warehouseIds`),cleaned);
+                // ★ここもwarehouseIdsだけでなくuidもあわせて書き直す
+                //   （onNotifyWhChangeと同じ理由。共用端末で前の人の
+                //   uidが残ったままだと、この書き込みも拒否されるため）
+                await update(ref(db,`fcmTokens/${token}`),{
+                  uid:auth.currentUser?.uid||'',
+                  warehouseIds:cleaned,
+                  updatedAt:new Date().toISOString()
+                });
                 console.log('担当外の倉庫を通知設定から取り除きました');
               }catch(e){console.warn('通知設定の是正に失敗:',e);}
             }
@@ -3957,7 +3964,16 @@ window.onNotifyWhChange=async function(){
     if(cb.checked&&canAccessWarehouse(cb.value))warehouseIds[cb.value]=true;
   });
   try{
-    await set(ref(db,`fcmTokens/${currentFcmToken}/warehouseIds`),warehouseIds);
+    // ★warehouseIdsだけの部分更新ではなく、uidもあわせて書き直す。
+    //   共用端末で「前に使っていた人」の登録が残っている状態のまま
+    //   別の人が倉庫選択だけを変更しようとすると、uid欄が前の人のまま
+    //   残ってしまい、「自分の登録である」というルールの判定を
+    //   満たせず保存に失敗する（実機確認で発見・修正）。
+    await update(ref(db,`fcmTokens/${currentFcmToken}`),{
+      uid:auth.currentUser?.uid||'',
+      warehouseIds,
+      updatedAt:new Date().toISOString()
+    });
     toast('通知を受け取る倉庫を更新しました');
   }catch(e){
     console.error('倉庫選択の更新エラー:',e);
