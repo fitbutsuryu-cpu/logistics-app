@@ -5489,8 +5489,20 @@ async function showQRPrintPreview(token, carrierName, date){
     overlay.remove();
     // window.print()をawaitなしで即座に呼ぶ（Safariのセキュリティ制限対策）
     window.print();
-    // 印刷後にprint-areaをクリア
-    setTimeout(()=>{ printArea.innerHTML=''; },2000);
+    // ★以前は「2秒後に決め打ちで中身を消す」処理だったが、タブレット等で
+    //   「自動印刷は許可制」の確認ポップアップが割り込む場合、ユーザーが
+    //   気づいて許可を押すまでの間にこのタイマーが先に発火してしまい、
+    //   実際の印刷画面が開いた時には中身が空になっている不具合があった。
+    //   「印刷ダイアログが実際に閉じた瞬間」に確実に発火するafterprint
+    //   イベントを使うことで、待ち時間の長さに関わらず正しく動作する。
+    const clearPrintArea=()=>{ printArea.innerHTML=''; };
+    window.addEventListener('afterprint',clearPrintArea,{once:true});
+    // afterprintに対応していない・発火しない環境向けの保険として、
+    // 十分に長い時間（30秒）を待ってからも念のため消す
+    setTimeout(()=>{
+      window.removeEventListener('afterprint',clearPrintArea);
+      clearPrintArea();
+    },30000);
   };
 }
 window.clearEditSign=async function(signKey){
