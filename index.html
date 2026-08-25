@@ -3651,7 +3651,7 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction,goOffline,goOnline} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
@@ -5487,6 +5487,12 @@ async function showQRPrintPreview(token, carrierName, date){
     }`);
     // オーバーレイをDOMから完全削除してから印刷
     overlay.remove();
+    // ★Firebaseとの常時接続（リアルタイム通信）が生きていると、
+    //   Safari・Chromeともに「バックグラウンドで通信中」とみなし、
+    //   window.print()を呼んでも印刷ダイアログの表示が保留され、
+    //   数分後にようやく開いた頃には中身が空になる、という不具合が
+    //   知られている。印刷の間だけ接続を切ることで、これを回避する。
+    goOffline(db);
     // window.print()をawaitなしで即座に呼ぶ（Safariのセキュリティ制限対策）
     window.print();
     // ★以前は「2秒後に決め打ちで中身を消す」処理だったが、タブレット等で
@@ -5495,7 +5501,10 @@ async function showQRPrintPreview(token, carrierName, date){
     //   実際の印刷画面が開いた時には中身が空になっている不具合があった。
     //   「印刷ダイアログが実際に閉じた瞬間」に確実に発火するafterprint
     //   イベントを使うことで、待ち時間の長さに関わらず正しく動作する。
-    const clearPrintArea=()=>{ printArea.innerHTML=''; };
+    const clearPrintArea=()=>{
+      printArea.innerHTML='';
+      goOnline(db); // 印刷が終わったら、Firebaseとの接続を必ず戻す
+    };
     window.addEventListener('afterprint',clearPrintArea,{once:true});
     // afterprintに対応していない・発火しない環境向けの保険として、
     // 十分に長い時間（30秒）を待ってからも念のため消す
@@ -6334,7 +6343,16 @@ window.printGuard=function(){
     .guard-print-title { font-size: ${titleSize}px !important; margin-bottom: 6px !important; }
     .guard-print-section-title { font-size: ${fontSize+1}px !important; }
   }`);
+  // ★QR印刷と同じ理由（Firebaseとの常時接続が印刷ダイアログの表示を
+  //   妨げることがある）で、印刷の間だけ接続を切る。
+  goOffline(db);
   window.print();
+  const reconnect=()=>goOnline(db);
+  window.addEventListener('afterprint',reconnect,{once:true});
+  setTimeout(()=>{
+    window.removeEventListener('afterprint',reconnect);
+    reconnect();
+  },30000);
 };
 
 // ===== 即時保存（保存ボタン用） =====
