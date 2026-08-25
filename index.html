@@ -5470,12 +5470,21 @@ async function showQRPrintPreview(token, carrierName, date){
     //   Firebaseを一切読み込んでいない「まっさらな別ウィンドウ」を
     //   新しく開いてそこで印刷することで、この画面側の通信状況に
     //   一切左右されないようにする。
+    // ★別ウィンドウを開く方式にした際、閉じる手段を一切用意しておらず、
+    //   詰んでしまう（アプリを強制終了するしかなくなる）重大な見落としが
+    //   あった。画面上にだけ表示する「閉じる」ボタンを必ず用意する
+    //   （@media print で印刷時には表示されないようにする）。
     const printHtml=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   @page { size: A4 portrait; margin: 15mm; }
   *{box-sizing:border-box;}
   body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;margin:0;padding:0;}
-  .qp{display:flex;flex-direction:column;align-items:center;padding-top:20mm;}
+  .toolbar{position:sticky;top:0;background:#F1F5F9;padding:12px;display:flex;gap:10px;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.1);}
+  .toolbar button{padding:14px 20px;border:none;border-radius:10px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .btn-close{background:#E2E8F0;color:#475569;}
+  .btn-print{background:#065A82;color:#fff;}
+  @media print{ .toolbar{display:none !important;} }
+  .qp{display:flex;flex-direction:column;align-items:center;padding:20px;}
   .ql{width:100%;max-width:120mm;padding-bottom:4mm;border-bottom:2px solid #000;margin-bottom:4mm;}
   .qt{font-size:9px;color:#000;margin-bottom:3mm;letter-spacing:1px;}
   .qc{font-size:24px;font-weight:700;color:#000;margin-bottom:3mm;line-height:1.2;}
@@ -5486,6 +5495,10 @@ async function showQRPrintPreview(token, carrierName, date){
   .qk{font-size:6px;color:#666;margin-top:2mm;word-break:break-all;text-align:center;max-width:72mm;}
 </style></head>
 <body>
+  <div class="toolbar">
+    <button class="btn-close" onclick="window.close()">← 閉じる</button>
+    <button class="btn-print" onclick="window.print()">🖨️ 印刷する</button>
+  </div>
   <div class="qp">
     <div class="ql">
       <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
@@ -5496,8 +5509,12 @@ async function showQRPrintPreview(token, carrierName, date){
     <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
   </div>
   <script>
-    // 画像の読み込み完了を待ってから印刷する（真っ白防止）
-    window.onload=function(){ setTimeout(function(){ window.print(); }, 100); };
+    // ★以前ここには「ページが開いたら自動で印刷する」処理があったが、
+    //   これがまさに「自動的な印刷」としてブラウザに警告される原因
+    //   だったと考えられる。ページ読み込みをきっかけに印刷を呼ぶのを
+    //   やめ、上部の「🖨️ 印刷する」ボタンを実際に押した時だけ
+    //   window.print()を呼ぶようにする（紛れもなく、今ユーザーが
+    //   押したことがブラウザにも明確に伝わる）。
   <\/script>
 </body></html>`;
     // ★ボタンのクリックと同じタイミング（間に待ち時間を挟まない）で
