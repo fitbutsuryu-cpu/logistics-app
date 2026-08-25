@@ -3655,7 +3655,7 @@ import {getDatabase,ref,set,get,update,onValue,off,runTransaction,goOffline,goOn
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
-import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere,disableNetwork,enableNetwork} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const FB={
@@ -5462,56 +5462,55 @@ async function showQRPrintPreview(token, carrierName, date){
 
   // 印刷ボタン
   document.getElementById('qr-print-btn').onclick=()=>{
-    const printArea=document.getElementById('print-area');
-    printArea.innerHTML=`
-    <div class="qp">
-      <div class="ql">
-        <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
-        <div class="qc">${esc(carrierName)}</div>
-        <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
-        <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
-      </div>
-      <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
-    </div>`;
-    setPrintPageStyle(`@media print {
-      @page { size: A5 portrait; margin: 8mm 10mm; }
-      .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
-      .ql { width: 100%; padding-bottom: 4mm; border-bottom: 2px solid #000; margin-bottom: 4mm; }
-      .qt { font-size: 9px; color: #000; margin-bottom: 3mm; letter-spacing: 1px; }
-      .qc { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 3mm; line-height: 1.2; }
-      .qf { font-size: 11px; color: #000; line-height: 2.0; }
-      .qh { font-size: 9px; color: #333; margin-top: 3mm; line-height: 1.6; }
-      .qr-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
-      .qr-img-wrap img { width: 72mm; height: 72mm; }
-      .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
-    }`);
-    // オーバーレイをDOMから完全削除してから印刷
+    // ★以前は、この画面（Firebase・App Check等が動き続けている画面）の
+    //   中にprint-areaを作ってwindow.print()を呼んでいたが、App Checkの
+    //   裏側の定期通信等、この画面で動いているあらゆるバックグラウンド
+    //   通信の影響を受けてしまい、印刷ダイアログが開かない・数分後に
+    //   白紙で開く、という不具合が解消しきれなかった。
+    //   Firebaseを一切読み込んでいない「まっさらな別ウィンドウ」を
+    //   新しく開いてそこで印刷することで、この画面側の通信状況に
+    //   一切左右されないようにする。
+    const printHtml=`<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  @page { size: A4 portrait; margin: 15mm; }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;margin:0;padding:0;}
+  .qp{display:flex;flex-direction:column;align-items:center;padding-top:20mm;}
+  .ql{width:100%;max-width:120mm;padding-bottom:4mm;border-bottom:2px solid #000;margin-bottom:4mm;}
+  .qt{font-size:9px;color:#000;margin-bottom:3mm;letter-spacing:1px;}
+  .qc{font-size:24px;font-weight:700;color:#000;margin-bottom:3mm;line-height:1.2;}
+  .qf{font-size:11px;color:#000;line-height:2.0;}
+  .qh{font-size:9px;color:#333;margin-top:3mm;line-height:1.6;}
+  .qr-img-wrap{width:100%;display:flex;flex-direction:column;align-items:center;}
+  .qr-img-wrap img{width:72mm;height:72mm;}
+  .qk{font-size:6px;color:#666;margin-top:2mm;word-break:break-all;text-align:center;max-width:72mm;}
+</style></head>
+<body>
+  <div class="qp">
+    <div class="ql">
+      <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
+      <div class="qc">${esc(carrierName)}</div>
+      <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
+      <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
+    </div>
+    <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
+  </div>
+  <script>
+    // 画像の読み込み完了を待ってから印刷する（真っ白防止）
+    window.onload=function(){ setTimeout(function(){ window.print(); }, 100); };
+  <\/script>
+</body></html>`;
+    // ★ボタンのクリックと同じタイミング（間に待ち時間を挟まない）で
+    //   window.openを呼ぶことで、ポップアップブロックの対象にならないようにする。
+    const printWin=window.open('','_blank');
+    if(!printWin){
+      toast('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。');
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(printHtml);
+    printWin.document.close();
     overlay.remove();
-    // ★Firebaseとの常時接続（リアルタイム通信）が生きていると、
-    //   Safari・Chromeともに「バックグラウンドで通信中」とみなし、
-    //   window.print()を呼んでも印刷ダイアログの表示が保留され、
-    //   数分後にようやく開いた頃には中身が空になる、という不具合が
-    //   知られている。印刷の間だけ接続を切ることで、これを回避する。
-    goOffline(db);
-    // window.print()をawaitなしで即座に呼ぶ（Safariのセキュリティ制限対策）
-    window.print();
-    // ★以前は「2秒後に決め打ちで中身を消す」処理だったが、タブレット等で
-    //   「自動印刷は許可制」の確認ポップアップが割り込む場合、ユーザーが
-    //   気づいて許可を押すまでの間にこのタイマーが先に発火してしまい、
-    //   実際の印刷画面が開いた時には中身が空になっている不具合があった。
-    //   「印刷ダイアログが実際に閉じた瞬間」に確実に発火するafterprint
-    //   イベントを使うことで、待ち時間の長さに関わらず正しく動作する。
-    const clearPrintArea=()=>{
-      printArea.innerHTML='';
-      goOnline(db); // 印刷が終わったら、Firebaseとの接続を必ず戻す
-    };
-    window.addEventListener('afterprint',clearPrintArea,{once:true});
-    // afterprintに対応していない・発火しない環境向けの保険として、
-    // 十分に長い時間（30秒）を待ってからも念のため消す
-    setTimeout(()=>{
-      window.removeEventListener('afterprint',clearPrintArea);
-      clearPrintArea();
-    },30000);
   };
 }
 window.clearEditSign=async function(signKey){
@@ -6344,10 +6343,14 @@ window.printGuard=function(){
     .guard-print-section-title { font-size: ${fontSize+1}px !important; }
   }`);
   // ★QR印刷と同じ理由（Firebaseとの常時接続が印刷ダイアログの表示を
-  //   妨げることがある）で、印刷の間だけ接続を切る。
+  //   妨げることがある）で、印刷の間だけ接続を切る（RTDB・Firestore両方）。
   goOffline(db);
+  disableNetwork(fsdb).catch(()=>{});
   window.print();
-  const reconnect=()=>goOnline(db);
+  const reconnect=()=>{
+    goOnline(db);
+    enableNetwork(fsdb).catch(()=>{});
+  };
   window.addEventListener('afterprint',reconnect,{once:true});
   setTimeout(()=>{
     window.removeEventListener('afterprint',reconnect);
