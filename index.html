@@ -3641,11 +3641,11 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction,goOffline,goOnline} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
-import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere,disableNetwork,enableNetwork} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const FB={
@@ -5520,15 +5520,31 @@ async function showQRPrintPreview(token, carrierName, date){
 
   document.body.appendChild(overlay);
 
-  // 戻るボタン
-  document.getElementById('qr-back-btn').onclick=()=>overlay.remove();
+  // ★ここ（プレビュー画面を開いた瞬間）でFirebaseとの接続を切る。
+  //   「印刷ボタンを押した瞬間」に切ると、そこから実際にprint()が
+  //   呼ばれるまでの間隔が短く、切断処理が完了しきる前に印刷が
+  //   走ってしまうことがあり、それが「その時によって結果が変わる」
+  //   （うまくいく時とダメな時がある）不安定さの原因になっていたと
+  //   考えられる。QRコード生成後、プレビューを開いた時点でまず切って
+  //   おくことで、印刷ボタンを押す頃には確実に通信が止まっている
+  //   状態にする。
+  goOffline(db);
+  disableNetwork(fsdb).catch(()=>{});
+  let reconnected=false;
+  const reconnect=()=>{
+    if(reconnected)return;
+    reconnected=true;
+    goOnline(db);
+    enableNetwork(fsdb).catch(()=>{});
+  };
+
+  // 戻るボタン（印刷せずキャンセルした場合も、必ず接続を戻す）
+  document.getElementById('qr-back-btn').onclick=()=>{
+    overlay.remove();
+    reconnect();
+  };
 
   // 印刷ボタン
-  // ★別ウィンドウ・自動印刷など、いくつかの対策を試したが、
-  //   いずれもポップアップの解消にはつながらず、手順が増えるだけの
-  //   結果になった。改修前に確認できている、最もシンプルな作り
-  //   （画面内のprint-areaに直接書き込み、その場でwindow.print()を
-  //   呼ぶだけ）に一旦戻す。
   document.getElementById('qr-print-btn').onclick=()=>{
     const printArea=document.getElementById('print-area');
     printArea.innerHTML=`
@@ -5542,7 +5558,12 @@ async function showQRPrintPreview(token, carrierName, date){
       <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
     </div>`;
     setPrintPageStyle(`@media print {
-      @page { size: A4 portrait; margin: 15mm; }
+      /* ★実際にストックしている用紙がA5のため、A5に戻して検証する。
+         以前A5で白紙になった原因が、A5自体の問題ではなく、
+         Firebaseとの通信タイミングの問題だった可能性があるため、
+         今回追加した対策（早めの通信切断・描画待ち）とあわせて
+         もう一度試す。 */
+      @page { size: A5 portrait; margin: 8mm 10mm; }
       .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
       .ql { width: 100%; max-width: 120mm; padding-bottom: 4mm; border-bottom: 2px solid #000; margin-bottom: 4mm; }
       .qt { font-size: 9px; color: #000; margin-bottom: 3mm; letter-spacing: 1px; }
@@ -5554,8 +5575,25 @@ async function showQRPrintPreview(token, carrierName, date){
       .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
     }`);
     overlay.remove();
-    window.print();
-    setTimeout(()=>{ printArea.innerHTML=''; },2000);
+    // ★中身を書き込んだ直後は、ブラウザがまだ画面に描画しきっていない
+    //   ことがある。2回連続でrequestAnimationFrameを挟むことで、
+    //   「次の描画が完了した後」まで確実に待ってから印刷を呼ぶ
+    //   （白紙で印刷される不具合の追加対策）。
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        window.print();
+        const clearAndReconnect=()=>{
+          printArea.innerHTML='';
+          reconnect();
+        };
+        window.addEventListener('afterprint',clearAndReconnect,{once:true});
+        // afterprintが発火しない環境向けの保険
+        setTimeout(()=>{
+          window.removeEventListener('afterprint',clearAndReconnect);
+          clearAndReconnect();
+        },30000);
+      });
+    });
   };
 }
 window.clearEditSign=async function(signKey){
@@ -6387,7 +6425,20 @@ window.printGuard=function(){
     .guard-print-title { font-size: ${titleSize}px !important; margin-bottom: 6px !important; }
     .guard-print-section-title { font-size: ${fontSize+1}px !important; }
   }`);
-  window.print();
+  // ★QR印刷と同じ理由で、印刷の間だけFirebaseとの接続を切る。
+  goOffline(db);
+  disableNetwork(fsdb).catch(()=>{});
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      window.print();
+      const reconnect=()=>{ goOnline(db); enableNetwork(fsdb).catch(()=>{}); };
+      window.addEventListener('afterprint',reconnect,{once:true});
+      setTimeout(()=>{
+        window.removeEventListener('afterprint',reconnect);
+        reconnect();
+      },30000);
+    });
+  });
 };
 
 // ===== 即時保存（保存ボタン用） =====
