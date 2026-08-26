@@ -3892,7 +3892,12 @@ async function initMessaging(){
     renderNotifyWhList();
     // 既に通知が許可済みなら、現在のトークンを取得して
     // 過去に選んだ倉庫の選択状態をチェックボックスに復元する
-    if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    // ★ただし、この端末で明示的に「無効にする」が押されていた場合は
+    //   自動では復元しない。ブラウザの通知許可自体は消えないため、
+    //   これが無いと「止めたのに、開き直すとまた有効になる」ことになる。
+    let explicitlyDisabled=false;
+    try{ explicitlyDisabled=localStorage.getItem('notif_disabled')==='1'; }catch(e){}
+    if(!explicitlyDisabled&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
       try{
         const swReg=await navigator.serviceWorker.getRegistration();
         const token=await getToken(messaging,{vapidKey:FCM_VAPID_KEY,serviceWorkerRegistration:swReg});
@@ -4016,6 +4021,10 @@ window.enableNotifications=async function(){
       warehouseIds,
       updatedAt:new Date().toISOString()
     });
+    // ★「この端末で明示的に無効化した」という記録を消す。
+    //   これが残ったままだと、次回アプリを開いた時に
+    //   自動復元処理（initMessaging）がスキップされてしまう。
+    try{ localStorage.removeItem('notif_disabled'); }catch(e){}
     toast('✅ この端末で通知を受け取るようにしました');
     updateNotifyUI();
   }catch(e){
@@ -4054,6 +4063,14 @@ window.disableNotifications=async function(){
       console.warn('購読情報の破棄に失敗（無視して続行）:',e);
     }
     currentFcmToken=null;
+    // ★「この端末で明示的に無効化した」という記録を残す。
+    //   ブラウザの通知許可（Notification.permission）自体は、
+    //   一度許可すると本人が端末設定から取り消さない限りほぼ
+    //   永久に「許可済み」のままになる。次回アプリを開いた時、
+    //   この記録が無いと「許可されているから」と自動的にまた
+    //   トークンを取り直してしまい、「止めたはずなのに、開き直すと
+    //   また有効になっている」という状態になっていた。
+    try{ localStorage.setItem('notif_disabled','1'); }catch(e){}
     toast('通知を無効にしました');
     updateNotifyUI();
   }catch(e){
