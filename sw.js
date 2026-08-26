@@ -39,7 +39,12 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// フェッチは常にネットワークから取得する（キャッシュを一切使わない = 常に最新版）
-self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
-});
+// ★以前はここに fetch ハンドラ（全ての通信をService Workerが中継する処理）が
+//   あったが、これがPWAモード（ホーム画面に追加した状態）のSafariで、
+//   window.print() による印刷処理と干渉し、「自動印刷は禁止」の警告が出て
+//   印刷プレビューが白紙になる原因になっていた。
+//   このハンドラは「キャッシュを使わず常に最新版を取得する」ために
+//   置いていたが、fetchハンドラを持たないService Workerは、そもそも通信に
+//   一切介入しない（＝ブラウザが元々ネットワークから取得する）ため、
+//   削除しても「常に最新版を取得する」という動作は全く変わらない。
+//   印刷への干渉だけがなくなる。
