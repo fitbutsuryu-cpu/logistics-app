@@ -630,25 +630,15 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 
 <!-- 設定 -->
 <div class="page" id="page-settings">
-  <div style="padding:18px 20px 0;"><h1 style="font-size:20px;font-weight:600;">端末設定・パスワードロック</h1><p style="font-size:12px;color:var(--ts);margin-top:3px;">この端末のみに適用される設定です</p></div>
+  <div style="padding:18px 20px 0;"><h1 style="font-size:20px;font-weight:600;">設定</h1></div>
   <div style="padding:16px 20px;">
     <div class="m-card" style="max-width:480px;">
       <h2>🔐 タブのパスワードロック</h2>
-      <p style="font-size:12px;color:var(--ts);margin-bottom:14px;">ロックしたいタブを選択してパスワードを設定します。次回からそのタブを開く際にパスワードが求められます。</p>
-      <div class="fg"><label>ロックするタブ（複数選択可）</label>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-office" style="width:16px;height:16px;"> 🏢 事務所</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-field" style="width:16px;height:16px;"> 🔧 現場</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-records" style="width:16px;height:16px;"> 📋 管理・記録</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-master" style="width:16px;height:16px;"> ⚙️ マスター</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-guard" style="width:16px;height:16px;"> 🛡️ 守衛連絡</label>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="lock-settings" style="width:16px;height:16px;"> 🔐 設定</label>
-        </div>
-      </div>
-      <div class="fg"><label>パスワード（4〜8文字）</label><input type="password" id="pw-input" placeholder="パスワードを入力" maxlength="8"></div>
-      <div class="fg"><label>パスワード確認</label><input type="password" id="pw-confirm" placeholder="もう一度入力" maxlength="8"></div>
-      <button class="add-btn" onclick="saveLockSettings()">💾 設定を保存</button>
-      <button style="width:100%;margin-top:8px;padding:11px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearLockSettings()">🗑️ ロック設定を解除</button>
+      <p style="font-size:12px;color:var(--ts);margin-bottom:0;">
+        このアカウントに対するタブのロックは、管理者が「ユーザー権限管理」画面から設定します。
+        ご自身では設定できません。ロックされているタブがある場合は、案内されているパスワードを
+        入力してください。設定内容についてご不明な点があれば、管理者にお問い合わせください。
+      </p>
     </div>
 
     <div class="m-card" style="max-width:900px;margin-top:20px;">
@@ -3704,6 +3694,7 @@ const callSetUserPermissions=httpsCallable(functionsInst,'setUserPermissions');
 let myRole='staff';          // 'admin'（管理者）/ 'operator'（事務所スタッフ）/ 'staff'（現場作業員）
 let myAllWarehouses=false;   // true なら倉庫制限を受けない
 let myWarehouses={};         // { wh_280:true, ... } 担当倉庫の一覧
+let myLockCfg=null;          // このアカウントに設定されたタブロック（管理者が設定・本人は変更不可）
 
 // 指定した倉庫にアクセスできるかどうかを判定する共通関数
 function canAccessWarehouse(warehouseId){
@@ -3731,6 +3722,16 @@ async function refreshMyPermissions(){
     myAllWarehouses=!!claims.allWarehouses;
     myWarehouses=claims.warehouses||{};
     console.log('[権限情報]',{role:myRole,allWarehouses:myAllWarehouses,warehouses:myWarehouses,rawClaims:claims});
+    // ★このアカウントに、管理者が設定したタブロックがあるか確認する。
+    //   端末（ブラウザ）ではなく、アカウントに紐づく制限のため、
+    //   ログインのたびにFirebaseから取得し直す。
+    try{
+      const lockSnap=await get(ref(db,`userLocks/${auth.currentUser.uid}`));
+      myLockCfg=lockSnap.val();
+    }catch(e){
+      console.warn('ロック設定の取得に失敗しました（初期値のまま動作します）:',e);
+      myLockCfg=null;
+    }
   }catch(e){
     console.warn('権限情報の取得に失敗しました（初期値のまま動作します）:',e);
   }
@@ -3750,11 +3751,28 @@ window.loadUserPermList=async function(){
     const res=await callListUsers();
     const users=(res.data&&res.data.users)||[];
     users.sort((a,b)=>(a.email||'').localeCompare(b.email||''));
+    // ★管理者なので、全員分のロック設定を1回のread でまとめて取得できる
+    //   （userLocksのルールは admin なら任意のuidを読めるようにしてある）。
+    let allLocks={};
+    try{
+      const lockSnap=await get(ref(db,'userLocks'));
+      allLocks=lockSnap.val()||{};
+    }catch(e){console.warn('ロック設定一覧の取得に失敗:',e);}
+    const lockTabDefs=[
+      ['office','🏢 事務所'],['field','🔧 現場'],['records','📋 管理・記録'],
+      ['master','⚙️ マスター'],['guard','🛡️ 守衛連絡'],['settings','🔐 設定']
+    ];
     listEl.innerHTML=users.map(u=>{
       const whChecks=WHs.map(w=>`
         <label style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:12px;">
           <input type="checkbox" class="perm-wh-cb" data-uid="${esc(u.uid)}" value="${esc(w.id)}" ${u.warehouses&&u.warehouses[w.id]?'checked':''}>
           ${esc(w.name)}
+        </label>`).join('');
+      const existingLock=allLocks[u.uid]||null;
+      const lockTabsChecks=lockTabDefs.map(([id,label])=>`
+        <label style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:12px;">
+          <input type="checkbox" class="lock-tab-cb" data-uid="${esc(u.uid)}" value="${id}" ${existingLock&&existingLock.tabs&&existingLock.tabs[id]?'checked':''}>
+          ${label}
         </label>`).join('');
       return `
       <div style="border:1px solid var(--bd);border-radius:var(--rs);padding:12px;margin-bottom:10px;">
@@ -3777,11 +3795,65 @@ window.loadUserPermList=async function(){
           ${whChecks||'<span style="font-size:11px;color:var(--th);">倉庫が登録されていません</span>'}
         </div>
         <button class="edit-btn" onclick="saveUserPerm('${escJs(u.uid)}')">💾 この人の設定を保存</button>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd);">
+          <div style="font-size:12px;color:var(--th);margin-bottom:6px;">
+            🔐 タブロック設定${existingLock?'（現在：設定あり）':'（現在：未設定）'}
+          </div>
+          <div style="margin-bottom:8px;">${lockTabsChecks}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="password" class="lock-pw-input" data-uid="${esc(u.uid)}" placeholder="新しいパスワード（4〜8文字・変更する時だけ入力）" maxlength="8" style="padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;width:240px;">
+            <button class="edit-btn" onclick="saveUserLock('${escJs(u.uid)}')">💾 ロックを保存</button>
+            ${existingLock?`<button style="padding:8px 14px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearUserLock('${escJs(u.uid)}')">🗑️ ロック解除</button>`:''}
+          </div>
+        </div>
       </div>`;
     }).join('')||'<div style="color:var(--th);">ユーザーが見つかりませんでした</div>';
   }catch(e){
     console.error('ユーザー一覧の取得エラー:',e);
     listEl.textContent='読み込みに失敗しました：'+(e&&e.message?e.message:String(e));
+  }
+};
+
+// ロック設定を保存する（管理者専用。パスワード欄が空なら現在のパスワードを維持する）
+window.saveUserLock=async function(uid){
+  const tabCbs=document.querySelectorAll(`.lock-tab-cb[data-uid="${uid}"]`);
+  const pwInput=document.querySelector(`.lock-pw-input[data-uid="${uid}"]`);
+  const tabs={};
+  tabCbs.forEach(cb=>{if(cb.checked)tabs[cb.value]=true;});
+  const pw=pwInput?pwInput.value:'';
+  try{
+    let pwHash;
+    if(pw){
+      if(pw.length<4){toast('パスワードは4文字以上にしてください');return;}
+      pwHash=await sha256Hex(pw);
+    }else{
+      // パスワード欄が空の場合は、既存のハッシュを引き継ぐ
+      const existing=await get(ref(db,`userLocks/${uid}/pwHash`));
+      pwHash=existing.val();
+      if(!pwHash){toast('新しくロックを設定する場合はパスワードを入力してください');return;}
+    }
+    if(Object.keys(tabs).length===0){
+      toast('ロックするタブを1つ以上選んでください（全て外す場合は「ロック解除」を使ってください）');
+      return;
+    }
+    await set(ref(db,`userLocks/${uid}`),{pwHash,tabs,updatedAt:new Date().toISOString()});
+    if(pwInput)pwInput.value='';
+    toast('ロック設定を保存しました（本人の次回ログイン時に反映されます）');
+    loadUserPermList();
+  }catch(e){
+    console.error('ロック設定の保存エラー:',e);
+    toast('ロック設定の保存に失敗しました');
+  }
+};
+window.clearUserLock=async function(uid){
+  if(!confirm('このアカウントのタブロックを解除しますか？'))return;
+  try{
+    await set(ref(db,`userLocks/${uid}`),null);
+    toast('ロック設定を解除しました');
+    loadUserPermList();
+  }catch(e){
+    console.error('ロック設定の解除エラー:',e);
+    toast('ロック設定の解除に失敗しました');
   }
 };
 
@@ -4236,46 +4308,28 @@ function stLabel(rec){
   return{l:'未入場',c:'w'};
 }
 
-// ===== パスワードロック =====
-function getLockCfg(){try{return JSON.parse(localStorage.getItem('lock_cfg_v1')||'{}')}catch(e){return{};}}
-function saveLockCfgLocal(cfg){localStorage.setItem('lock_cfg_v1',JSON.stringify(cfg));}
+// ===== パスワードロック（アカウント単位・管理者が設定） =====
+// ★以前はこの画面ロックを端末（localStorage）に保存し、各人が
+//   自分の端末で設定する仕組みだったが、「特定の人が、どの端末から
+//   ログインしても決まったタブがロックされる」ようにしたいという
+//   要望を受け、アカウント（Firebase Authのuid）に紐づく設定に
+//   変更した。設定できるのは管理者のみで、本人は変更できない。
 function isLocked(pageId){
-  const cfg=getLockCfg();
-  if(!cfg.pwHash||!cfg.tabs)return false;
-  return cfg.tabs.includes(pageId)&&!unlockedPages.has(pageId);
+  if(!myLockCfg||!myLockCfg.pwHash||!myLockCfg.tabs)return false;
+  return !!myLockCfg.tabs[pageId]&&!unlockedPages.has(pageId);
 }
-// ★この画面ロックは「共用端末での誤操作防止」のためのUI上の目隠しであり、
+// ★この画面ロックは「誤操作・覗き見の防止」のためのUI上の目隠しであり、
 //   実際のアクセス権限制御はFirebase Authentication・セキュリティルールが担う。
-//   パスワードは平文のままlocalStorageに残さないよう、SHA-256でハッシュ化して保存する。
+//   パスワードは平文のままFirebaseに残さないよう、SHA-256でハッシュ化して保存する。
 async function sha256Hex(text){
   const data=new TextEncoder().encode(text);
   const hashBuf=await crypto.subtle.digest('SHA-256',data);
   return Array.from(new Uint8Array(hashBuf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-window.saveLockSettings=async function(){
-  const pw=document.getElementById('pw-input').value;
-  const pc=document.getElementById('pw-confirm').value;
-  if(!pw){toast('パスワードを入力してください');return;}
-  if(pw.length<4){toast('パスワードは4文字以上にしてください');return;}
-  if(pw!==pc){toast('パスワードが一致しません');return;}
-  const tabs=[];
-  if(document.getElementById('lock-office').checked)tabs.push('office');
-  if(document.getElementById('lock-field').checked)tabs.push('field');
-  if(document.getElementById('lock-records').checked)tabs.push('records');
-  if(document.getElementById('lock-master').checked)tabs.push('master');
-  if(document.getElementById('lock-guard').checked)tabs.push('guard');
-  if(document.getElementById('lock-settings').checked)tabs.push('settings');
-  const pwHash=await sha256Hex(pw);
-  saveLockCfgLocal({pwHash,tabs});
-  unlockedPages=new Set();
-  toast('ロック設定を保存しました');
-};
-window.clearLockSettings=function(){
-  if(!confirm('ロック設定を解除しますか？'))return;
-  localStorage.removeItem('lock_cfg_v1');
-  unlockedPages=new Set();
-  toast('ロック設定を解除しました');
-};
+// ★saveLockSettings・clearLockSettings（本人が端末で自己設定する機能）は、
+//   アカウント単位・管理者設定の方式に変更したことに伴い削除した。
+//   タブロックの設定は、ユーザー権限管理カード内のsaveUserLock関数
+//   （管理者専用）で行う。
 
 // ===== 操作ログ表示 =====
 const actionLabels={
@@ -4372,20 +4426,12 @@ window.downloadChangeLogExcel=async function(){
   toast('ダウンロードしました');
 };
 
-function loadLockUI(){
-  const cfg=getLockCfg();
-  if(cfg.tabs){
-    ['office','field','records','master','guard','settings'].forEach(id=>{
-      const el=document.getElementById('lock-'+id);
-      if(el)el.checked=cfg.tabs.includes(id);
-    });
-  }
-}
+// ★loadLockUI（旧・端末設定のロックタブ選択チェックボックス復元）は、
+//   自己設定UIの撤去に伴い不要になったため削除した。
 window.unlockPage=async function(){
-  const cfg=getLockCfg();
   const input=document.getElementById('lock-input').value;
   const inputHash=await sha256Hex(input);
-  if(inputHash===cfg.pwHash){
+  if(myLockCfg&&inputHash===myLockCfg.pwHash){
     if(pendingPage)unlockedPages.add(pendingPage);
     document.getElementById('lock-modal').classList.add('h');
     document.getElementById('lock-err').textContent='';
@@ -4404,9 +4450,9 @@ window.closeLockModal=function(){
   pendingPage=null;
   // ロック前に表示していたページに戻る（事務所をデフォルトに）
   const safePages=['office','field'];
-  const cfg=getLockCfg();
+  const lockedTabs=(myLockCfg&&myLockCfg.tabs)||{};
   // ロックされていないページを探して遷移
-  const goTo=safePages.find(p=>!(cfg.tabs||[]).includes(p))||'office';
+  const goTo=safePages.find(p=>!lockedTabs[p])||'office';
   // ロックを経由せず直接ページ切替
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
@@ -4797,7 +4843,7 @@ window.showPage=function(id){
     switchInboundDate(today());
     renderMaster();
   }
-  else if(id==='settings'){loadLockUI();}
+  else if(id==='settings'){/* ロック設定は管理者専用UIのため、ここでは何もしない */}
   else renderCurrent();
 };
 function getTabLabel(id){return{records:'管理・記録',master:'マスター',guard:'守衛連絡',settings:'設定'}[id]||id;}
