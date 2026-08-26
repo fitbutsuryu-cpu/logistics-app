@@ -3641,11 +3641,11 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction,goOffline,goOnline} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
-import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere,disableNetwork,enableNetwork} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const FB={
@@ -5470,6 +5470,14 @@ function setPrintPageStyle(css){
   styleTag.textContent=css;
 }
 
+// ===== 持込QR印刷プレビュー =====
+// ★改修前に問題なく印刷できていた、最もシンプルな実装に戻した。
+//   印刷ボタンや別ウィンドウ、通信の切断、共有シートなど、様々な
+//   対策を試したが、いずれも解決にならず工程が増えるだけだったため、
+//   「print-areaに中身を書き込み → 画像の描画完了を待って → window.print()」
+//   という、当時の最小構成に戻している。
+//   @media print 側で body>*:not(#print-area) を隠し、#print-area だけを
+//   表示する仕組みは、守衛連絡リスト印刷と共通で、以前から動いている。
 async function showQRPrintPreview(token, carrierName, date){
   // 署名ページは本アプリと同じホスト・同じディレクトリから配信する（配信元の移設に追従）
   const SIGN_PAGE_URL=new URL('sign.html',location.href).href;
@@ -5477,7 +5485,7 @@ async function showQRPrintPreview(token, carrierName, date){
   const wh=WHs.find(w=>w.id===CWH);
   const whName=wh?wh.name:'';
 
-  // QRコードを生成
+  // QRコードをcanvasに生成→DataURLに変換
   let qrDataUrl='';
   try{
     if(typeof QRCode==='undefined') throw new Error('QRCodeライブラリが読み込まれていません');
@@ -5485,116 +5493,53 @@ async function showQRPrintPreview(token, carrierName, date){
     await QRCode.toCanvas(qrCanvas, signUrl, { width:500, margin:2, errorCorrectionLevel:'H' });
     qrDataUrl=qrCanvas.toDataURL('image/png');
   }catch(e){
+    console.error('QRコード生成エラー:',e);
     toast('⚠️ QRコード生成に失敗しました: '+e.message);
     return;
   }
 
-  // 既存のオーバーレイを削除
-  const existing=document.getElementById('qr-print-overlay');
-  if(existing) existing.remove();
+  // A5サイズの印刷設定（QR印刷専用）
+  setPrintPageStyle(`@media print {
+    @page { size: A5 portrait; margin: 12mm; }
+    .qr-print-page {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      page-break-after: avoid;
+    }
+    .qr-print-title { font-size: 20px; font-weight: 700; color: #1E293B; margin-bottom: 6px; }
+    .qr-print-sub { font-size: 12px; color: #64748B; margin-bottom: 16px; }
+    .qr-print-carrier { font-size: 26px; font-weight: 700; color: #065A82; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #CBD5E1; width: 80%; }
+    .qr-print-img { width: 60mm; height: 60mm; margin-bottom: 20px; }
+    .qr-print-hint { font-size: 13px; color: #475569; line-height: 1.8; margin-bottom: 16px; }
+    .qr-print-token { font-size: 8px; color: #CBD5E1; word-break: break-all; }
+  }`);
 
-  // オーバーレイを作成（メイン画面の上に全画面表示）
-  const overlay=document.createElement('div');
-  overlay.id='qr-print-overlay';
-  overlay.style.cssText='position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 20px 100px;overflow-y:auto;';
-
-  overlay.innerHTML=`
-    <div style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;">
-      <div style="width:100%;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:12px;">
-        <div style="font-size:10px;color:#333;margin-bottom:6px;letter-spacing:1px;">持込確認サイン用QRコード — ALINCO LOGITIME</div>
-        <div style="font-size:22px;font-weight:700;color:#000;margin-bottom:6px;">${esc(carrierName)}</div>
-        <div style="font-size:12px;color:#000;line-height:2.0;">
-          🏭&nbsp;倉庫：${esc(whName)}<br>
-          📅&nbsp;日付：${esc(date)}<br>
-          🕐&nbsp;発行：${nowTime()}
-        </div>
-        <div style="font-size:10px;color:#333;margin-top:8px;line-height:1.6;">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
-      </div>
-      <img src="${qrDataUrl}" style="width:200px;height:200px;margin-bottom:8px;">
-      <div style="font-size:7px;color:#666;word-break:break-all;text-align:center;max-width:200px;">${esc(token)}</div>
-    </div>
-    <div style="position:fixed;bottom:20px;left:0;right:0;display:flex;gap:12px;justify-content:center;padding:0 20px;">
-      <button id="qr-back-btn" style="flex:1;max-width:160px;padding:16px;background:#F1F5F9;color:#475569;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">← 戻る</button>
-      <button id="qr-print-btn" style="flex:1;max-width:200px;padding:16px;background:#065A82;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;">🖨️ 印刷する</button>
+  const printArea=document.getElementById('print-area');
+  printArea.innerHTML=`
+    <div class="qr-print-page">
+      <div class="qr-print-title">持込確認サイン用QRコード</div>
+      <div class="qr-print-sub">${esc(whName)}　${esc(date)}</div>
+      <div class="qr-print-carrier">${esc(carrierName)}</div>
+      <img class="qr-print-img" src="${qrDataUrl}">
+      <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
+      <div class="qr-print-token">Token: ${esc(token)}</div>
     </div>`;
 
-  document.body.appendChild(overlay);
+  // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
+  const img=printArea.querySelector('img.qr-print-img');
+  await new Promise(resolve=>{
+    if(img.complete){resolve();}
+    else{img.onload=resolve;img.onerror=resolve;}
+  });
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 
-  // ★ここ（プレビュー画面を開いた瞬間）でFirebaseとの接続を切る。
-  //   「印刷ボタンを押した瞬間」に切ると、そこから実際にprint()が
-  //   呼ばれるまでの間隔が短く、切断処理が完了しきる前に印刷が
-  //   走ってしまうことがあり、それが「その時によって結果が変わる」
-  //   （うまくいく時とダメな時がある）不安定さの原因になっていたと
-  //   考えられる。QRコード生成後、プレビューを開いた時点でまず切って
-  //   おくことで、印刷ボタンを押す頃には確実に通信が止まっている
-  //   状態にする。
-  goOffline(db);
-  disableNetwork(fsdb).catch(()=>{});
-  let reconnected=false;
-  const reconnect=()=>{
-    if(reconnected)return;
-    reconnected=true;
-    goOnline(db);
-    enableNetwork(fsdb).catch(()=>{});
-  };
-
-  // 戻るボタン（印刷せずキャンセルした場合も、必ず接続を戻す）
-  document.getElementById('qr-back-btn').onclick=()=>{
-    overlay.remove();
-    reconnect();
-  };
-
-  // 印刷ボタン
-  document.getElementById('qr-print-btn').onclick=()=>{
-    const printArea=document.getElementById('print-area');
-    printArea.innerHTML=`
-    <div class="qp">
-      <div class="ql">
-        <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
-        <div class="qc">${esc(carrierName)}</div>
-        <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
-        <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
-      </div>
-      <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
-    </div>`;
-    setPrintPageStyle(`@media print {
-      /* ★実際にストックしている用紙がA5のため、A5に戻して検証する。
-         以前A5で白紙になった原因が、A5自体の問題ではなく、
-         Firebaseとの通信タイミングの問題だった可能性があるため、
-         今回追加した対策（早めの通信切断・描画待ち）とあわせて
-         もう一度試す。 */
-      @page { size: A5 portrait; margin: 8mm 10mm; }
-      .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
-      .ql { width: 100%; max-width: 120mm; padding-bottom: 4mm; border-bottom: 2px solid #000; margin-bottom: 4mm; }
-      .qt { font-size: 9px; color: #000; margin-bottom: 3mm; letter-spacing: 1px; }
-      .qc { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 3mm; line-height: 1.2; }
-      .qf { font-size: 11px; color: #000; line-height: 2.0; }
-      .qh { font-size: 9px; color: #333; margin-top: 3mm; line-height: 1.6; }
-      .qr-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
-      .qr-img-wrap img { width: 72mm; height: 72mm; }
-      .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
-    }`);
-    overlay.remove();
-    // ★中身を書き込んだ直後は、ブラウザがまだ画面に描画しきっていない
-    //   ことがある。2回連続でrequestAnimationFrameを挟むことで、
-    //   「次の描画が完了した後」まで確実に待ってから印刷を呼ぶ
-    //   （白紙で印刷される不具合の追加対策）。
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        window.print();
-        const clearAndReconnect=()=>{
-          printArea.innerHTML='';
-          reconnect();
-        };
-        window.addEventListener('afterprint',clearAndReconnect,{once:true});
-        // afterprintが発火しない環境向けの保険
-        setTimeout(()=>{
-          window.removeEventListener('afterprint',clearAndReconnect);
-          clearAndReconnect();
-        },30000);
-      });
-    });
-  };
+  window.print();
+  // 印刷後、印刷用の中身を片付ける
+  setTimeout(()=>{ printArea.innerHTML=''; },2000);
 }
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
@@ -6425,20 +6370,7 @@ window.printGuard=function(){
     .guard-print-title { font-size: ${titleSize}px !important; margin-bottom: 6px !important; }
     .guard-print-section-title { font-size: ${fontSize+1}px !important; }
   }`);
-  // ★QR印刷と同じ理由で、印刷の間だけFirebaseとの接続を切る。
-  goOffline(db);
-  disableNetwork(fsdb).catch(()=>{});
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      window.print();
-      const reconnect=()=>{ goOnline(db); enableNetwork(fsdb).catch(()=>{}); };
-      window.addEventListener('afterprint',reconnect,{once:true});
-      setTimeout(()=>{
-        window.removeEventListener('afterprint',reconnect);
-        reconnect();
-      },30000);
-    });
-  });
+  window.print();
 };
 
 // ===== 即時保存（保存ボタン用） =====
