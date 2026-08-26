@@ -3651,11 +3651,11 @@ exports.toString = renderCanvas.bind(null, function (data, _, opts) {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,set,get,update,onValue,off,runTransaction,goOffline,goOnline} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {getDatabase,ref,set,get,update,onValue,off,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {getMessaging,getToken,deleteToken,onMessage,isSupported} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
-import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere,disableNetwork,enableNetwork} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {getFirestore,doc,setDoc,getDoc,getDocs,deleteDoc,deleteField,collection,query as fsQuery,where as fsWhere} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import {getFunctions,httpsCallable} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
 const FB={
@@ -5461,73 +5461,38 @@ async function showQRPrintPreview(token, carrierName, date){
   document.getElementById('qr-back-btn').onclick=()=>overlay.remove();
 
   // 印刷ボタン
+  // ★別ウィンドウ・自動印刷など、いくつかの対策を試したが、
+  //   いずれもポップアップの解消にはつながらず、手順が増えるだけの
+  //   結果になった。改修前に確認できている、最もシンプルな作り
+  //   （画面内のprint-areaに直接書き込み、その場でwindow.print()を
+  //   呼ぶだけ）に一旦戻す。
   document.getElementById('qr-print-btn').onclick=()=>{
-    // ★以前は、この画面（Firebase・App Check等が動き続けている画面）の
-    //   中にprint-areaを作ってwindow.print()を呼んでいたが、App Checkの
-    //   裏側の定期通信等、この画面で動いているあらゆるバックグラウンド
-    //   通信の影響を受けてしまい、印刷ダイアログが開かない・数分後に
-    //   白紙で開く、という不具合が解消しきれなかった。
-    //   Firebaseを一切読み込んでいない「まっさらな別ウィンドウ」を
-    //   新しく開いてそこで印刷することで、この画面側の通信状況に
-    //   一切左右されないようにする。
-    // ★別ウィンドウを開く方式にした際、閉じる手段を一切用意しておらず、
-    //   詰んでしまう（アプリを強制終了するしかなくなる）重大な見落としが
-    //   あった。画面上にだけ表示する「閉じる」ボタンを必ず用意する
-    //   （@media print で印刷時には表示されないようにする）。
-    const printHtml=`<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-  @page { size: A4 portrait; margin: 15mm; }
-  *{box-sizing:border-box;}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;margin:0;padding:0;}
-  .toolbar{position:sticky;top:0;background:#F1F5F9;padding:12px;display:flex;gap:10px;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.1);}
-  .toolbar button{padding:14px 20px;border:none;border-radius:10px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
-  .btn-close{background:#E2E8F0;color:#475569;}
-  .btn-print{background:#065A82;color:#fff;}
-  @media print{ .toolbar{display:none !important;} }
-  .qp{display:flex;flex-direction:column;align-items:center;padding:20px;}
-  .ql{width:100%;max-width:120mm;padding-bottom:4mm;border-bottom:2px solid #000;margin-bottom:4mm;}
-  .qt{font-size:9px;color:#000;margin-bottom:3mm;letter-spacing:1px;}
-  .qc{font-size:24px;font-weight:700;color:#000;margin-bottom:3mm;line-height:1.2;}
-  .qf{font-size:11px;color:#000;line-height:2.0;}
-  .qh{font-size:9px;color:#333;margin-top:3mm;line-height:1.6;}
-  .qr-img-wrap{width:100%;display:flex;flex-direction:column;align-items:center;}
-  .qr-img-wrap img{width:72mm;height:72mm;}
-  .qk{font-size:6px;color:#666;margin-top:2mm;word-break:break-all;text-align:center;max-width:72mm;}
-</style></head>
-<body>
-  <div class="toolbar">
-    <button class="btn-close" onclick="window.close()">← 閉じる</button>
-    <button class="btn-print" onclick="window.print()">🖨️ 印刷する</button>
-  </div>
-  <div class="qp">
-    <div class="ql">
-      <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
-      <div class="qc">${esc(carrierName)}</div>
-      <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
-      <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
-    </div>
-    <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
-  </div>
-  <script>
-    // ★以前ここには「ページが開いたら自動で印刷する」処理があったが、
-    //   これがまさに「自動的な印刷」としてブラウザに警告される原因
-    //   だったと考えられる。ページ読み込みをきっかけに印刷を呼ぶのを
-    //   やめ、上部の「🖨️ 印刷する」ボタンを実際に押した時だけ
-    //   window.print()を呼ぶようにする（紛れもなく、今ユーザーが
-    //   押したことがブラウザにも明確に伝わる）。
-  <\/script>
-</body></html>`;
-    // ★ボタンのクリックと同じタイミング（間に待ち時間を挟まない）で
-    //   window.openを呼ぶことで、ポップアップブロックの対象にならないようにする。
-    const printWin=window.open('','_blank');
-    if(!printWin){
-      toast('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。');
-      return;
-    }
-    printWin.document.open();
-    printWin.document.write(printHtml);
-    printWin.document.close();
+    const printArea=document.getElementById('print-area');
+    printArea.innerHTML=`
+    <div class="qp">
+      <div class="ql">
+        <div class="qt">持込確認サイン用QRコード — ALINCO LOGITIME</div>
+        <div class="qc">${esc(carrierName)}</div>
+        <div class="qf">🏭&nbsp;倉庫：${esc(whName)}<br>📅&nbsp;日付：${esc(date)}<br>🕐&nbsp;発行：${nowTime()}</div>
+        <div class="qh">下のQRコードをスマートフォンでスキャンし、受領確認のサインをお願いします。</div>
+      </div>
+      <div class="qr-img-wrap"><img src="${qrDataUrl}"><div class="qk">${esc(token)}</div></div>
+    </div>`;
+    setPrintPageStyle(`@media print {
+      @page { size: A4 portrait; margin: 15mm; }
+      .qp { display: flex; flex-direction: column; align-items: center; page-break-inside: avoid; page-break-after: avoid; }
+      .ql { width: 100%; max-width: 120mm; padding-bottom: 4mm; border-bottom: 2px solid #000; margin-bottom: 4mm; }
+      .qt { font-size: 9px; color: #000; margin-bottom: 3mm; letter-spacing: 1px; }
+      .qc { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 3mm; line-height: 1.2; }
+      .qf { font-size: 11px; color: #000; line-height: 2.0; }
+      .qh { font-size: 9px; color: #333; margin-top: 3mm; line-height: 1.6; }
+      .qr-img-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+      .qr-img-wrap img { width: 72mm; height: 72mm; }
+      .qk { font-size: 6px; color: #666; margin-top: 2mm; word-break: break-all; text-align: center; max-width: 72mm; }
+    }`);
     overlay.remove();
+    window.print();
+    setTimeout(()=>{ printArea.innerHTML=''; },2000);
   };
 }
 window.clearEditSign=async function(signKey){
@@ -6359,20 +6324,7 @@ window.printGuard=function(){
     .guard-print-title { font-size: ${titleSize}px !important; margin-bottom: 6px !important; }
     .guard-print-section-title { font-size: ${fontSize+1}px !important; }
   }`);
-  // ★QR印刷と同じ理由（Firebaseとの常時接続が印刷ダイアログの表示を
-  //   妨げることがある）で、印刷の間だけ接続を切る（RTDB・Firestore両方）。
-  goOffline(db);
-  disableNetwork(fsdb).catch(()=>{});
   window.print();
-  const reconnect=()=>{
-    goOnline(db);
-    enableNetwork(fsdb).catch(()=>{});
-  };
-  window.addEventListener('afterprint',reconnect,{once:true});
-  setTimeout(()=>{
-    window.removeEventListener('afterprint',reconnect);
-    reconnect();
-  },30000);
 };
 
 // ===== 即時保存（保存ボタン用） =====
