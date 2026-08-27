@@ -6353,32 +6353,33 @@ window.renderGuard=async function(){
   const dk=dayInbound.container?Object.values(dayInbound.container):[];
 
   // ① 路線出荷（守衛チェック済みの定期便・不定期便）
+  // ★守衛連絡リストからは荷役開始時間・荷役終了時間の列を削除した
   const routeCarriers=state.carriers.filter(c=>['regular','irregular'].includes(c.type)&&isGuard(c.id));
-  const routeRows=routeCarriers.map(c=>[c.name,getReqTime(c.id),'','','','']);
+  const routeRows=routeCarriers.map(c=>[c.name,getReqTime(c.id),'','']);
   const rdiv=document.getElementById('gd-route');
   if(rdiv)rdiv.innerHTML=makeGdTable(
-    ['会社名','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
-    routeRows.length?routeRows:[['（なし）','','','','','']],'tbl-r');
+    ['会社名','入場依頼時間','入場時間','退場時間'],
+    routeRows.length?routeRows:[['（なし）','','','']],'tbl-r');
 
   // ② チャーター出荷（選択日付のinboundData）
-  // 列順：会社名・実車名・車種・車番・行先・住所・入場依頼時間・入場時間・荷役開始・荷役終了・退場時間
-  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.carType||'',r.carNum||'',r.dest||'',r.addr||'',r.time||'','','','','']);
+  // 列順：会社名・実車名・車種・車番・行先・住所・入場依頼時間・入場時間・退場時間
+  const charterRows2=dc.filter(r=>r.carrier).map(r=>[r.carrier,r.realCarrier||'',r.carType||'',r.carNum||'',r.dest||'',r.addr||'',r.time||'','','']);
   document.getElementById('gd-charter').innerHTML=makeGdTable(
-    ['会社名','実車名','車種','車番','行先','住所','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
-    charterRows2.length?charterRows2:[['（なし）','','','','','','','','','','']],'tbl-c');
+    ['会社名','実車名','車種','車番','行先','住所','入場依頼時間','入場時間','退場時間'],
+    charterRows2.length?charterRows2:[['（なし）','','','','','','','','']],'tbl-c');
 
   // ③ トラック入庫（選択日付のinboundData）
   // 車種はマスターのcarrierTypeまたはtruckTypeフィールドから取得
-  const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carType||'',r.carNum||'',r.time||'','','','','']);
+  const truckRows2=dt2.filter(r=>r.carrier||r.origin).map(r=>[r.origin||'',r.carrier||'',r.carType||'',r.carNum||'',r.time||'','','']);
   document.getElementById('gd-truck').innerHTML=makeGdTable(
-    ['出荷元','運送会社','車種','車番','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
-    truckRows2.length?truckRows2:[['（なし）','','','','','','','','']],'tbl-t');
+    ['出荷元','運送会社','車種','車番','入場依頼時間','入場時間','退場時間'],
+    truckRows2.length?truckRows2:[['（なし）','','','','','','']],'tbl-t');
 
   // ④ コンテナ入庫（選択日付のinboundData）
-  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.contType||'',r.time||'','','','','']);
+  const contRows2=dk.filter(r=>r.containerNo).map(r=>[r.containerNo,r.contType||'',r.time||'','','']);
   document.getElementById('gd-container').innerHTML=makeGdTable(
-    ['コンテナNo','種別','入場依頼時間','入場時間','荷役開始時間','荷役終了時間','退場時間'],
-    contRows2.length?contRows2:[['（なし）','','','','','','']],'tbl-k');
+    ['コンテナNo','種別','入場依頼時間','入場時間','退場時間'],
+    contRows2.length?contRows2:[['（なし）','','','','']],'tbl-k');
 };
 
 window.printGuard=function(){
