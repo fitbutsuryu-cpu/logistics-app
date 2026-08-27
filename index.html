@@ -5392,11 +5392,22 @@ async function issueDeliveryQR(cid, c, rec){
 
 // 管理・記録画面からQR発行＋B5印刷プレビュー表示（事務所タッチ画面と共通）
 window.printDeliveryQR=async function(date, cid, carrierName){
-  // ★QRの「再発行」（新しいトークンに切り替える操作）は、
-  //   管理・記録タブの「QR再発行」ボタン（reissueDeliveryQR）でのみ
-  //   行う。この関数は「まだ発行されていなければ新規発行、
-  //   既に発行済みならそのまま（同じQRを）印刷する」だけの
-  //   シンプルな動作にする（サイン済みかどうかでの自動判定はしない）。
+  // ★ポップアップブロック（許可ポップアップ）を防ぐため、ボタンを押した
+  //   一番最初のこの瞬間に、印刷用の別タブを開いてしまう。QR発行の通信や
+  //   QRコード生成が終わった後に開くと、iPad Safariに「自動的なポップアップ」
+  //   とみなされてブロックされることがあるため。中身は後から流し込む。
+  const printWin=window.open('','_blank');
+  if(!printWin){
+    toast('別画面を開けませんでした。ブラウザのポップアップ許可設定をご確認ください。');
+    return;
+  }
+  // 中身が入るまでの間、真っ白だと不安なので簡単な待機表示を出しておく
+  try{
+    printWin.document.open();
+    printWin.document.write('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#475569;">QRコードを準備しています…</body>');
+    printWin.document.close();
+  }catch(_){}
+
   const k=cid;
   const recSnap=await get(ref(db,whPath(`records/${date}/${k}`)));
   const rec=recSnap.val()||{};
@@ -5411,8 +5422,8 @@ window.printDeliveryQR=async function(date, cid, carrierName){
     needsRefresh=true;
   }
 
-  // 先に印刷プレビューを表示してから、裏でテーブルを再描画する
-  await showQRPrintPreview(finalToken, carrierName, date);
+  // 先に開いておいたタブに、印刷内容を流し込む
+  await showQRPrintPreview(finalToken, carrierName, date, printWin);
   if(needsRefresh&&date===today())renderRecords();
 };
 
@@ -5439,6 +5450,23 @@ async function invalidateOldDeliveryQR(date, cid){
 // QR再発行（強制的に新しいトークンを作る）
 window.reissueDeliveryQR=async function(date, cid, carrierName){
   if(!confirm(`${carrierName} の持込QRを再発行しますか？\n（再発行すると古いQRは無効になります）`))return;
+  // ★printDeliveryQRと同じ理由で、確認ダイアログでOKを押した直後の
+  //   この瞬間に、印刷用の別タブを先に開いてしまう。
+  //   古いQRの無効化・新しいQRの発行・QRコード生成といった処理を
+  //   終えてから開こうとすると、ユーザー操作からの「勢い」が切れて
+  //   iPad Safariにポップアップとしてブロックされる（＝許可を求める
+  //   ポップアップが出る）ため。中身は後から流し込む。
+  const printWin=window.open('','_blank');
+  if(!printWin){
+    toast('別画面を開けませんでした。ブラウザのポップアップ許可設定をご確認ください。');
+    return;
+  }
+  try{
+    printWin.document.open();
+    printWin.document.write('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#475569;">QRコードを準備しています…</body>');
+    printWin.document.close();
+  }catch(_){}
+
   const k=cid;
   // ★新しいQRを作る前に、古いQRを無効化する
   await invalidateOldDeliveryQR(date, k);
@@ -5447,7 +5475,8 @@ window.reissueDeliveryQR=async function(date, cid, carrierName){
   const token=await issueDeliveryQR(k,c,rec);
   await logChange('reissue_delivery_qr',`${carrierName}（${date}）`,`旧QRを無効化して再発行`);
   toast(`📦 ${carrierName} の持込QRを再発行しました`);
-  await showQRPrintPreview(token, carrierName, date);
+  // 先に開いておいたタブに、印刷内容を流し込む
+  await showQRPrintPreview(token, carrierName, date, printWin);
   renderRecords();
 };
 
@@ -5478,12 +5507,26 @@ function setPrintPageStyle(css){
 //   という、当時の最小構成に戻している。
 //   @media print 側で body>*:not(#print-area) を隠し、#print-area だけを
 //   表示する仕組みは、守衛連絡リスト印刷と共通で、以前から動いている。
-async function showQRPrintPreview(token, carrierName, date){
-  // 署名ページは本アプリと同じホスト・同じディレクトリから配信する（配信元の移設に追従）
+async function showQRPrintPreview(token, carrierName, date, printWin){
+  // ★printWin（印刷用の別タブ）は、呼び出し元が「ボタンを押した直後」に
+  //   先に開いておいたものを受け取る。QRコード生成やFirebase通信で
+  //   時間が経った後に window.open すると、iPad Safariが「ユーザー操作から
+  //   離れた自動的なポップアップ」とみなしてブロック（許可ポップアップ）
+  //   することがあり、それが「出たり出なかったり」の原因だった。
+  //   タブだけは最初に開いておき、中身だけ後から流し込むことで、これを防ぐ。
   const SIGN_PAGE_URL=new URL('sign.html',location.href).href;
   const signUrl=`${SIGN_PAGE_URL}?token=${token}`;
   const wh=WHs.find(w=>w.id===CWH);
   const whName=wh?wh.name:'';
+
+  if(!printWin){
+    // 保険：万一タブが渡ってこなかった場合はここで開く（従来動作）
+    printWin=window.open('','_blank');
+    if(!printWin){
+      toast('別画面を開けませんでした。ブラウザのポップアップ許可設定をご確認ください。');
+      return;
+    }
+  }
 
   // QRコードをcanvasに生成→DataURL（画像文字列）に変換
   let qrDataUrl='';
@@ -5495,6 +5538,7 @@ async function showQRPrintPreview(token, carrierName, date){
   }catch(e){
     console.error('QRコード生成エラー:',e);
     toast('⚠️ QRコード生成に失敗しました: '+e.message);
+    try{ printWin.close(); }catch(_){}
     return;
   }
 
@@ -5544,13 +5588,7 @@ async function showQRPrintPreview(token, carrierName, date){
     +'<div class="token">Token: '+esc(token)+'</div>'
     +'</body></html>';
 
-  // ★ボタンのクリックと同じ流れの中で（間に待ち時間を挟まず）window.openを
-  //   呼ぶことで、ポップアップブロックの対象になりにくくする。
-  const printWin=window.open('','_blank');
-  if(!printWin){
-    toast('別画面を開けませんでした。ブラウザのポップアップ許可設定をご確認ください。');
-    return;
-  }
+  // 先に開いておいたタブに、中身を流し込む
   printWin.document.open();
   printWin.document.write(printHtml);
   printWin.document.close();
