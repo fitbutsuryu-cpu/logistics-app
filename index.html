@@ -5485,13 +5485,22 @@ async function showQRPrintPreview(token, carrierName, date){
   const wh=WHs.find(w=>w.id===CWH);
   const whName=wh?wh.name:'';
 
-  // QRコードをcanvasに生成→DataURLに変換
-  let qrDataUrl='';
+  // 印刷用エリアを念のため空にしてから組み立てる
+  const printArea=document.getElementById('print-area');
+  printArea.innerHTML='';
+
+  // QRコードをcanvasに生成する
+  // ★以前は canvas → DataURL(文字列) → <img src=...> という流れだったが、
+  //   iPad SafariのPWAでは、<img>のdata: URL読み込み完了(onload)が
+  //   うまく発火せず、画像が用意される前に印刷が走って白紙になることが
+  //   あった。canvasを印刷エリアに「直接」置けば、その時点で既に
+  //   描画済みなので、読み込み待ちそのものが不要になり、白紙を防げる。
+  let qrCanvas;
   try{
     if(typeof QRCode==='undefined') throw new Error('QRCodeライブラリが読み込まれていません');
-    const qrCanvas=document.createElement('canvas');
+    qrCanvas=document.createElement('canvas');
     await QRCode.toCanvas(qrCanvas, signUrl, { width:500, margin:2, errorCorrectionLevel:'H' });
-    qrDataUrl=qrCanvas.toDataURL('image/png');
+    qrCanvas.className='qr-print-img';
   }catch(e){
     console.error('QRコード生成エラー:',e);
     toast('⚠️ QRコード生成に失敗しました: '+e.message);
@@ -5514,32 +5523,44 @@ async function showQRPrintPreview(token, carrierName, date){
     .qr-print-sub { font-size: 12px; color: #64748B; margin-bottom: 16px; }
     .qr-print-carrier { font-size: 26px; font-weight: 700; color: #065A82; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid #CBD5E1; width: 80%; }
     .qr-print-img { width: 60mm; height: 60mm; margin-bottom: 20px; }
+    .qr-img-slot { display: flex; justify-content: center; }
+    .qr-img-slot canvas { width: 60mm; height: 60mm; margin-bottom: 20px; }
     .qr-print-hint { font-size: 13px; color: #475569; line-height: 1.8; margin-bottom: 16px; }
     .qr-print-token { font-size: 8px; color: #CBD5E1; word-break: break-all; }
   }`);
 
-  const printArea=document.getElementById('print-area');
+  // 枠組みを組み立てる（QR画像の場所は、この後canvasを直接差し込む）
   printArea.innerHTML=`
     <div class="qr-print-page">
       <div class="qr-print-title">持込確認サイン用QRコード</div>
       <div class="qr-print-sub">${esc(whName)}　${esc(date)}</div>
       <div class="qr-print-carrier">${esc(carrierName)}</div>
-      <img class="qr-print-img" src="${qrDataUrl}">
+      <div class="qr-img-slot"></div>
       <div class="qr-print-hint">QRコードをスマートフォンでスキャンし、<br>受領確認のサインをお願いします。</div>
       <div class="qr-print-token">Token: ${esc(token)}</div>
     </div>`;
+  // QRのcanvasを、枠組みの中に直接置く（読み込み待ち不要）
+  printArea.querySelector('.qr-img-slot').appendChild(qrCanvas);
 
-  // 画像とDOMの描画完了を確実に待ってから印刷を呼ぶ
-  const img=printArea.querySelector('img.qr-print-img');
-  await new Promise(resolve=>{
-    if(img.complete){resolve();}
-    else{img.onload=resolve;img.onerror=resolve;}
-  });
+  // DOMの描画が画面に反映されるのを待ってから印刷を呼ぶ
   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
 
+  // ★iOS/iPadOSのSafari（特にホーム画面に追加したPWA）には、
+  //   「一度 window.print() で印刷すると、ページを再読み込みするまで、
+  //   2回目以降の印刷が『自動印刷は禁止』の警告＋白紙になる」という、
+  //   WebKit自体の既知の不具合がある（アプリ側のコードでは回避できない）。
+  //   唯一の確実な回避策が「印刷のたびにページを再読み込みする」ことなので、
+  //   印刷ダイアログが閉じた後（afterprint）に、自動でページを更新する。
+  //   これにより、利用者は毎回リロードを意識せずに、毎回1回目と同じ
+  //   正常な状態で印刷できる。
+  const reloadAfterPrint=()=>{
+    // 印刷ダイアログを閉じてから少しだけ待って再読み込み
+    //（閉じた直後だと、稀に再読み込みが印刷処理と競合するため）
+    setTimeout(()=>{ location.reload(); },800);
+  };
+  window.addEventListener('afterprint',reloadAfterPrint,{once:true});
+
   window.print();
-  // 印刷後、印刷用の中身を片付ける
-  setTimeout(()=>{ printArea.innerHTML=''; },2000);
 }
 window.clearEditSign=async function(signKey){
   if(!confirm('このサインを削除しますか？'))return;
