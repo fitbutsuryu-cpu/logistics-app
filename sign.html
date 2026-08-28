@@ -56,8 +56,7 @@ canvas{display:block;width:100%;height:200px;cursor:crosshair;touch-action:none;
 
 <script type="module">
 import {initializeApp} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {getDatabase,ref,get,update} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import {getAuth,signInAnonymously,setPersistence,inMemoryPersistence} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {getFunctions,httpsCallable} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 import {initializeAppCheck,ReCaptchaV3Provider} from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 
 const FB={
@@ -77,8 +76,16 @@ try{
   });
 }catch(e){console.warn('App Check初期化エラー:',e);}
 
-const db=getDatabase(app);
-const auth=getAuth(app);
+// ★ドライバー側では一切ログインを行わない。
+//   以前は匿名ログインをしてデータベースを直接読み書きしていたが、
+//   Authenticationの「作成（登録）を有効にする」をオフにした結果、
+//   匿名ログイン（＝内部的には新規アカウント作成）ができなくなった。
+//   現在は、サーバー側の関数（Cloud Functions）を呼ぶだけの作りにしてある。
+//   データベースへの読み書きはサーバー側だけで行うため、この画面から
+//   データベースへ直接アクセスすることはない。
+const functions=getFunctions(app,'asia-southeast1');
+const callGetQRInfo=httpsCallable(functions,'getDeliveryQRInfo');
+const callSubmitSign=httpsCallable(functions,'submitDeliverySign');
 
 // URLからトークン取得
 const token=new URLSearchParams(location.search).get('token');
@@ -94,48 +101,29 @@ let signCtx=null,signDraw=false,hasSigned=false;
 
 async function init(){
   if(!token||!isValidTokenFormat){showErr('QRコードが無効です。');return;}
+  let res;
   try{
-    // ★Firebaseの認証は、通常は端末内の保存領域（IndexedDB／localStorage）に
-    //   ログイン状態を保存しようとする。ところがiPhoneのSafariは、
-    //   「サイト越えトラッキングを防ぐ」設定やプライバシー設定、
-    //   コンテンツブロッカーの影響で、この保存領域が使えないことがあり、
-    //   その場合に匿名認証そのものが失敗して読み込みエラーになる。
-    //   （同じiPhoneでも設定次第で成否が分かれるのはこのため）
-    //   このページはドライバーが1回サインするだけで、ログイン状態を
-    //   端末に残す必要が一切ないので、保存先を「メモリのみ」に指定して
-    //   保存領域を使わないようにする。これで上記の失敗を回避でき、
-    //   端末にサイン用の認証情報が残らないぶん安全でもある。
-    await setPersistence(auth,inMemoryPersistence);
-  }catch(e){
-    console.warn('認証の保存方式の指定に失敗（続行）:',e);
-  }
-  try{
-    await signInAnonymously(auth);
+    res=await callGetQRInfo({token});
   }catch(e){
     // 通信の一時的な不調のこともあるため、少し待って1度だけ再試行する
-    console.warn('認証に失敗、再試行します:',e);
+    console.warn('QR情報の取得に失敗、再試行します:',e);
     await new Promise(r=>setTimeout(r,1200));
     try{
-      await signInAnonymously(auth);
+      res=await callGetQRInfo({token});
     }catch(e2){
-      console.error('認証エラー:',e2);
-      // ★原因を特定できるよう、エラーコードも画面に出す。
+      console.error('QR情報取得エラー:',e2);
+      // サーバー側で「無効なQR」と判定された場合は、その旨をそのまま表示する
+      if(e2&&(e2.code==='functions/not-found'||e2.code==='functions/invalid-argument')){
+        showErr('このQRコードは無効です。');
+        return;
+      }
       const code=(e2&&e2.code)?e2.code:(e2&&e2.message)?e2.message:'unknown';
       showErr('読み込みに失敗しました。ネットワーク環境をご確認のうえ、再度お試しください。<br><span style="font-size:11px;color:#888;">('+esc(code)+')</span>');
       return;
     }
   }
-  let snap;
-  try{
-    snap=await get(ref(db,`deliveryQR/${token}`));
-  }catch(e){
-    console.error('データ取得エラー:',e);
-    const code=(e&&e.code)?e.code:(e&&e.message)?e.message:'unknown';
-    showErr('QR情報の取得に失敗しました。時間をおいて再度お試しください。<br><span style="font-size:11px;color:#888;">('+esc(code)+')</span>');
-    return;
-  }
-  if(!snap.val()){showErr('このQRコードは無効です。');return;}
-  qrData=snap.val();
+  qrData=(res&&res.data)?res.data:null;
+  if(!qrData){showErr('このQRコードは無効です。');return;}
   if(qrData.used){
     showUsed();return;
   }
@@ -179,28 +167,33 @@ window.clearSign=function(){
 
 window.submitSign=async function(){
   if(!hasSigned){alert('サインしてください');return;}
-  document.getElementById('btn-ok').disabled=true;
-  document.getElementById('btn-ok').textContent='保存中...';
+  const btn=document.getElementById('btn-ok');
+  btn.disabled=true;
+  btn.textContent='保存中...';
   try{
     const cv=document.getElementById('cv');
     const img=cv.toDataURL('image/png');
-    const now=new Date();
-    const signedAt=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    // ★toISOString()は世界標準時のため、日本時間の午前0時〜9時に
-    //   サインされると日付が前日になってしまう。端末の日付をそのまま使う。
-    const signedDate=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-
-    // ★deliveryQRだけを更新する（records・printQueueへの反映は本体アプリ側が自動で行う）
-    await update(ref(db,`deliveryQR/${token}`),{
-      used:true, deliverySign:img, signedAt, signedDate
-    });
-
+    // ★サイン時刻・日付はサーバー側（Cloud Functions）で日本時間として
+    //   決める。端末の時計がずれていても正しい時刻が記録され、
+    //   ドライバー側から時刻を偽装することもできない。
+    const res=await callSubmitSign({token,sign:img});
+    const signedAt=(res&&res.data&&res.data.signedAt)?res.data.signedAt:'';
     showOK(signedAt);
   }catch(e){
-    console.error(e);
-    document.getElementById('btn-ok').disabled=false;
-    document.getElementById('btn-ok').textContent='サインして確認';
-    alert('保存に失敗しました。もう一度お試しください。');
+    console.error('サイン保存エラー:',e);
+    btn.disabled=false;
+    btn.textContent='サインして確認';
+    if(e&&e.code==='functions/failed-precondition'){
+      // 既にサイン済みだった場合は、その旨を画面に出す
+      showUsed();
+      return;
+    }
+    if(e&&e.code==='functions/not-found'){
+      showErr('このQRコードは無効です。');
+      return;
+    }
+    const code=(e&&e.code)?e.code:'unknown';
+    alert('保存に失敗しました。もう一度お試しください。\n('+code+')');
   }
 };
 
