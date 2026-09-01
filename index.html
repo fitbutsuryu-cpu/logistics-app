@@ -4660,10 +4660,13 @@ async function fbSetRecord(cid,rec,overrideKey=null){
         if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
       } else if(c.type==='truck_in'){
         if(!rec._carNum) rec._carNum=c._carNum||'';
+        if(!rec._carType) rec._carType=c._carType||'';
         if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
         if(!rec._origin){
-          const truckRow=todayTruckRows.find(r=>r.carrier===c.name)||masterTruckRows.find(r=>r.carrier===c.name);
-          if(truckRow) rec._origin=truckRow.origin||'';
+          // ★以前は「運送会社名が一致する行」を探して出荷元を拾っていたため、
+          //   同名の行がある場合や、後からマスターを直した場合に取り違える
+          //   恐れがあった。押されたボタン自身が持つ値をそのまま使う。
+          rec._origin=c._origin||'';
         }
       } else if(c.type==='container_in'){
         if(!rec._carNum) rec._carNum=c.name||'';
@@ -4805,7 +4808,12 @@ function getDynCarriers(){
     const uid=r._uid||('t'+Date.now());
     const nm=r.carrier||r.origin;
     const info=[r.origin?`出荷元:${r.origin}`:'',r.carNum?`車番:${r.carNum}`:'',r.time].filter(Boolean).join(' / ');
-    res.push({id:`dyn_${uid}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||''});
+    // ★車番・車種・出荷元を、チャーター出荷と同じように項目として持たせる。
+    //   以前はこれらを _info（画面に出す文字列）にしか入れていなかったため、
+    //   記録側の rec._carNum が常に空になり、管理・記録の「車番」列が
+    //   いつまでも「—」のままになっていた。
+    res.push({id:`dyn_${uid}`,name:nm,short:nm,type:'truck_in',_dyn:true,_label:'トラック入庫',_info:info,_time:r.time||'',
+      _carNum:r.carNum||'',_carType:r.carType||'',_origin:r.origin||''});
   });
   todayContainerRows.forEach(r=>{
     if(!r.containerNo)return;
@@ -5683,6 +5691,10 @@ async function getAllRecordRows(date){
         dynInfo.carNum=c._carNum||'';
         dynInfo.reqTime=c._time||'';
         dynInfo.dest=c._dest||'';
+        // ★出荷元の取得が抜けていたため、マスターにその行が残っている間は
+        //   トラック入庫の「実車名」列（＝出荷元を表示する列）が「—」に
+        //   なってしまい、マスター画面と食い違って見えていた。
+        dynInfo.origin=c._origin||'';
       }
     }
 
