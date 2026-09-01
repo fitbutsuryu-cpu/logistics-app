@@ -5992,7 +5992,10 @@ window.downloadExcel=async function(){
   function si(s){const v=String(s??'');let i=strings.indexOf(v);if(i===-1){i=strings.length;strings.push(v);}return i;}
   const headers=['日付','会社名','種別','実車名/納品先/出荷元','車番','依頼時間','入場時間','荷役開始','荷役終了','退場時間','待機時間','状態','出荷件数','出荷個数','出荷才数','現場サイン','ドライバーサイン','持込確認サイン'];
   headers.forEach(h=>si(h));
-  const dm=allRows.map(({date,c,rec,ship,dynInfo})=>{
+  // ★待機時間が30分以上だった行を覚えておき、Excel側でも
+  //   そのセルだけ黄色く塗る（画面の警告表示と基準をそろえる）
+  const waitOver30=[];
+  const dm=allRows.map(({date,c,rec,ship,dynInfo},rowIdx)=>{
     let realCVal=dynInfo?.realCarrier||'';
     if(c.type==='spot_charter'&&dynInfo?.dest){
       realCVal=realCVal?`${realCVal} / 納品先:${dynInfo.dest}`:`納品先:${dynInfo.dest}`;
@@ -6009,6 +6012,7 @@ window.downloadExcel=async function(){
       const baseMin=reqT?Math.max(enterMin,toMin(reqT)):enterMin;
       const waitMin=Math.max(0,startMin-baseMin);
       waitStr=`${String(Math.floor(waitMin/60)).padStart(2,'0')}:${String(waitMin%60).padStart(2,'0')}`;
+      if(waitMin>=30)waitOver30[rowIdx]=true;
     }
     // 持込確認サイン列（持込種別のみ）
     let deliveryStr='';
@@ -6041,7 +6045,15 @@ window.downloadExcel=async function(){
   // 2行目：見出し
   sr+=`<row r="2" ht="20" customHeight="1">${headers.map((h,i)=>`<c r="${cl(i)}2" t="s" s="1"><v>${strings.indexOf(h)}</v></c>`).join('')}</row>`;
   // 3行目以降：データ
-  allRows.forEach((_,ri)=>{const rn=ri+3;sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>`<c r="${cl(ci)}${rn}" t="s" s="2"><v>${strings.indexOf(String(v))}</v></c>`).join('')}</row>`;});
+  // ★待機時間の列（waitCol）だけ、30分以上なら黄色塗りのスタイル(s="4")にする
+  const waitCol=headers.indexOf('待機時間');
+  allRows.forEach((_,ri)=>{
+    const rn=ri+3;
+    sr+=`<row r="${rn}" ht="60" customHeight="1">${dm[ri].map((v,ci)=>{
+      const st=(ci===waitCol&&waitOver30[ri])?'4':'2';
+      return`<c r="${cl(ci)}${rn}" t="s" s="${st}"><v>${strings.indexOf(String(v))}</v></c>`;
+    }).join('')}</row>`;
+  });
   // サイン画像の列位置はheadersのインデックスから動的に算出（列構成が変わっても常に一致させる）
   const fieldSignCol=headers.indexOf('現場サイン');
   const driverSignCol=headers.indexOf('ドライバーサイン');
@@ -6061,7 +6073,7 @@ window.downloadExcel=async function(){
   zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xe(sn)}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
   zip.file('xl/sharedStrings.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${strings.map(s=>`<si><t xml:space="preserve">${xe(s)}</t></si>`).join('')}</sst>`);
-  zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="16"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center"/></xf></cellXfs></styleSheet>`);
+  zip.file('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts><font><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><name val="游ゴシック"/></font><font><b/><sz val="16"/><name val="游ゴシック"/></font><font><b/><sz val="11"/><color rgb="FF9C5700"/><name val="游ゴシック"/></font></fonts><fills><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9E1F2"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFEB9C"/></patternFill></fill></fills><borders><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"><alignment vertical="center" horizontal="center"/></xf><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFill="1" applyFont="1"><alignment vertical="center" horizontal="center" wrapText="1"/></xf></cellXfs></styleSheet>`);
   zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${CW.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${sr}</sheetData><mergeCells count="1"><mergeCell ref="A1:${lastCol}1"/></mergeCells>${hasD?'<drawing r:id="rId1"/></worksheet>':'</worksheet>'}`);
   if(hasD){
     zip.file('xl/worksheets/_rels/sheet1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
