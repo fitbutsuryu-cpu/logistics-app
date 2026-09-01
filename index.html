@@ -5695,6 +5695,10 @@ async function getAllRecordRows(date){
         //   トラック入庫の「実車名」列（＝出荷元を表示する列）が「—」に
         //   なってしまい、マスター画面と食い違って見えていた。
         dynInfo.origin=c._origin||'';
+        // マスター側が空でも、記録側に控えや事務所入力があればそれを使う
+        if(!dynInfo.realCarrier)dynInfo.realCarrier=rec._realCarrier||rec.charterCarrierName||'';
+        if(!dynInfo.carNum)dynInfo.carNum=rec._carNum||rec.charterCarNumber||'';
+        if(!dynInfo.origin)dynInfo.origin=rec._origin||'';
       }
     }
 
@@ -5711,6 +5715,33 @@ async function getAllRecordRows(date){
       } else {
         dynInfo.carNum=rec._carNum||'';
       }
+      // ★記録に控えが残っていない場合の復元。
+      //   記録には、入場などの操作をした時点の内容が控えとして保存されるが、
+      //   マスターへの入力が操作より後だった場合などに、控えが空のままに
+      //   なることがある。その日はマスターから直接読めるので画面に出るが、
+      //   翌日以降はマスターを参照しなくなるため「消えた」ように見えていた。
+      //   ここで、その日のマスター入力と事務所での入力からも拾い直す。
+      if(savedType==='spot_charter'){
+        if(!dynInfo.realCarrier||!dynInfo.carNum||!dynInfo.dest){
+          const mr=(dayInbound.charter||[]).find(x=>x.carrier===savedName);
+          if(mr){
+            if(!dynInfo.realCarrier)dynInfo.realCarrier=mr.realCarrier||'';
+            if(!dynInfo.carNum)dynInfo.carNum=mr.carNum||'';
+            if(!dynInfo.dest)dynInfo.dest=mr.dest||'';
+          }
+        }
+        // 事務所パネルで「運送会社名・車番」を直接入力した場合の値
+        if(!dynInfo.realCarrier)dynInfo.realCarrier=rec.charterCarrierName||'';
+        if(!dynInfo.carNum)dynInfo.carNum=rec.charterCarNumber||'';
+      } else if(savedType==='truck_in'){
+        if(!dynInfo.origin||!dynInfo.carNum){
+          const mr=(dayInbound.truck||[]).find(x=>x.carrier===savedName||x.origin===savedName);
+          if(mr){
+            if(!dynInfo.origin)dynInfo.origin=mr.origin||'';
+            if(!dynInfo.carNum)dynInfo.carNum=mr.carNum||'';
+          }
+        }
+      }
     }
 
     if(c&&!c._dyn){
@@ -5721,13 +5752,28 @@ async function getAllRecordRows(date){
       // ③ rec._reqTime（確認フラグはないが値だけ残っている場合の最終フォールバック）
       // ④ '15:30'（デフォルト）
       dynInfo.reqTime=rec._reqTimeConfirmed?(rec._reqTime||'15:30'):(reqTimeData[rtKey]||rec._reqTime||'15:30');
-      if(!dynInfo.realCarrier)dynInfo.realCarrier='';
-      if(!dynInfo.carNum)dynInfo.carNum='';
+      // ★ここで実車名・車番を無条件に空にしていたため、事務所パネルで
+      //   「運送会社名・車番」を入力して入場させたチャーター出荷は、
+      //   管理・記録の表では最初から一度も表示されていなかった。
+      //   記録に残っている値（控え・事務所入力）から拾うようにする。
+      if(!dynInfo.realCarrier)dynInfo.realCarrier=rec._realCarrier||rec.charterCarrierName||'';
+      if(!dynInfo.carNum)dynInfo.carNum=rec._carNum||rec.charterCarNumber||'';
       // _dest・_originがrecordにあれば優先、なければinboundDataから取得
       if(c.type==='spot_charter'){
         dynInfo.dest=rec._dest||(()=>{const r=dayInbound.charter.find(r=>r.carrier===c.name);return r?r.dest||'':''})();
+        if(!dynInfo.realCarrier||!dynInfo.carNum){
+          const mr=dayInbound.charter.find(r=>r.carrier===c.name);
+          if(mr){
+            if(!dynInfo.realCarrier)dynInfo.realCarrier=mr.realCarrier||'';
+            if(!dynInfo.carNum)dynInfo.carNum=mr.carNum||'';
+          }
+        }
       } else if(c.type==='truck_in'){
         dynInfo.origin=rec._origin||(()=>{const r=dayInbound.truck.find(r=>r.carrier===c.name);return r?r.origin||'':''})();
+        if(!dynInfo.carNum){
+          const mr=dayInbound.truck.find(r=>r.carrier===c.name);
+          if(mr)dynInfo.carNum=mr.carNum||'';
+        }
       }
     }
 
