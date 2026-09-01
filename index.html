@@ -4339,6 +4339,7 @@ const actionLabels={
   edit_record:'✏️ 記録の修正',
   delete_carrier:'🗑️ 運送会社の削除',
   delete_warehouse:'🗑️ 倉庫の削除',
+  rename_warehouse:'✏️ 倉庫名の変更',
   login:'🔓 ログイン',
   daily_active:'📅 当日の利用開始',
   system_warning:'⚠️ システム警告',
@@ -4497,8 +4498,50 @@ function renderWHSel(){
   const addBox=document.querySelector('.wh-add-box');
   if(addBox)addBox.style.display=(myRole==='admin')?'':'none';
   document.getElementById('wh-del-list').innerHTML=WHs.map(w=>`
-    <div class="wh-del-item"><span>${esc(w.icon||'🏭')} ${esc(w.name)}</span>${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${escJs(w.id)}')">削除</button>`:''}</div>`).join('');
+    <div class="wh-del-item"><span>${esc(w.icon||'🏭')} ${esc(w.name)}</span>
+      <span style="display:flex;gap:6px;">
+        <button class="wh-del-btn" style="background:var(--bl50);color:var(--bl600);border-color:var(--bl200);" onclick="renameWH('${escJs(w.id)}')">名前変更</button>
+        ${WHs.length>1?`<button class="wh-del-btn" onclick="delWH('${escJs(w.id)}')">削除</button>`:''}
+      </span>
+    </div>`).join('');
 }
+// 倉庫名の変更（管理者のみ）
+// ★倉庫のデータは全て倉庫ID（wh_xxxxx）で管理しているため、
+//   表示名を変えてもデータの中身・担当者の権限設定には一切影響しない。
+//   既に発行済みの持込QRに印字された倉庫名など、過去の記録に
+//   残っている名前は当時のまま保持される（履歴として正しいため）。
+window.renameWH=async function(id){
+  if(myRole!=='admin'){toast('倉庫名の変更は管理者のみ行えます');return;}
+  const w=WHs.find(x=>x.id===id);
+  if(!w)return;
+  const newName=prompt(`倉庫名を変更します。\n\n現在の名前：${w.name}\n\n新しい名前を入力してください。`,w.name);
+  if(newName===null)return;
+  const nm=newName.trim();
+  if(!nm){toast('倉庫名を入力してください');return;}
+  if(nm===w.name){toast('名前が変わっていません');return;}
+  if(nm.length>100){toast('倉庫名は100文字以内にしてください');return;}
+  if(WHs.some(x=>x.id!==id&&x.name===nm)){toast('同じ名前の倉庫が既にあります');return;}
+  const oldName=w.name;
+  try{
+    w.name=nm;
+    const o={};WHs.forEach(x=>o[x.id]=x);
+    await set(ref(db,'warehouses_list'),o);
+    await logChange('rename_warehouse',nm,`「${oldName}」から変更（倉庫ID:${id}）`);
+    renderWHSel();
+    // 選択中の倉庫を変更した場合は、画面上部とマスター画面の表示も更新する
+    if(CWH===id){
+      const nav=document.getElementById('nav-wh');
+      if(nav)nav.textContent=nm;
+      const lbl=document.getElementById('m-wh-lbl');
+      if(lbl)lbl.textContent=`対象倉庫：${nm}`;
+    }
+    toast(`「${oldName}」を「${nm}」に変更しました`);
+  }catch(e){
+    w.name=oldName; // 失敗したら元に戻す
+    console.error('倉庫名の変更エラー:',e);
+    toast('倉庫名の変更に失敗しました');
+  }
+};
 // 倉庫選択画面から直接、権限情報の再取得・ログアウトができるようにする
 // （通常のナビゲーションバーは、倉庫を選ぶまで表示されないため、
 //   「アクセスできる倉庫が0件」の詰み状態から抜け出す手段として用意している）
@@ -4701,33 +4744,44 @@ async function fbSetVis(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(r
 async function fbSetGuard(cid,v){const k=cid.replace(/[.#$/[\]]/g,'_');await set(ref(db,whPath(`guardCheck/${k}`)),v);}
 
 // ===== リスナー =====
-function startListeners(){
-  onValue(ref(db,whPath('carriers')),snap=>{
-    const v=snap.val();
-    state.carriers=v?(Array.isArray(v)?v.filter(Boolean):Object.values(v)):[];
-    document.getElementById('ov').classList.add('h');
-    renderCurrent();
+// ★日付に依存するリスナー（その日の記録・出荷・表示設定・当日入力マスター）は、
+//   ログインした時点の日付で登録される。以前はこれを張り直していなかったため、
+//   ログインしたまま日付をまたぐと、いつまでも前日のデータを受信し続け、
+//   画面に前日の内容が残ってしまっていた。
+//   日付が変わったタイミングで、いったん外して新しい日付で張り直す。
+let dateListenerRefs=[];
+let dateListenersFor='';
+function stopDateListeners(){
+  dateListenerRefs.forEach(r=>{try{off(r);}catch(e){console.warn('リスナー解除に失敗:',e);}});
+  dateListenerRefs=[];
+  dateListenersFor='';
+}
+function startDateListeners(){
+  const d=today();
+  stopDateListeners();
+  dateListenersFor=d;
+
+  const recRef=ref(db,whPath(`records/${d}`));
+  onValue(recRef,async snap=>{
+    state.records[d]=snap.val()||{};renderCurrent();
   });
-  onValue(ref(db,whPath(`records/${today()}`)),async snap=>{
-    const newRec=snap.val()||{};
-    state.records[today()]=newRec;renderCurrent();
-  });
-  onValue(ref(db,whPath(`shipData/${today()}`)),snap=>{state.shipData[today()]=snap.val()||{};renderCurrent();});
-  onValue(ref(db,whPath(`visibility/${today()}`)),snap=>{state.visibility[today()]=snap.val()||{};renderCurrent();});
-  onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
-  onValue(ref(db,whPath('reqTime')),snap=>{
-    state.reqTime=snap.val()||{};
-    // マスタータブ編集中はカーソルが飛ぶため再描画しない。他タブ（事務所・現場・守衛連絡）は依頼時間表示のため更新
-    const a=document.querySelector('.page.active');
-    const id=a?a.id.replace('page-',''):'';
-    if(id&&id!=='master')renderCurrent();
-  });
-  onValue(ref(db,whPath(`inboundData/${today()}`)),snap=>{
-    const d=snap.val()||{};
+  dateListenerRefs.push(recRef);
+
+  const shipRef=ref(db,whPath(`shipData/${d}`));
+  onValue(shipRef,snap=>{state.shipData[d]=snap.val()||{};renderCurrent();});
+  dateListenerRefs.push(shipRef);
+
+  const visRef=ref(db,whPath(`visibility/${d}`));
+  onValue(visRef,snap=>{state.visibility[d]=snap.val()||{};renderCurrent();});
+  dateListenerRefs.push(visRef);
+
+  const inbRef=ref(db,whPath(`inboundData/${d}`));
+  onValue(inbRef,snap=>{
+    const v=snap.val()||{};
     // 今日分はタッチ画面用変数にのみ保存（masterRowsは触らない）
-    todayCharterRows=d.charter?Object.values(d.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''})):[];
-    todayTruckRows=d.truck?Object.values(d.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carType:r.carType||'',carNum:r.carNum||'',time:r.time||''})):[];
-    todayContainerRows=d.container?Object.values(d.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',contType:r.contType||'',time:r.time||''})):[];
+    todayCharterRows=v.charter?Object.values(v.charter).map(r=>({_uid:r._uid||('c'+Date.now()+'_'+Math.random()),carrier:r.carrier||'',realCarrier:r.realCarrier||'',carNum:r.carNum||'',carType:r.carType||'',dest:r.dest||'',addr:r.addr||'',time:r.time||''})):[];
+    todayTruckRows=v.truck?Object.values(v.truck).map(r=>({_uid:r._uid||('t'+Date.now()+'_'+Math.random()),origin:r.origin||'',carrier:r.carrier||'',carType:r.carType||'',carNum:r.carNum||'',time:r.time||''})):[];
+    todayContainerRows=v.container?Object.values(v.container).map(r=>({_uid:r._uid||('k'+Date.now()+'_'+Math.random()),containerNo:r.containerNo||'',contType:r.contType||'',time:r.time||''})):[];
     // マスターで今日が選択中ならmasterRowsも更新して入力欄を再描画
     if(selectedInboundDate===today()){
       masterCharterRows=todayCharterRows.length?[...todayCharterRows]:[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
@@ -4739,6 +4793,24 @@ function startListeners(){
       }
     }
     renderCurrent();
+  });
+  dateListenerRefs.push(inbRef);
+}
+function startListeners(){
+  onValue(ref(db,whPath('carriers')),snap=>{
+    const v=snap.val();
+    state.carriers=v?(Array.isArray(v)?v.filter(Boolean):Object.values(v)):[];
+    document.getElementById('ov').classList.add('h');
+    renderCurrent();
+  });
+  startDateListeners();
+  onValue(ref(db,whPath('guardCheck')),snap=>{state.guardCheck=snap.val()||{};renderCurrent();});
+  onValue(ref(db,whPath('reqTime')),snap=>{
+    state.reqTime=snap.val()||{};
+    // マスタータブ編集中はカーソルが飛ぶため再描画しない。他タブ（事務所・現場・守衛連絡）は依頼時間表示のため更新
+    const a=document.querySelector('.page.active');
+    const id=a?a.id.replace('page-',''):'';
+    if(id&&id!=='master')renderCurrent();
   });
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
@@ -6682,6 +6754,12 @@ setInterval(()=>{
     // ログインしっぱなしで日付をまたいだ場合も、新しい日付分の
     // 「利用記録」を残す（ログアウトを強制せずに済むようにするため）
     markDailyActive();
+    // ★データの受信先を新しい日付に張り直す。
+    //   これをしないと、前日のデータを受信し続けてしまい、
+    //   画面に前日の内容が残ったままになる。
+    startDateListeners();
+    // 前日分の保持データを画面用の状態から外す（表示に混ざらないように）
+    todayCharterRows=[];todayTruckRows=[];todayContainerRows=[];
     // 日付が変わったら選択日付を今日にリセット
     selectedInboundDate=nowDate;
     // マスタータブが開いていれば日付タブを再描画
@@ -6696,6 +6774,30 @@ setInterval(()=>{
     toast('日付が変わりました（'+nowDate+'）');
   }
 },60000); // 1分ごとにチェック
+
+// ★iPadなどを閉じて翌朝また開いた場合、1分ごとのチェックを待たずに
+//   すぐ気づけるよう、画面が再表示されたタイミングでも確認する。
+//   （スリープ中はタイマーが止まるため、これが無いと最大1分間、
+//   前日の画面が表示され続ける）
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&today()!==lastCheckedDate){
+    lastCheckedDate=today();
+    markDailyActive();
+    startDateListeners();
+    todayCharterRows=[];todayTruckRows=[];todayContainerRows=[];
+    selectedInboundDate=today();
+    const mp=document.getElementById('page-master');
+    if(mp&&mp.classList.contains('active')){
+      masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+      masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carType:'',carNum:'',time:''}];
+      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
+      renderInboundDateTabs();
+      renderCharterArea();renderTruckArea();renderContainerArea();
+    }
+    renderCurrent();
+    toast('日付が変わりました（'+today()+'）');
+  }
+});
 
 // ===== ログイン / ログアウト =====
 window.doLogin=function(){
