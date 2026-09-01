@@ -329,6 +329,8 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .inbound-date-tab{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1.5px solid var(--bd);background:var(--sf);color:var(--ts);transition:all .12s;white-space:nowrap;}
 .inbound-date-tab.active{background:var(--bl600);color:#fff;border-color:var(--bl600);}
 .inbound-date-tab.today{border-color:var(--am600);}
+.inbound-date-tab.past{background:transparent;color:var(--th);border-style:dashed;}
+.inbound-date-tab.past.active{background:var(--bl600);color:#fff;border-style:solid;}
 .inbound-date-tab.today.active{background:var(--am600);border-color:var(--am600);}
 .inbound-date-tab.has-data{position:relative;}
 .inbound-date-tab.has-data::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--gn600);}
@@ -4741,12 +4743,21 @@ function startListeners(){
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
 // ===== 1週間分の日付タブ =====
+// 日付を「YYYY-MM-DD」にする（端末の時刻をそのまま使う）
+// ★toISOString()は世界標準時に変換してしまうため、日本時間の朝9時前は
+//   前日の日付になってしまう。日付タブがずれる原因になるので使わない。
+function ymdLocal(d){return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;}
+// マスター画面の日付タブに並べる日付
+// ★以前は「今日から7日先」だけで、過去の入力内容を確認・修正できなかった。
+//   前後どちらも選べるようにする。
+const INBOUND_PAST_DAYS=7;
+const INBOUND_FUTURE_DAYS=6;
 function get7Days(){
   const days=[];
-  const d=new Date();
-  for(let i=0;i<7;i++){
-    const dd=new Date(d);dd.setDate(d.getDate()+i);
-    days.push(dd.toISOString().slice(0,10));
+  const base=new Date();
+  for(let i=-INBOUND_PAST_DAYS;i<=INBOUND_FUTURE_DAYS;i++){
+    const dd=new Date(base);dd.setDate(base.getDate()+i);
+    days.push(ymdLocal(dd));
   }
   return days;
 }
@@ -4775,6 +4786,7 @@ async function renderInboundDateTabs(){
       `${String(dt.getMonth()+1)}/${String(dt.getDate())} (${dn})`;
     let cls='inbound-date-tab';
     if(d===td)cls+=' today';
+    if(d<td)cls+=' past';
     if(d===selectedInboundDate)cls+=' active';
     if(hasDataMap[d])cls+=' has-data';
     return`<button class="${cls}" onclick="switchInboundDate('${escJs(d)}')">${label}</button>`;
