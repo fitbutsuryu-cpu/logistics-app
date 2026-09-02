@@ -6769,23 +6769,41 @@ setInterval(()=>{
     // ★データの受信先を新しい日付に張り直す。
     //   これをしないと、前日のデータを受信し続けてしまい、
     //   画面に前日の内容が残ったままになる。
-    startDateListeners();
-    // 前日分の保持データを画面用の状態から外す（表示に混ざらないように）
-    todayCharterRows=[];todayTruckRows=[];todayContainerRows=[];
-    // 日付が変わったら選択日付を今日にリセット
-    selectedInboundDate=nowDate;
-    // マスタータブが開いていれば日付タブを再描画
-    const mp=document.getElementById('page-master');
-    if(mp&&mp.classList.contains('active')){
-      masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-      masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carType:'',carNum:'',time:''}];
-      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
-      renderInboundDateTabs();
-      renderCharterArea();renderTruckArea();renderContainerArea();
-    }
-    toast('日付が変わりました（'+nowDate+'）');
+    handleDateChanged(nowDate);
   }
 },60000); // 1分ごとにチェック
+
+// 日付が変わったときの共通処理
+// ★以前は、マスター画面を開いていない場合に masterCharterRows などを
+//   前日のまま残していた。一方で selectedInboundDate だけは今日に変わるため、
+//   その後で保存が走ると「前日の入力内容が、今日の日付で保存される」という
+//   事故が起きていた。
+//   実際、前日のトラック入庫が今日のマスターに書き込まれ、タッチ画面に
+//   前日の会社のボタンが出てしまい、それを押した結果、前日の便が
+//   今日の記録として登録される（通知も飛ぶ）という不具合につながっていた。
+//   画面を開いているかに関わらず、必ず空にしてから今日を読み直す。
+function handleDateChanged(nowDate){
+  lastCheckedDate=nowDate;
+  markDailyActive();
+  // ★保存待ちの予約（10秒後に走る自動保存）が残っていると、
+  //   前日の内容を今日の日付で書き込んでしまうため、必ず取り消す。
+  Object.keys(debMap).forEach(k=>{clearTimeout(debMap[k]);delete debMap[k];});
+  // 受信先を新しい日付に張り替える
+  startDateListeners();
+  // 前日分の保持データを全て破棄する
+  todayCharterRows=[];todayTruckRows=[];todayContainerRows=[];
+  masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
+  masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carType:'',carNum:'',time:''}];
+  masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
+  selectedInboundDate=nowDate;
+  const mp=document.getElementById('page-master');
+  if(mp&&mp.classList.contains('active')){
+    renderInboundDateTabs();
+    renderCharterArea();renderTruckArea();renderContainerArea();
+  }
+  renderCurrent();
+  toast('日付が変わりました（'+nowDate+'）');
+}
 
 // ★iPadなどを閉じて翌朝また開いた場合、1分ごとのチェックを待たずに
 //   すぐ気づけるよう、画面が再表示されたタイミングでも確認する。
@@ -6793,21 +6811,7 @@ setInterval(()=>{
 //   前日の画面が表示され続ける）
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&today()!==lastCheckedDate){
-    lastCheckedDate=today();
-    markDailyActive();
-    startDateListeners();
-    todayCharterRows=[];todayTruckRows=[];todayContainerRows=[];
-    selectedInboundDate=today();
-    const mp=document.getElementById('page-master');
-    if(mp&&mp.classList.contains('active')){
-      masterCharterRows=[{_uid:'c'+Date.now(),carrier:'',realCarrier:'',carNum:'',carType:'',dest:'',addr:'',time:''}];
-      masterTruckRows=[{_uid:'t'+Date.now(),origin:'',carrier:'',carType:'',carNum:'',time:''}];
-      masterContainerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
-      renderInboundDateTabs();
-      renderCharterArea();renderTruckArea();renderContainerArea();
-    }
-    renderCurrent();
-    toast('日付が変わりました（'+today()+'）');
+    handleDateChanged(today());
   }
 });
 
