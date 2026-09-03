@@ -4383,50 +4383,53 @@ window.renderChangeLog=async function(){
   }).join('')}</tbody></table>`;
 };
 
-// 操作ログをExcel（CSV形式・Excelでそのまま開ける）でダウンロード
+// 操作ログをExcelでダウンロード
+// ★以前はCSV形式だったため、Excelで開いても列幅が全て同じで、
+//   「詳細」など長い内容が見切れていた。CSVには列幅を持たせられないため、
+//   本来のExcel形式(.xlsx)で出力し、内容に合わせた列幅を設定する。
 window.downloadChangeLogExcel=async function(){
   const from=document.getElementById('log-from').value;
   const to=document.getElementById('log-to').value;
   if(!from||!to){toast('開始日・終了日を選択してください');return;}
   if(from>to){toast('開始日は終了日以前にしてください');return;}
+  if(typeof XLSX==='undefined'){toast('Excel生成機能を読み込めませんでした');return;}
   const allLogs=await fetchChangeLogRange(from,to);
   if(!allLogs.length){toast('この期間に操作ログはありません');return;}
-  toast('Excel用ファイルを生成中...');
+  toast('Excelファイルを生成中...');
 
-  const csvEsc=s=>{
-    const v=String(s??'');
-    // 先頭が = + - @ Tab CR の値はExcelが数式として解釈するため、
-    // シングルクォートを前置して必ず文字列として扱わせる（CSVインジェクション対策）
-    if(/^[=+\-@\t\r]/.test(v)) return '"\''+v.replace(/"/g,'""')+'"';
-    return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;
-  };
   const headers=['日付','時刻','操作者','倉庫','操作内容','対象','詳細'];
-  const rows=[headers.join(',')];
-  allLogs.forEach(l=>{
-    const dateStr=(l.ts||'').slice(0,10);
-    rows.push([
-      dateStr,
-      l.time||'',
-      l.user||'不明',
-      l.warehouse||'',
-      actionLabels[l.action]||l.action||'',
-      l.target||'',
-      l.detail||''
-    ].map(csvEsc).join(','));
+  const rows=allLogs.map(l=>[
+    (l.ts||'').slice(0,10),
+    l.time||'',
+    l.user||'不明',
+    l.warehouse||'',
+    actionLabels[l.action]||l.action||'',
+    l.target||'',
+    l.detail||''
+  ]);
+  const aoa=[headers,...rows];
+
+  // 内容の長さから列幅を決める（全角は2文字分として数える）
+  const colW=headers.map((h,i)=>{
+    const measure=v=>String(v??'').split('\n').reduce((mx,line)=>{
+      let w=0;for(const ch of line)w+=(ch.charCodeAt(0)>255?2:1);
+      return Math.max(mx,w);
+    },0);
+    let mx=measure(h);
+    rows.forEach(r=>{const w=measure(r[i]);if(w>mx)mx=w;});
+    return{wch:Math.min(60,Math.max(8,mx+2.5))};
   });
-  // 先頭にBOMを付与（Excelで開いた際に日本語が文字化けしないように）
-  const csvContent='\uFEFF'+rows.join('\r\n');
-  const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
+
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=colW;
+  // 見出し行を固定して、スクロールしても項目名が見えるようにする
+  ws['!freeze']={xSplit:'0',ySplit:'1',topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+  ws['!autofilter']={ref:`A1:${String.fromCharCode(65+headers.length-1)}${aoa.length}`};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'操作ログ');
   const wh=WHs.find(w=>w.id===CWH);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`操作ログ_${wh?wh.name:''}_${from}${from!==to?'_'+to:''}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('ダウンロードしました');
+  XLSX.writeFile(wb,`操作ログ_${wh?wh.name:''}_${from}${from!==to?'_'+to:''}.xlsx`);
+  toast('✅ ダウンロードしました');
 };
 
 // ★loadLockUI（旧・端末設定のロックタブ選択チェックボックス復元）は、
@@ -6037,8 +6040,26 @@ window.downloadExcel=async function(){
   const titleIdx=si(titleText);
   function xe(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function cl(n){return n<26?String.fromCharCode(65+n):`${String.fromCharCode(64+Math.floor(n/26))}${String.fromCharCode(65+(n%26))}`;}
-  // 列幅はheadersの列数(18列)と一致させる
-  const CW=[12,24,10,22,8,10,10,10,10,10,9,9,9,9,9,16,16,18];
+  // ★列幅は固定値ではなく、実際に入る内容の長さから自動で決める。
+  //   Excelの幅の単位は「半角文字が何文字入るか」なので、全角文字は2として数える。
+  //   サイン画像の列（末尾3列）は画像を入れる枠なので固定のままにする。
+  const SIGN_COL_W=[16,16,18];
+  function textWidth(v){
+    // 改行を含む場合は、一番長い行に合わせる
+    return String(v??'').split('\n').reduce((mx,line)=>{
+      let w=0;
+      for(const ch of line)w+=(ch.charCodeAt(0)>255?2:1);
+      return Math.max(mx,w);
+    },0);
+  }
+  const signStart=headers.length-SIGN_COL_W.length;
+  const CW=headers.map((h,i)=>{
+    if(i>=signStart)return SIGN_COL_W[i-signStart];
+    let mx=textWidth(h);
+    dm.forEach(row=>{const w=textWidth(row[i]);if(w>mx)mx=w;});
+    // 余白を少し足し、狭すぎ・広すぎを防ぐ
+    return Math.min(45,Math.max(7,mx+2.5));
+  });
   const lastCol=cl(headers.length-1); // 例：R（18列目）
   // 1行目：タイトル「集荷チェック表」（全列結合・大きめ太字）
   let sr=`<row r="1" ht="28" customHeight="1"><c r="A1" t="s" s="3"><v>${titleIdx}</v></c></row>`;
