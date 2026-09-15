@@ -4353,9 +4353,13 @@ async function fetchChangeLogRange(from,to){
   for(const d of dates){
     const snap=await get(ref(db,`changeLog/${d}`));
     const v=snap.val();
-    if(v)Object.values(v).forEach(entry=>allLogs.push(entry));
+    // ★どの日付の下に保存されていたかを、各件に持たせておく。
+    //   保存時は today()（端末の時刻）で日付を決めているため、これが正しい日付。
+    //   ts は世界標準時なので、日付の表示には使わない。
+    if(v)Object.values(v).forEach(entry=>allLogs.push({...entry,_date:d}));
   }
-  allLogs.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+  // 並び順は「日付＋時刻」で新しい順にする
+  allLogs.sort((a,b)=>`${b._date} ${b.time||''}`.localeCompare(`${a._date} ${a.time||''}`));
   return allLogs;
 }
 
@@ -4371,7 +4375,12 @@ window.renderChangeLog=async function(){
   container.innerHTML=`<table class="rt"><thead><tr>
     <th>日時</th><th>操作者</th><th>倉庫</th><th>操作内容</th><th>対象</th><th>詳細</th>
   </tr></thead><tbody>${allLogs.map(l=>{
-    const dateStr=(l.ts||'').slice(0,10);
+    // ★日付は、記録が保存されている日付（_date）をそのまま使う。
+    //   以前は ts（世界標準時の文字列）から日付を取り出していたため、
+    //   日本時間の朝9時より前の操作は、前日の日付として表示されていた。
+    //   （例：9/15 8:47 の操作 → 世界標準時では 9/14 23:47 → 「9/14 08:47」と表示）
+    //   時刻側は端末の時刻（time）を使っているので、日付だけがずれていた。
+    const dateStr=l._date||(l.ts||'').slice(0,10);
     return`<tr>
       <td>${esc(dateStr)} ${esc(l.time||'')}</td>
       <td>${esc(l.user||'不明')}</td>
@@ -4399,7 +4408,7 @@ window.downloadChangeLogExcel=async function(){
 
   const headers=['日付','時刻','操作者','倉庫','操作内容','対象','詳細'];
   const rows=allLogs.map(l=>[
-    (l.ts||'').slice(0,10),
+    l._date||(l.ts||'').slice(0,10),
     l.time||'',
     l.user||'不明',
     l.warehouse||'',
