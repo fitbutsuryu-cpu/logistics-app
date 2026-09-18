@@ -4826,17 +4826,19 @@ function startListeners(){
   });
   onValue(ref(db,'.info/connected'),snap=>setConn(snap.val()));
 }
-// ===== 1週間分の日付タブ =====
+// ===== マスター画面の日付タブ =====
 // 日付を「YYYY-MM-DD」にする（端末の時刻をそのまま使う）
 // ★toISOString()は世界標準時に変換してしまうため、日本時間の朝9時前は
 //   前日の日付になってしまう。日付タブがずれる原因になるので使わない。
 function ymdLocal(d){return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;}
-// マスター画面の日付タブに並べる日付
+// 日付タブに並べる日付の範囲
 // ★以前は「今日から7日先」だけで、過去の入力内容を確認・修正できなかった。
-//   前後どちらも選べるようにする。
+//   前後どちらも選べるようにしてある。
+//   先の期間は、年末年始やお盆など10日前後の連休を挟んでも
+//   休み明けの予定まで入力できるよう、2週間先までとしている。
 const INBOUND_PAST_DAYS=7;
-const INBOUND_FUTURE_DAYS=6;
-function get7Days(){
+const INBOUND_FUTURE_DAYS=14;
+function getInboundDays(){
   const days=[];
   const base=new Date();
   for(let i=-INBOUND_PAST_DAYS;i<=INBOUND_FUTURE_DAYS;i++){
@@ -4849,7 +4851,7 @@ function get7Days(){
 async function renderInboundDateTabs(){
   const tabs=document.getElementById('inbound-date-tabs');
   if(!tabs)return;
-  const days=get7Days();
+  const days=getInboundDays();
   const td=today();
   // 各日付にデータがあるかチェック
   const hasDataMap={};
