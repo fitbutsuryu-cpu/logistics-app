@@ -327,11 +327,15 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 /* 動的入力日付タブ */
 .inbound-date-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
 .inbound-date-tab{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1.5px solid var(--bd);background:var(--sf);color:var(--ts);transition:all .12s;white-space:nowrap;}
-.inbound-date-tab.active{background:var(--bl600);color:#fff;border-color:var(--bl600);}
 .inbound-date-tab.today{border-color:var(--am600);}
 .inbound-date-tab.past{background:transparent;color:var(--th);border-style:dashed;}
+/* ★土曜は青、日曜・祝日は赤。選択中は背景が濃くなるため、
+   下の .active より前に置いて、選択時は白文字が優先されるようにする */
+.inbound-date-tab.sat{color:#1D4ED8;}
+.inbound-date-tab.sun{color:#B91C1C;}
+.inbound-date-tab.active{background:var(--bl600);color:#fff;border-color:var(--bl600);}
 .inbound-date-tab.past.active{background:var(--bl600);color:#fff;border-style:solid;}
-.inbound-date-tab.today.active{background:var(--am600);border-color:var(--am600);}
+.inbound-date-tab.today.active{background:var(--am600);border-color:var(--am600);color:#fff;}
 .inbound-date-tab.has-data{position:relative;}
 .inbound-date-tab.has-data::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--gn600);}
 
@@ -4831,6 +4835,67 @@ function startListeners(){
 // ★toISOString()は世界標準時に変換してしまうため、日本時間の朝9時前は
 //   前日の日付になってしまう。日付タブがずれる原因になるので使わない。
 function ymdLocal(d){return`${d.getFullYear()}-${S2(d.getMonth()+1)}-${S2(d.getDate())}`;}
+
+// ===== 日本の祝日の判定 =====
+// ★日付タブで日曜と同じ赤色にするために使う。
+//   春分の日・秋分の日は年によって日付が変わるため計算で求める
+//   （1980年〜2099年の範囲で有効な近似式）。
+//   ハッピーマンデー（第◯月曜）、日曜と重なった場合の振替休日、
+//   祝日に挟まれた平日（国民の休日）にも対応している。
+const jpHolidayCache={};
+function nthMonday(y,m,nth){
+  // その月の第nth月曜日の「日」を返す
+  const first=new Date(y,m-1,1).getDay();      // 0=日
+  const firstMon=1+((8-first)%7);              // 最初の月曜の日
+  return firstMon+(nth-1)*7;
+}
+function buildJpHolidays(y){
+  if(jpHolidayCache[y])return jpHolidayCache[y];
+  const h={};
+  const put=(m,d,name)=>{h[`${y}-${S2(m)}-${S2(d)}`]=name;};
+  put(1,1,'元日');
+  put(1,nthMonday(y,1,2),'成人の日');
+  put(2,11,'建国記念の日');
+  put(2,23,'天皇誕生日');
+  // 春分の日・秋分の日
+  put(3,Math.floor(20.8431+0.242194*(y-1980)-Math.floor((y-1980)/4)),'春分の日');
+  put(4,29,'昭和の日');
+  put(5,3,'憲法記念日');
+  put(5,4,'みどりの日');
+  put(5,5,'こどもの日');
+  put(7,nthMonday(y,7,3),'海の日');
+  put(8,11,'山の日');
+  put(9,nthMonday(y,9,3),'敬老の日');
+  put(9,Math.floor(23.2488+0.242194*(y-1980)-Math.floor((y-1980)/4)),'秋分の日');
+  put(10,nthMonday(y,10,2),'スポーツの日');
+  put(11,3,'文化の日');
+  put(11,23,'勤労感謝の日');
+
+  // 振替休日：祝日が日曜の場合、その後の最初の平日を休みにする
+  Object.keys(h).slice().forEach(k=>{
+    const dt=new Date(k+'T00:00:00');
+    if(dt.getDay()!==0)return;
+    const nx=new Date(dt);
+    do{ nx.setDate(nx.getDate()+1); }while(h[ymdLocal(nx)]);
+    h[ymdLocal(nx)]='振替休日';
+  });
+  // 国民の休日：祝日に前後を挟まれた平日（例：敬老の日と秋分の日の間）
+  Object.keys(h).slice().forEach(k=>{
+    const dt=new Date(k+'T00:00:00');
+    const a=new Date(dt);a.setDate(a.getDate()+1);
+    const b=new Date(dt);b.setDate(b.getDate()+2);
+    if(h[ymdLocal(b)]&&!h[ymdLocal(a)]&&a.getDay()!==0&&a.getDay()!==6){
+      h[ymdLocal(a)]='国民の休日';
+    }
+  });
+  jpHolidayCache[y]=h;
+  return h;
+}
+function jpHolidayName(ymd){
+  const y=Number(ymd.slice(0,4));
+  if(!y)return '';
+  return buildJpHolidays(y)[ymd]||'';
+}
 // 日付タブに並べる日付の範囲
 // ★以前は「今日から7日先」だけで、過去の入力内容を確認・修正できなかった。
 //   前後どちらも選べるようにしてある。
@@ -4873,9 +4938,15 @@ async function renderInboundDateTabs(){
     let cls='inbound-date-tab';
     if(d===td)cls+=' today';
     if(d<td)cls+=' past';
+    // 土曜は青、日曜と祝日は赤にする
+    const hol=jpHolidayName(d);
+    if(dt.getDay()===0||hol)cls+=' sun';
+    else if(dt.getDay()===6)cls+=' sat';
     if(d===selectedInboundDate)cls+=' active';
     if(hasDataMap[d])cls+=' has-data';
-    return`<button class="${cls}" onclick="switchInboundDate('${escJs(d)}')">${label}</button>`;
+    // 祝日はマウスを乗せると名称が出るようにしておく
+    const tip=hol?` title="${esc(hol)}"`:'';
+    return`<button class="${cls}"${tip} onclick="switchInboundDate('${escJs(d)}')">${label}</button>`;
   }).join('');
 }
 
