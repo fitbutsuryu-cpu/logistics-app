@@ -3797,6 +3797,8 @@ async function refreshMyPermissions(){
   }catch(e){
     console.warn('権限情報の取得に失敗しました（初期値のまま動作します）:',e);
   }
+  // このアカウントで表示するタブを反映する（失敗しても全表示のまま動かす）
+  try{applyTabVisibility();}catch(e){console.warn('表示タブの反映に失敗しました:',e);}
   // 管理者専用UI（ユーザー権限管理カード）の表示切替
   const permCard=document.getElementById('user-perm-card');
   if(permCard)permCard.style.display=(myRole==='admin')?'':'none';
@@ -3836,6 +3838,14 @@ window.loadUserPermList=async function(){
           <input type="checkbox" class="lock-tab-cb" data-uid="${esc(u.uid)}" value="${id}" ${existingLock&&existingLock.tabs&&existingLock.tabs[id]?'checked':''}>
           ${label}
         </label>`).join('');
+      // 表示するタブ（チェックが入っているものだけナビに出る）
+      const hid=(existingLock&&existingLock.hidden)||{};
+      const hasHidden=Object.keys(hid).length>0;
+      const visTabsChecks=lockTabDefs.map(([id,label])=>`
+        <label style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:12px;">
+          <input type="checkbox" class="vis-tab-cb" data-uid="${esc(u.uid)}" value="${id}" ${hid[id]?'':'checked'}>
+          ${label}
+        </label>`).join('');
       return `
       <div style="border:1px solid var(--bd);border-radius:var(--rs);padding:12px;margin-bottom:10px;">
         <div style="font-weight:600;margin-bottom:6px;">${esc(u.email)}</div>
@@ -3859,13 +3869,26 @@ window.loadUserPermList=async function(){
         <button class="edit-btn" onclick="saveUserPerm('${escJs(u.uid)}')">💾 この人の設定を保存</button>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd);">
           <div style="font-size:12px;color:var(--th);margin-bottom:6px;">
-            🔐 タブロック設定${existingLock?'（現在：設定あり）':'（現在：未設定）'}
+            👁 表示するタブ${hasHidden?'（現在：一部を非表示）':'（現在：すべて表示）'}
+          </div>
+          <div style="font-size:11px;color:var(--th);margin-bottom:6px;">
+            チェックを外したタブは、このアカウントのナビから消えます（押すこともできません）。
+          </div>
+          <div style="margin-bottom:8px;">${visTabsChecks}</div>
+          <button class="edit-btn" onclick="saveUserTabs('${escJs(u.uid)}')">💾 表示タブを保存</button>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bd);">
+          <div style="font-size:12px;color:var(--th);margin-bottom:6px;">
+            🔐 タブロック設定${existingLock&&existingLock.pwHash?'（現在：設定あり）':'（現在：未設定）'}
+          </div>
+          <div style="font-size:11px;color:var(--th);margin-bottom:6px;">
+            こちらは「表示はするが、開くときにパスワードを求める」設定です。完全に見せたくない場合は上の「表示するタブ」を使ってください。
           </div>
           <div style="margin-bottom:8px;">${lockTabsChecks}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="password" class="lock-pw-input" data-uid="${esc(u.uid)}" placeholder="新しいパスワード（4〜8文字・変更する時だけ入力）" maxlength="8" style="padding:6px 10px;border:1px solid var(--bd);border-radius:6px;font-size:12px;width:240px;">
             <button class="edit-btn" onclick="saveUserLock('${escJs(u.uid)}')">💾 ロックを保存</button>
-            ${existingLock?`<button style="padding:8px 14px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearUserLock('${escJs(u.uid)}')">🗑️ ロック解除</button>`:''}
+            ${existingLock&&existingLock.pwHash?`<button style="padding:8px 14px;background:var(--rd50);color:var(--rd600);border:1px solid var(--rd200);border-radius:var(--rs);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;" onclick="clearUserLock('${escJs(u.uid)}')">🗑️ ロック解除</button>`:''}
           </div>
         </div>
       </div>`;
@@ -3873,6 +3896,47 @@ window.loadUserPermList=async function(){
   }catch(e){
     console.error('ユーザー一覧の取得エラー:',e);
     listEl.textContent='読み込みに失敗しました：'+(e&&e.message?e.message:String(e));
+  }
+};
+
+// 表示するタブを保存する（管理者専用）
+// ★チェックが入っているタブ＝表示。保存するのは「非表示にするタブ」のほうなので、
+//   設定が無いアカウントは今までどおり全タブ表示のままになる。
+window.saveUserTabs=async function(uid){
+  const cbs=Array.from(document.querySelectorAll(`.vis-tab-cb[data-uid="${uid}"]`));
+  if(!cbs.length)return;
+  const hidden={};
+  cbs.forEach(cb=>{if(!cb.checked)hidden[cb.value]=true;});
+  const visibleCount=cbs.length-Object.keys(hidden).length;
+  if(visibleCount===0){
+    toast('表示するタブを1つ以上選んでください');
+    return;
+  }
+  // 「設定」を消すと、そのアカウントからは権限管理もタブ設定も開けなくなる
+  if(hidden['settings']&&!confirm(
+    '「設定」タブを非表示にすると、このアカウントではユーザー権限管理やタブの設定画面を開けなくなります。\n'+
+    '（他の管理者アカウントからであれば、後から元に戻せます）\n\nこのまま保存しますか？'))return;
+  try{
+    const snap=await get(ref(db,`userLocks/${uid}`));
+    const cur=snap.val()||{};
+    const stamp=new Date().toISOString();
+    if(Object.keys(hidden).length===0){
+      // すべて表示に戻す
+      if(cur.pwHash&&cur.tabs){
+        // ロック設定は残す
+        await update(ref(db,`userLocks/${uid}`),{hidden:null,updatedAt:stamp});
+      }else{
+        // ロックも無いなら設定ごと削除してよい
+        await set(ref(db,`userLocks/${uid}`),null);
+      }
+    }else{
+      await update(ref(db,`userLocks/${uid}`),{hidden,updatedAt:stamp});
+    }
+    toast('表示タブの設定を保存しました（本人の次回ログイン時に反映されます）');
+    loadUserPermList();
+  }catch(e){
+    console.error('表示タブの保存エラー:',e);
+    toast('表示タブの保存に失敗しました');
   }
 };
 
@@ -3898,7 +3962,8 @@ window.saveUserLock=async function(uid){
       toast('ロックするタブを1つ以上選んでください（全て外す場合は「ロック解除」を使ってください）');
       return;
     }
-    await set(ref(db,`userLocks/${uid}`),{pwHash,tabs,updatedAt:new Date().toISOString()});
+    // ★表示タブの設定（hidden）を消さないよう、update で部分更新する
+    await update(ref(db,`userLocks/${uid}`),{pwHash,tabs,updatedAt:new Date().toISOString()});
     if(pwInput)pwInput.value='';
     toast('ロック設定を保存しました（本人の次回ログイン時に反映されます）');
     loadUserPermList();
@@ -3908,9 +3973,16 @@ window.saveUserLock=async function(uid){
   }
 };
 window.clearUserLock=async function(uid){
-  if(!confirm('このアカウントのタブロックを解除しますか？'))return;
+  if(!confirm('このアカウントのタブロック（パスワード）を解除しますか？\n※「表示するタブ」の設定はそのまま残ります'))return;
   try{
-    await set(ref(db,`userLocks/${uid}`),null);
+    // ★表示タブの設定（hidden）がある場合は、それだけ残してロックを外す
+    const snap=await get(ref(db,`userLocks/${uid}`));
+    const cur=snap.val()||{};
+    if(cur.hidden&&Object.keys(cur.hidden).length){
+      await update(ref(db,`userLocks/${uid}`),{pwHash:null,tabs:null,updatedAt:new Date().toISOString()});
+    }else{
+      await set(ref(db,`userLocks/${uid}`),null);
+    }
     toast('ロック設定を解除しました');
     loadUserPermList();
   }catch(e){
@@ -4262,6 +4334,32 @@ let containerRows=[{_uid:'k'+Date.now(),containerNo:'',contType:'',time:''}];
 const debMap={};
 // ロック状態
 let unlockedPages=new Set(['office','field']);
+// ナビに並ぶタブの一覧（表示／非表示の制御に使う）
+const ALL_TAB_IDS=['office','reception','field','records','master','guard','settings'];
+// ===== タブの表示／非表示（アカウント単位・管理者が設定） =====
+// ★ロック（パスワードで開ける）とは別の仕組み。
+//   こちらは「そのタブをナビから完全に消す」。
+//   総合受付タブレットのように、ドライバーなど社外の方が触る端末では、
+//   押せてしまうこと自体が問題になるため、隠せるようにした。
+//   設定が無いアカウントは今までどおり全タブ表示。
+function isTabHidden(pageId){
+  return !!(myLockCfg&&myLockCfg.hidden&&myLockCfg.hidden[pageId]);
+}
+function applyTabVisibility(){
+  const visible=[];
+  ALL_TAB_IDS.forEach(id=>{if(!isTabHidden(id))visible.push(id);});
+  // 設定ミスで全部消えてしまった場合は、締め出されないよう全表示に戻す（安全装置）
+  const showAll=visible.length===0;
+  ALL_TAB_IDS.forEach(id=>{
+    const el=document.getElementById('tab-'+id);
+    if(el)el.style.display=(showAll||!isTabHidden(id))?'':'none';
+  });
+  if(showAll)return;
+  // 今開いている画面が非表示になったら、表示されているタブへ移す
+  const a=document.querySelector('.page.active');
+  const cur=a?a.id.replace('page-',''):'';
+  if(!cur||isTabHidden(cur))showPage(visible[0]);
+}
 let pendingPage=null;
 
 const DEFAULT_WH=[{id:'wh_280',name:'280倉庫',icon:'🏭'},{id:'wh_282',name:'282倉庫',icon:'🏗️'}];
@@ -4524,10 +4622,11 @@ window.closeLockModal=function(){
   document.getElementById('lock-err').textContent='';
   pendingPage=null;
   // ロック前に表示していたページに戻る（事務所をデフォルトに）
-  const safePages=['office','field'];
+  // ★非表示にされているタブへは戻らないようにする
   const lockedTabs=(myLockCfg&&myLockCfg.tabs)||{};
+  const safePages=ALL_TAB_IDS.filter(p=>!isTabHidden(p));
   // ロックされていないページを探して遷移
-  const goTo=safePages.find(p=>!lockedTabs[p])||'office';
+  const goTo=safePages.find(p=>!lockedTabs[p])||safePages[0]||'office';
   // ロックを経由せず直接ページ切替
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
@@ -5477,6 +5576,8 @@ window.rcpPrintQR=function(token,carrierName){
 
 // ===== 画面切替 =====
 window.showPage=function(id){
+  // このアカウントで非表示にされているタブには移動しない
+  if(isTabHidden(id))return;
   // パスワードロックチェック
   if(isLocked(id)){
     pendingPage=id;
