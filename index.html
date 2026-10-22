@@ -338,6 +338,36 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .inbound-date-tab.today.active{background:var(--am600);border-color:var(--am600);color:#fff;}
 .inbound-date-tab.has-data{position:relative;}
 .inbound-date-tab.has-data::after{content:'';position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--gn600);}
+/* ===== 総合受付（ドライバーが自分で操作する画面） =====
+   指が太い人・手袋のままでも押せるよう、文字もボタンも大きめにしてある。
+   1画面につき操作は1つだけ。迷わせない。 */
+.rcp-wrap{max-width:940px;margin:0 auto;}
+.rcp-bar{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+.rcp-back{padding:11px 20px;border-radius:var(--rs);border:1.5px solid var(--bd);background:var(--sf);color:var(--tx);font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;}
+.rcp-crumb{font-size:15px;font-weight:700;color:var(--th);}
+.rcp-h{font-size:24px;font-weight:800;color:var(--tx);margin:10px 0 18px;text-align:center;}
+.rcp-big{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.rcp-big button{padding:52px 10px;border-radius:20px;border:none;font-size:32px;font-weight:800;font-family:inherit;cursor:pointer;color:#fff;}
+.rcp-big .ent{background:var(--gn600);}
+.rcp-big .dep{background:var(--bl600);}
+.rcp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
+.rcp-card{text-align:left;padding:16px;border-radius:14px;border:2px solid var(--bd);background:var(--sf);font-family:inherit;cursor:pointer;display:flex;flex-direction:column;gap:5px;}
+.rcp-card:active{transform:scale(.98);}
+.rcp-card.off{opacity:.55;cursor:not-allowed;background:var(--gy50);border-style:dashed;}
+.rcp-card .nm{font-size:19px;font-weight:800;color:var(--tx);line-height:1.3;}
+.rcp-card .sb{font-size:13px;color:var(--th);}
+.rcp-card .cn{font-size:18px;font-weight:800;color:var(--bl600);}
+.rcp-card .st{font-size:13px;font-weight:700;color:var(--ts);}
+.rcp-card .rs{font-size:12px;font-weight:700;color:var(--rd600);}
+.rcp-bdg{display:inline-block;padding:2px 9px;border-radius:10px;background:var(--am600);color:#fff;font-size:13px;font-weight:700;}
+.rcp-sec{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--th);margin:12px 0 2px;padding-top:8px;border-top:1px dashed var(--bd);}
+.rcp-note{font-size:14px;color:var(--ts);margin:16px 0 0;padding:12px 16px;background:var(--gy50);border-radius:10px;text-align:center;}
+.rcp-empty{color:var(--th);font-size:15px;padding:26px 0;text-align:center;}
+.rcp-done{text-align:center;padding:48px 20px;}
+.rcp-done .ic{font-size:62px;line-height:1;}
+.rcp-done .ms{font-size:27px;font-weight:800;color:var(--gn600);margin:14px 0 6px;}
+.rcp-done .dt{font-size:18px;color:var(--tx);font-weight:600;}
+.rcp-print{margin-top:24px;padding:20px 34px;background:var(--pu600);color:#fff;border:none;border-radius:14px;font-size:20px;font-weight:800;font-family:inherit;cursor:pointer;}
 
 /* サイン追加ボタン */
 .sign-add-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;background:var(--bl50);color:var(--bl600);border:1px solid var(--bl200);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;}
@@ -463,6 +493,7 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
   </div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showPage('office')" id="tab-office">🏢 事務所</button>
+    <button class="nav-tab" onclick="showPage('reception')" id="tab-reception">🚦 総合受付</button>
     <button class="nav-tab" onclick="showPage('field')" id="tab-field">🔧 現場</button>
     <button class="nav-tab" onclick="showPage('records')" id="tab-records">📋 管理・記録</button>
     <button class="nav-tab" onclick="showPage('master')" id="tab-master">⚙️ マスター</button>
@@ -501,6 +532,17 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
       <div id="off-reentry-btn" style="display:none;margin-top:10px;"></div>
       <div class="tl" id="off-tl"></div>
     </div>
+  </div>
+</div>
+
+<!-- 総合受付（ドライバー操作用。複数事業部の受付を1台で行う） -->
+<div class="page" id="page-reception">
+  <div class="rcp-wrap">
+    <div class="rcp-bar">
+      <button class="rcp-back" id="rcp-back" onclick="rcpBack()" style="display:none;">← もどる</button>
+      <span class="rcp-crumb" id="rcp-crumb"></span>
+    </div>
+    <div id="rcp-body"></div>
   </div>
 </div>
 
@@ -3765,7 +3807,7 @@ window.loadUserPermList=async function(){
       allLocks=lockSnap.val()||{};
     }catch(e){console.warn('ロック設定一覧の取得に失敗:',e);}
     const lockTabDefs=[
-      ['office','🏢 事務所'],['field','🔧 現場'],['records','📋 管理・記録'],
+      ['office','🏢 事務所'],['reception','🚦 総合受付'],['field','🔧 現場'],['records','📋 管理・記録'],
       ['master','⚙️ マスター'],['guard','🛡️ 守衛連絡'],['settings','🔐 設定']
     ];
     listEl.innerHTML=users.map(u=>{
@@ -4993,6 +5035,385 @@ function getDynCarriers(){
   return res;
 }
 
+// ======================================================================
+// ===== 総合受付（複数事業部の受付を1台のタブレットで行う画面） =====
+// ======================================================================
+// ★背景：同じ受付で複数事業部のドライバーを受け付けている。事業部ごとに
+//   タブレットを置くのも、ドライバーに倉庫の切替をさせるのも現実的でない。
+//   そこで「記録のたびに記録先の倉庫を指定する」画面を別に用意した。
+// ★重要：倉庫の切替（CWH）はセッション全体の状態を変えてしまうため、
+//   この画面では CWH を一切触らない。記録先の倉庫IDは rcpWH で引き回す。
+//   そのため既存の事務所・現場・管理記録・マスター各タブの動作は変わらない。
+// ★操作するのはドライバー本人。1画面につき操作は1つだけ。取り消し導線は
+//   置かない（間違いは事務所タブで直す）。
+const RCP_IDLE_MS=60000;   // 60秒さわらなければ最初の画面に戻す（放置対策）
+const RCP_DONE_MS=3000;    // 「記録しました」を出しておく時間
+let rcpStep=1;             // 1:入退場の選択 2:倉庫の選択 3:運送会社の選択 4:完了
+let rcpMode='';            // 'enter'（入場） | 'depart'（退場）
+let rcpWH=null;            // この記録の対象倉庫ID（CWHとは別物）
+let rcpSel=null;           // 退場サイン待ちの対象
+let rcpList=[];            // 画面に出している運送会社の一覧
+let rcpBusy=false;         // 二重押し防止
+let rcpIdleTimer=null,rcpDoneTimer=null;
+let rcpDat={carriers:[],records:{},visibility:{},reqTime:{},charter:[],truck:[],container:[]};
+
+function rcpStopIdle(){
+  if(rcpIdleTimer){clearTimeout(rcpIdleTimer);rcpIdleTimer=null;}
+  if(rcpDoneTimer){clearTimeout(rcpDoneTimer);rcpDoneTimer=null;}
+}
+function rcpTouchIdle(){
+  if(rcpIdleTimer)clearTimeout(rcpIdleTimer);
+  rcpIdleTimer=setTimeout(()=>{
+    // サイン中に勝手に戻ると書きかけが消えるので、その間は戻さず待つ
+    const sm=document.getElementById('sign-modal');
+    if(sm&&!sm.classList.contains('h')){rcpTouchIdle();return;}
+    if(rcpStep!==1)rcpHome();
+  },RCP_IDLE_MS);
+}
+function rcpEnterTab(){
+  rcpStep=1;rcpMode='';rcpWH=null;rcpSel=null;rcpBusy=false;
+  rcpRender();rcpTouchIdle();
+}
+window.rcpHome=function(){
+  rcpStopIdle();
+  rcpStep=1;rcpMode='';rcpWH=null;rcpSel=null;
+  rcpRender();rcpTouchIdle();
+};
+window.rcpBack=function(){
+  rcpTouchIdle();
+  if(rcpStep===3){rcpStep=2;rcpWH=null;}
+  else{rcpStep=1;rcpMode='';}
+  rcpRender();
+};
+window.rcpStart=function(mode){
+  rcpTouchIdle();
+  rcpMode=mode;rcpStep=2;rcpRender();
+};
+window.rcpPickWH=async function(id){
+  rcpTouchIdle();
+  // 画面側でも権限を確認しておく（実際の制御はFirebaseのルールが行う）
+  if(!canAccessWarehouse(id)){toast('この倉庫への権限がありません');return;}
+  rcpWH=id;rcpStep=3;
+  rcpRenderLoading();
+  try{
+    await rcpLoad(id);
+  }catch(e){
+    console.error('総合受付：データ取得エラー',e);
+    document.getElementById('rcp-body').innerHTML=
+      `<div class="rcp-empty">データを読み込めませんでした。<br>もう一度お試しください。</div>`;
+    return;
+  }
+  rcpRender();
+};
+
+// 対象倉庫の当日データをまとめて取得する。
+// ★常時リスナーを張ると倉庫数ぶん購読が増えるため、運送会社を選ぶ画面に
+//   入ったときに1回だけ取得する方式にしている。記録のたびに最初の画面へ
+//   戻るので、次の人の操作時には必ず取り直される。
+async function rcpLoad(whId){
+  const d=today();
+  const base=`warehouses/${whId}`;
+  const [cs,rc,vs,rq,ib]=await Promise.all([
+    get(ref(db,`${base}/carriers`)),
+    get(ref(db,`${base}/records/${d}`)),
+    get(ref(db,`${base}/visibility/${d}`)),
+    get(ref(db,`${base}/reqTime`)),
+    get(ref(db,`${base}/inboundData/${d}`))
+  ]);
+  const cv=cs.val();
+  const iv=ib.val()||{};
+  rcpDat={
+    carriers:cv?(Array.isArray(cv)?cv.filter(Boolean):Object.values(cv)):[],
+    records:rc.val()||{},
+    visibility:vs.val()||{},
+    reqTime:rq.val()||{},
+    charter:iv.charter?Object.values(iv.charter):[],
+    truck:iv.truck?Object.values(iv.truck):[],
+    container:iv.container?Object.values(iv.container):[]
+  };
+}
+function rcpKey(cid){return cid.replace(/[.#$/[\]]/g,'_');}
+function rcpIsVis(cid){const v=rcpDat.visibility[rcpKey(cid)];return v===undefined?true:v;}
+// その会社の当日記録を全件（1回目〜最大5回）
+function rcpRecordsFor(cid){
+  const recs=[];
+  for(let n=1;n<=5;n++){
+    const key=reentryKey(cid,n);
+    const r=rcpDat.records[key];
+    if(r!==undefined&&r!==null)recs.push({key,rec:r,n});
+  }
+  return recs;
+}
+// 画面に並べる運送会社の一覧をつくる（マスター登録＋当日入力）
+function rcpCarriers(){
+  const res=[];
+  rcpDat.carriers.forEach(c=>{if(c&&c.id&&rcpIsVis(c.id))res.push({...c,_dyn:false});});
+  // ★idは事務所タブ（getDynCarriers）と必ず同じ組み立て方にする。
+  //   ここがずれると、同じ行なのに別の記録として保存されてしまう。
+  rcpDat.charter.forEach((r,i)=>{
+    if(!r.carrier)return;
+    res.push({id:`dyn_${r._uid||('c'+i)}`,name:r.carrier,short:r.carrier,type:'spot_charter',
+      _dyn:true,_label:'チャーター出荷',_realCarrier:r.realCarrier||'',_carNum:r.carNum||'',
+      _carType:r.carType||'',_dest:r.dest||'',_time:r.time||''});
+  });
+  rcpDat.truck.forEach((r,i)=>{
+    if(!r.carrier&&!r.origin)return;
+    const nm=r.carrier||r.origin;
+    res.push({id:`dyn_${r._uid||('t'+i)}`,name:nm,short:nm,type:'truck_in',
+      _dyn:true,_label:'トラック入庫',_carNum:r.carNum||'',_carType:r.carType||'',
+      _origin:r.origin||'',_time:r.time||''});
+  });
+  rcpDat.container.forEach((r,i)=>{
+    if(!r.containerNo)return;
+    res.push({id:`dyn_${r._uid||('k'+i)}`,name:r.containerNo,short:r.containerNo,type:'container_in',
+      _dyn:true,_label:'コンテナ入庫',_time:r.time||''});
+  });
+  return res;
+}
+// その会社が今どういう状態で、押せるかどうかを判定する
+function rcpState(c){
+  if(c._dyn){
+    const rec=rcpDat.records[rcpKey(c.id)]||null;
+    if(rcpMode==='enter'){
+      if(!rec||!rec.enterTime)return{can:true,n:1};
+      if(!rec.departTime)return{can:false,st:`入場中 ${rec.enterTime}〜`};
+      return{can:false,st:`退場済 ${rec.departTime}`};
+    }
+    if(!rec||!rec.enterTime||rec.departTime)return{hide:true};
+    if(!rec.loadEndTime)return{can:false,n:1,st:`入場中 ${rec.enterTime}〜`,
+      rs:'荷役終了がまだ記録されていません'};
+    return{can:true,n:1,st:`荷役完了 ${rec.loadEndTime}`};
+  }
+  const recs=rcpRecordsFor(c.id);
+  const last=recs.length?recs[recs.length-1]:null;
+  if(rcpMode==='enter'){
+    if(!last)return{can:true,n:1};
+    if(!last.rec.enterTime)return{can:true,n:last.n};           // 空レコードだけある状態
+    if(!last.rec.departTime)return{can:false,st:`入場中 ${last.rec.enterTime}〜`};
+    if(recs.length>=5)return{can:false,st:`退場済 ${last.rec.departTime}`,rs:'本日の受付は5回までです'};
+    return{can:true,n:recs.length+1};                            // 再入場
+  }
+  if(!last||!last.rec.enterTime||last.rec.departTime)return{hide:true};
+  if(!last.rec.loadEndTime)return{can:false,n:last.n,st:`入場中 ${last.rec.enterTime}〜`,
+    rs:'荷役終了がまだ記録されていません'};
+  return{can:true,n:last.n,st:`荷役完了 ${last.rec.loadEndTime}`};
+}
+
+function rcpRenderLoading(){
+  document.getElementById('rcp-back').style.display='none';
+  document.getElementById('rcp-crumb').textContent='';
+  document.getElementById('rcp-body').innerHTML='<div class="rcp-empty">読み込んでいます…</div>';
+}
+function rcpRender(){
+  const body=document.getElementById('rcp-body');
+  const back=document.getElementById('rcp-back');
+  const crumb=document.getElementById('rcp-crumb');
+  if(!body)return;
+  const modeLbl=rcpMode==='enter'?'入場':'退場';
+  back.style.display=(rcpStep===2||rcpStep===3)?'':'none';
+
+  if(rcpStep===1){
+    crumb.textContent='';
+    body.innerHTML=`
+      <div class="rcp-h">受付の種類を選んでください</div>
+      <div class="rcp-big">
+        <button class="ent" onclick="rcpStart('enter')">🚪<br>入　場</button>
+        <button class="dep" onclick="rcpStart('depart')">🚗<br>退　場</button>
+      </div>
+      <div class="rcp-note">該当する運送会社が見つからない場合は、事務所までご連絡ください。</div>`;
+    return;
+  }
+  if(rcpStep===2){
+    crumb.textContent=modeLbl;
+    const list=WHs.filter(w=>canAccessWarehouse(w.id));
+    body.innerHTML=`
+      <div class="rcp-h">${esc(modeLbl)}する倉庫を選んでください</div>
+      ${list.length?`<div class="rcp-grid">${list.map(w=>
+        `<button class="rcp-card" onclick="rcpPickWH('${escJs(w.id)}')">
+           <span class="nm">${esc(w.name)}</span>
+         </button>`).join('')}</div>`
+        :`<div class="rcp-empty">選択できる倉庫がありません。<br>事務所までご連絡ください。</div>`}`;
+    return;
+  }
+  if(rcpStep===3){
+    const wh=WHs.find(w=>w.id===rcpWH);
+    crumb.textContent=`${modeLbl} ／ ${wh?wh.name:''}`;
+    rcpList=rcpCarriers().map(c=>({c,s:rcpState(c)})).filter(x=>!x.s.hide);
+    const ok=rcpList.filter(x=>x.s.can),ng=rcpList.filter(x=>!x.s.can);
+    let html=`<div class="rcp-h">${esc(modeLbl)}する運送会社を選んでください</div>`;
+    if(!rcpList.length){
+      html+=`<div class="rcp-empty">${rcpMode==='enter'
+        ?'本日の予定が登録されていません。'
+        :'現在入場中の運送会社はありません。'}<br>事務所までご連絡ください。</div>`;
+    }else{
+      html+='<div class="rcp-grid">';
+      if(ok.length){
+        html+=`<div class="rcp-sec">${rcpMode==='enter'?'▼ 受付できます':'▼ 退場できます'}</div>`;
+        ok.forEach(x=>{html+=rcpCard(x,true);});
+      }
+      if(ng.length){
+        html+=`<div class="rcp-sec">${rcpMode==='enter'?'▼ すでに記録されています':'▼ まだ退場できません'}</div>`;
+        ng.forEach(x=>{html+=rcpCard(x,false);});
+      }
+      html+='</div>';
+    }
+    html+='<div class="rcp-note">該当する運送会社が見つからない場合は、事務所までご連絡ください。</div>';
+    body.innerHTML=html;
+  }
+}
+// 運送会社1件分のカード
+function rcpCard(x,enabled){
+  const c=x.c,s=x.s;
+  const i=rcpList.indexOf(x);
+  const bdg=(s.can&&s.n>1)?`<span class="rcp-bdg">${s.n}回目</span>`:'';
+  let main='',sub='';
+  if(c.type==='spot_charter'&&c._dyn){
+    main=`${c._carNum?`<span class="cn">🔢 ${esc(c._carNum)}</span>`:''}<span class="nm">${esc(c.name)}</span>`;
+    sub=[c._dest?`📍 ${c._dest}`:'',c._realCarrier?`実車:${c._realCarrier}`:'','チャーター出荷'].filter(Boolean).join(' ／ ');
+  }else if(c._dyn&&c.type==='truck_in'){
+    main=`<span class="nm">${esc(c.name)}</span>${c._carNum?`<span class="cn">🔢 ${esc(c._carNum)}</span>`:''}`;
+    sub=[c._origin?`出荷元:${c._origin}`:'','トラック入庫'].filter(Boolean).join(' ／ ');
+  }else if(c._dyn&&c.type==='container_in'){
+    main=`<span class="nm">${esc(c.name)}</span>`;
+    sub='コンテナ入庫';
+  }else{
+    main=`<span class="nm">${esc(c.short||c.name)}</span>`;
+    sub=tLabel(c.type)+((c.type==='regular'||c.type==='irregular'||c.type==='delivery')
+      ?`　⏰ ${normalizeTime(rcpDat.reqTime[rcpKey(c.id)]||'15:30')}`:'');
+  }
+  const st=s.st?`<span class="st">${esc(s.st)}</span>`:'';
+  const rs=s.rs?`<span class="rs">⚠️ ${esc(s.rs)}</span>`:'';
+  return `<button class="rcp-card${enabled?'':' off'}"${enabled?` onclick="rcpPick(${i})"`:' disabled'}>
+    ${main}${bdg?`<span>${bdg}</span>`:''}<span class="sb">${esc(sub)}</span>${st}${rs}</button>`;
+}
+
+window.rcpPick=function(i){
+  rcpTouchIdle();
+  const x=rcpList[i];
+  if(!x||!x.s.can)return;
+  if(rcpMode==='enter')rcpDoEnter(x.c,x.s.n||1);
+  else rcpAskDepart(x.c,x.s.n||1);
+};
+
+// 記録に添える情報（会社名・車番・依頼時間など）を埋める。
+// 事務所タブの fbSetRecord と同じ考え方で、未保存の項目だけを埋める。
+function rcpFillRec(rec,c){
+  if(!rec._name)rec._name=c.name;
+  if(!rec._type)rec._type=c.type;
+  if(c._dyn){
+    if(c.type==='spot_charter'){
+      if(!rec._realCarrier)rec._realCarrier=c._realCarrier||'';
+      if(!rec._carNum)rec._carNum=c._carNum||'';
+      if(!rec._carType)rec._carType=c._carType||'';
+      if(!rec._dest)rec._dest=c._dest||'';
+      if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+    }else if(c.type==='truck_in'){
+      if(!rec._carNum)rec._carNum=c._carNum||'';
+      if(!rec._carType)rec._carType=c._carType||'';
+      if(!rec._origin)rec._origin=c._origin||'';
+      if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+    }else if(c.type==='container_in'){
+      if(!rec._carNum)rec._carNum=c.name||'';
+      if(!rec._reqTime){rec._reqTime=c._time||'';rec._reqTimeConfirmed=true;}
+    }
+  }else if(rec.enterTime&&!rec._reqTime){
+    rec._reqTime=normalizeTime(rcpDat.reqTime[rcpKey(c.id)]||'15:30');
+    rec._reqTimeConfirmed=true;
+  }
+}
+async function rcpDoEnter(c,n){
+  if(rcpBusy)return;rcpBusy=true;
+  try{
+    const key=c._dyn?rcpKey(c.id):reentryKey(c.id,n);
+    const rec={...(rcpDat.records[key]||{})};
+    rec.enterTime=nowTime();
+    rcpFillRec(rec,c);
+    await set(ref(db,`warehouses/${rcpWH}/records/${today()}/${key}`),rec);
+    rcpDat.records[key]=rec;
+    rcpDone(`${c.short||c.name}${n>1?`（${n}回目）`:''}`,`入場　${rec.enterTime}`);
+  }catch(e){
+    console.error('総合受付：入場記録エラー',e);
+    toast('記録に失敗しました。もう一度お試しください。');
+  }finally{rcpBusy=false;}
+}
+function rcpAskDepart(c,n){
+  const key=c._dyn?rcpKey(c.id):reentryKey(c.id,n);
+  rcpSel={c,key,n};
+  const nLabel=n>1?`（${n}回目）`:'';
+  openSign('reception_dep',c.id,`退場確認サイン — ${c.short||c.name}${nLabel}`,
+    'ドライバーの方はこちらにサインをお願いします');
+}
+// 退場サインが書けたあとの処理（confirmSign から呼ばれる）
+async function rcpFinishDepart(img){
+  if(!rcpSel||rcpBusy)return;
+  rcpBusy=true;
+  const {c,key,n}=rcpSel;
+  try{
+    const rec={...(rcpDat.records[key]||{})};
+    rec.departTime=nowTime();
+    rcpFillRec(rec,c);
+    await set(ref(db,`warehouses/${rcpWH}/records/${today()}/${key}`),rec);
+    rcpDat.records[key]=rec;
+    // ドライバーサインはFirestore側に保存する（RTDBには入れない）
+    await saveSignField(rcpWH,today(),key,'driverSign',img);
+    let token=null;
+    if(c.type==='delivery'){
+      // ★再入場ぶんも正しい記録に紐づくよう、回数込みのキーで発行する
+      token=await issueDeliveryQR(key,c,rec,rcpWH);
+    }
+    rcpDone(`${c.short||c.name}${n>1?`（${n}回目）`:''}`,`退場　${rec.departTime}`,token,c.name);
+  }catch(e){
+    console.error('総合受付：退場記録エラー',e);
+    toast('記録に失敗しました。事務所までご連絡ください。');
+    rcpRender();
+  }finally{rcpBusy=false;rcpSel=null;}
+}
+// 「記録しました」の画面。持込のときはQR印刷ボタンも出す。
+function rcpDone(title,detail,token,carrierName){
+  rcpStep=4;
+  document.getElementById('rcp-back').style.display='none';
+  document.getElementById('rcp-crumb').textContent='';
+  const hasQR=!!token;
+  document.getElementById('rcp-body').innerHTML=`
+    <div class="rcp-done">
+      <div class="ic">✅</div>
+      <div class="ms">記録しました</div>
+      <div class="dt">${esc(title)}<br>${esc(detail)}</div>
+      ${hasQR?`
+        <div style="margin-top:22px;font-size:15px;color:var(--ts);">持込確認用のQRコードを印刷してお持ちください。</div>
+        <button class="rcp-print" onclick="rcpPrintQR('${escJs(token)}','${escJs(carrierName||title)}')">🖨️ 持込確認QRを印刷</button>
+        <div style="margin-top:18px;">
+          <button class="rcp-back" onclick="rcpHome()">受付を終わる</button>
+        </div>`
+      :''}
+    </div>`;
+  rcpStopIdle();
+  if(!hasQR){
+    // 押した直後に画面が変わると押せたか分からず二度押しされるので、少し見せてから戻す
+    rcpDoneTimer=setTimeout(()=>{rcpHome();},RCP_DONE_MS);
+  }
+  rcpTouchIdle();
+}
+// 持込QRの印刷。
+// ★iPad Safariは「ボタンを押した直後」でない window.open をブロックするため、
+//   通信やQR生成より先に、この一行でタブだけ開いてしまう。中身は後から流し込む。
+//   （以前、事務所タブの再発行ボタンでこの対策が抜けていて、ポップアップが
+//     出たり出なかったりする不具合になった。同じ轍を踏まないこと）
+window.rcpPrintQR=function(token,carrierName){
+  rcpTouchIdle();
+  const printWin=window.open('','_blank');
+  if(!printWin){
+    toast('印刷画面を開けませんでした。事務所までご連絡ください。');
+    return;
+  }
+  try{
+    printWin.document.open();
+    printWin.document.write('<!DOCTYPE html><meta charset="utf-8"><body style="font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#475569;">QRコードを準備しています…</body>');
+    printWin.document.close();
+  }catch(_){}
+  showQRPrintPreview(token,carrierName,today(),printWin,rcpWH);
+};
+
 // ===== 画面切替 =====
 window.showPage=function(id){
   // パスワードロックチェック
@@ -5009,6 +5430,9 @@ window.showPage=function(id){
   document.getElementById('page-'+id).classList.add('active');
   document.getElementById('tab-'+id).classList.add('active');
   selOff=null;selFld=null;
+  // 総合受付タブから離れたら、放置対策のタイマーを必ず止める
+  if(id!=='reception')rcpStopIdle();
+  if(id==='reception'){rcpEnterTab();return;}
   if(id==='records'){const t=today();document.getElementById('dt-from').value=t;document.getElementById('dt-to').value=t;renderRecords();}
   else if(id==='guard'){document.getElementById('guard-date').value=nextBizDay();renderGuard();}
   else if(id==='settings'){
@@ -5023,7 +5447,7 @@ window.showPage=function(id){
   else if(id==='settings'){/* ロック設定は管理者専用UIのため、ここでは何もしない */}
   else renderCurrent();
 };
-function getTabLabel(id){return{records:'管理・記録',master:'マスター',guard:'守衛連絡',settings:'設定'}[id]||id;}
+function getTabLabel(id){return{office:'事務所',reception:'総合受付',field:'現場',records:'管理・記録',master:'マスター',guard:'守衛連絡',settings:'設定'}[id]||id;}
 function renderCurrent(){
   const a=document.querySelector('.page.active');if(!a)return;
   const id=a.id.replace('page-','');
@@ -5506,6 +5930,13 @@ window.confirmSign=async function(){
     if(editDate===today())renderCurrent();
     return;
   }
+  // 総合受付タブからの退場サイン。記録先の倉庫が現在選択中の倉庫（CWH）とは
+  // 限らないため、専用の処理に回す。
+  if(signMode==='reception_dep'){
+    document.getElementById('sign-modal').classList.add('h');
+    await rcpFinishDepart(img);
+    return;
+  }
   const c=getAllCById(signCid);
   const allRecs=c&&!c._dyn?getAllRecordsForCarrier(c.id):[];
   const last=allRecs.length>0?allRecs[allRecs.length-1]:null;
@@ -5547,7 +5978,11 @@ function generateSecureToken(prefix){
   const hex=Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
   return `${prefix}_${hex}`;
 }
-async function issueDeliveryQR(cid, c, rec){
+// ★whIdArg：総合受付タブから呼ぶときだけ、記録先の倉庫を明示的に渡す。
+//   省略時は従来どおり現在選択中の倉庫（CWH）を使うので、既存の呼び出しは
+//   一切影響を受けない。
+async function issueDeliveryQR(cid, c, rec, whIdArg){
+  const whId=whIdArg||CWH;
   const token=generateSecureToken('dlv');
   const k=cid.replace(/[.#$/[\]]/g,'_');
   const qrData={
@@ -5556,14 +5991,14 @@ async function issueDeliveryQR(cid, c, rec){
     carrierName:c.name,
     date:today(),
     issuedAt:nowTime(),
-    warehouseId:CWH,
-    warehouseName:(WHs.find(w=>w.id===CWH)||{}).name||'',
+    warehouseId:whId,
+    warehouseName:(WHs.find(w=>w.id===whId)||{}).name||'',
     used:false,
     deliverySign:null
   };
   await set(ref(db,`deliveryQR/${token}`),qrData);
   // deliveryQRTokenだけを部分更新（records全体を上書きしないため）
-  await set(ref(db,whPath(`records/${today()}/${k}/deliveryQRToken`)),token);
+  await set(ref(db,`warehouses/${whId}/records/${today()}/${k}/deliveryQRToken`),token);
   return token;
 }
 
@@ -5684,7 +6119,7 @@ function setPrintPageStyle(css){
 //   という、当時の最小構成に戻している。
 //   @media print 側で body>*:not(#print-area) を隠し、#print-area だけを
 //   表示する仕組みは、守衛連絡リスト印刷と共通で、以前から動いている。
-async function showQRPrintPreview(token, carrierName, date, printWin){
+async function showQRPrintPreview(token, carrierName, date, printWin, whIdArg){
   // ★printWin（印刷用の別タブ）は、呼び出し元が「ボタンを押した直後」に
   //   先に開いておいたものを受け取る。QRコード生成やFirebase通信で
   //   時間が経った後に window.open すると、iPad Safariが「ユーザー操作から
@@ -5693,7 +6128,8 @@ async function showQRPrintPreview(token, carrierName, date, printWin){
   //   タブだけは最初に開いておき、中身だけ後から流し込むことで、これを防ぐ。
   const SIGN_PAGE_URL=new URL('sign.html',location.href).href;
   const signUrl=`${SIGN_PAGE_URL}?token=${token}`;
-  const wh=WHs.find(w=>w.id===CWH);
+  // ★whIdArgは総合受付タブ専用。省略時は従来どおりCWH。
+  const wh=WHs.find(w=>w.id===(whIdArg||CWH));
   const whName=wh?wh.name:'';
 
   if(!printWin){
