@@ -362,6 +362,14 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .rcp-cf .cn{font-size:23px;font-weight:800;color:var(--bl600);margin-top:8px;}
 .rcp-cf .sb{font-size:15px;color:var(--th);margin-top:10px;}
 .rcp-cf .q{font-size:23px;font-weight:800;color:var(--tx);text-align:center;margin-bottom:20px;}
+/* 出荷情報（件数・個数・才数）。事務所タッチ画面と同じ内容を大きく出す */
+.rcp-ship{background:var(--pu50);border:1.5px solid rgba(83,74,183,.25);border-radius:16px;padding:14px 16px;margin-bottom:20px;}
+.rcp-ship-t{font-size:13px;font-weight:700;color:var(--pu600);margin-bottom:10px;text-align:center;}
+.rcp-ship-g{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;}
+.rcp-ship-i{text-align:center;min-width:76px;}
+.rcp-ship-v{font-size:30px;font-weight:800;color:var(--pu600);line-height:1.1;}
+.rcp-ship-l{font-size:12px;color:var(--ts);margin-top:3px;}
+.rcp-card .sp{font-size:13px;font-weight:700;color:var(--pu600);}
 .rcp-yes{width:100%;padding:30px 10px;border-radius:18px;border:none;color:#fff;font-size:27px;font-weight:800;font-family:inherit;cursor:pointer;}
 .rcp-no{width:100%;padding:20px 10px;margin-top:14px;border-radius:18px;border:2px solid var(--bd);background:var(--sf);color:var(--ts);font-size:19px;font-weight:700;font-family:inherit;cursor:pointer;}
 .rcp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
@@ -5169,7 +5177,7 @@ let rcpPend=null;          // 確認画面で「はい」を待っている選�
 let rcpList=[];            // 画面に出している運送会社の一覧
 let rcpBusy=false;         // 二重押し防止
 let rcpIdleTimer=null,rcpDoneTimer=null;
-let rcpDat={carriers:[],records:{},visibility:{},reqTime:{},charter:[],truck:[],container:[]};
+let rcpDat={carriers:[],records:{},visibility:{},reqTime:{},ship:{},charter:[],truck:[],container:[]};
 
 function rcpStopIdle(){
   if(rcpIdleTimer){clearTimeout(rcpIdleTimer);rcpIdleTimer=null;}
@@ -5228,12 +5236,13 @@ window.rcpPickWH=async function(id){
 async function rcpLoad(whId){
   const d=today();
   const base=`warehouses/${whId}`;
-  const [cs,rc,vs,rq,ib]=await Promise.all([
+  const [cs,rc,vs,rq,ib,sh]=await Promise.all([
     get(ref(db,`${base}/carriers`)),
     get(ref(db,`${base}/records/${d}`)),
     get(ref(db,`${base}/visibility/${d}`)),
     get(ref(db,`${base}/reqTime`)),
-    get(ref(db,`${base}/inboundData/${d}`))
+    get(ref(db,`${base}/inboundData/${d}`)),
+    get(ref(db,`${base}/shipData/${d}`))
   ]);
   const cv=cs.val();
   const iv=ib.val()||{};
@@ -5242,6 +5251,7 @@ async function rcpLoad(whId){
     records:rc.val()||{},
     visibility:vs.val()||{},
     reqTime:rq.val()||{},
+    ship:sh.val()||{},
     charter:iv.charter?Object.values(iv.charter):[],
     truck:iv.truck?Object.values(iv.truck):[],
     container:iv.container?Object.values(iv.container):[]
@@ -5249,6 +5259,16 @@ async function rcpLoad(whId){
 }
 function rcpKey(cid){return cid.replace(/[.#$/[\]]/g,'_');}
 function rcpIsVis(cid){const v=rcpDat.visibility[rcpKey(cid)];return v===undefined?true:v;}
+// 出荷情報（件数・個数・才数）。事務所タッチ画面と同じく、
+// マスター登録済みの運送会社にだけ入力されるデータ。
+function rcpShip(c){
+  if(c._dyn)return null;
+  const sd=rcpDat.ship[rcpKey(c.id)];
+  if(!sd)return null;
+  const items=[{l:'出荷件数',u:'件',v:sd.count},{l:'出荷個数',u:'個',v:sd.qty},{l:'出荷才数',u:'才',v:sd.vol}]
+    .filter(x=>x.v!==''&&x.v!=null);
+  return items.length?items:null;
+}
 // その会社の当日記録を全件（1回目〜最大5回）
 function rcpRecordsFor(cid){
   const recs=[];
@@ -5366,6 +5386,19 @@ function rcpRender(){
     }else{
       sb=tLabel(c.type);
     }
+    // マスター登録済みは依頼時間も出す（事務所タッチ画面と同じ情報）
+    if(!c._dyn&&(c.type==='regular'||c.type==='irregular'||c.type==='delivery')){
+      sb+=`　⏰ 依頼 ${normalizeTime(rcpDat.reqTime[rcpKey(c.id)]||'15:30')}`;
+    }
+    // 出荷情報（件数・個数・才数）
+    const sp=rcpShip(c);
+    const shipHtml=sp?`
+      <div class="rcp-ship">
+        <div class="rcp-ship-t">📦 出荷情報</div>
+        <div class="rcp-ship-g">${sp.map(x=>
+          `<div class="rcp-ship-i"><div class="rcp-ship-v">${esc(String(x.v))}</div>
+             <div class="rcp-ship-l">${esc(x.l)}（${esc(x.u)}）</div></div>`).join('')}</div>
+      </div>`:'';
     const nLbl=n>1?`（${n}回目）`:'';
     body.innerHTML=`
       <div class="rcp-cf">
@@ -5374,6 +5407,7 @@ function rcpRender(){
           ${cn?`<div class="cn">${cn}</div>`:''}
           ${sb?`<div class="sb">${esc(sb)}</div>`:''}
         </div>
+        ${shipHtml}
         <div class="q">こちらの${esc(modeLbl)}を記録します。<br>よろしいですか？</div>
         <button class="rcp-yes" style="background:${rcpMode==='enter'?'var(--gn600)':'var(--bl600)'};"
           onclick="rcpConfirmYes()">${rcpMode==='enter'?'✅ はい、入場を記録します':'✅ はい、退場します（サインへ）'}</button>
@@ -5429,8 +5463,11 @@ function rcpCard(x,enabled){
   }
   const st=s.st?`<span class="st">${esc(s.st)}</span>`:'';
   const rs=s.rs?`<span class="rs">⚠️ ${esc(s.rs)}</span>`:'';
+  // 出荷情報があれば1行で添える（詳しい内訳は確認画面で大きく出す）
+  const sp=rcpShip(c);
+  const spHtml=sp?`<span class="sp">📦 ${esc(sp.map(x=>x.v+x.u).join(' / '))}</span>`:'';
   return `<button class="rcp-card${enabled?'':' off'}"${enabled?` onclick="rcpPick(${i})"`:' disabled'}>
-    ${main}${bdg?`<span>${bdg}</span>`:''}<span class="sb">${esc(sub)}</span>${st}${rs}</button>`;
+    ${main}${bdg?`<span>${bdg}</span>`:''}<span class="sb">${esc(sub)}</span>${spHtml}${st}${rs}</button>`;
 }
 
 // 運送会社を押しても、この時点ではまだ記録しない。必ず確認画面を挟む。
