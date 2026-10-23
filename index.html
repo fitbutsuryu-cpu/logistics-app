@@ -369,7 +369,10 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .rcp-ship-i{text-align:center;min-width:76px;}
 .rcp-ship-v{font-size:30px;font-weight:800;color:var(--pu600);line-height:1.1;}
 .rcp-ship-l{font-size:12px;color:var(--ts);margin-top:3px;}
-.rcp-card .sp{font-size:13px;font-weight:700;color:var(--pu600);}
+/* ★クラス名は必ず rcp- で始めること。
+   以前ここを .sp にしてしまい、読み込みスピナー（.sp）のCSSを拾って
+   出荷情報の文字が回転する不具合を起こした。 */
+.rcp-sp{font-size:13px;font-weight:700;color:var(--pu600);}
 .rcp-yes{width:100%;padding:30px 10px;border-radius:18px;border:none;color:#fff;font-size:27px;font-weight:800;font-family:inherit;cursor:pointer;}
 .rcp-no{width:100%;padding:20px 10px;margin-top:14px;border-radius:18px;border:2px solid var(--bd);background:var(--sf);color:var(--ts);font-size:19px;font-weight:700;font-family:inherit;cursor:pointer;}
 .rcp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
@@ -5465,7 +5468,7 @@ function rcpCard(x,enabled){
   const rs=s.rs?`<span class="rs">⚠️ ${esc(s.rs)}</span>`:'';
   // 出荷情報があれば1行で添える（詳しい内訳は確認画面で大きく出す）
   const sp=rcpShip(c);
-  const spHtml=sp?`<span class="sp">📦 ${esc(sp.map(x=>x.v+x.u).join(' / '))}</span>`:'';
+  const spHtml=sp?`<span class="rcp-sp">📦 ${esc(sp.map(x=>x.v+x.u).join(' / '))}</span>`:'';
   return `<button class="rcp-card${enabled?'':' off'}"${enabled?` onclick="rcpPick(${i})"`:' disabled'}>
     ${main}${bdg?`<span>${bdg}</span>`:''}<span class="sb">${esc(sub)}</span>${spHtml}${st}${rs}</button>`;
 }
