@@ -6222,7 +6222,15 @@ window.confirmSign=async function(){
   if(signMode==='edit_sign'){
     const k=editCid;
     // ★サインはFirestore（東京リージョン）に保存する
-    await saveSignField(CWH,editDate,k,editSignKey,img);
+    // ★保存に失敗したとき、以前は何も表示されず「完了ボタンが効かない」
+    //   ようにしか見えなかった。原因が分かるよう必ず画面に出す。
+    try{
+      await saveSignField(CWH,editDate,k,editSignKey,img);
+    }catch(e){
+      console.error('サインの保存に失敗しました:',e);
+      toast('サインの保存に失敗しました（'+((e&&(e.code||e.message))||'原因不明')+'）');
+      return;
+    }
     document.getElementById('sign-modal').classList.add('h');
     toast('サインを保存しました');
     // 修正モーダルのサインUIを更新
