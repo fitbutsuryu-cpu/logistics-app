@@ -6526,7 +6526,8 @@ window.clearEditSign=async function(signKey){
     wrap.innerHTML=`<span style="font-size:11px;color:var(--th);margin-right:6px;">未取得</span>
       <button class="sign-add-btn" onclick="openEditSign('${signKey}','${label}')">+ サイン追加</button>`;
   }
-  if(editDate===today())renderCurrent();
+  // ★過去日の記録でサインを消した場合も一覧へ反映されるよう、日付で絞らず描き直す
+  renderCurrent();
 };
 window.viewSign=function(src,t){document.getElementById('sv-title').textContent=t;document.getElementById('sv-img').src=safeImgSrc(src);document.getElementById('sv-modal').classList.add('o');};
 
@@ -6567,14 +6568,15 @@ async function getAllRecordRows(date,force){
   //   これ以降のコードは今まで通り rec.fieldSign 等をそのまま参照できる。
   //   2回目以降は、サインが書き換わった分だけを取り直す（通信量削減）。
   const daySigns=await fetchDaySigns(CWH,date,dayRec,force);
+  // ★「ある時は付ける」だけでなく「無い時は消す」こと。
+  //   今日ぶんの記録（state.records）はメモリ上の同じオブジェクトを
+  //   使い回しているため、付けるだけだと、サインを削除しても一度付いた
+  //   画像が画面に残り続ける（削除が反映されない不具合の原因だった）。
   Object.entries(dayRec).forEach(([k,rec])=>{
-    const s=daySigns[k];
-    if(s){
-      if(s.fieldSign)rec.fieldSign=s.fieldSign;
-      if(s.driverSign)rec.driverSign=s.driverSign;
-      if(s.deliverySign)rec.deliverySign=s.deliverySign;
-      if(s.deliverySignedAt)rec.deliverySignedAt=s.deliverySignedAt;
-      if(s.deliverySignedDate)rec.deliverySignedDate=s.deliverySignedDate;
+    const s=daySigns[k]||{};
+    for(const f of ['fieldSign','driverSign','deliverySign','deliverySignedAt','deliverySignedDate']){
+      if(s[f])rec[f]=s[f];
+      else delete rec[f];
     }
   });
   const reqTimeSnap=await get(ref(db,whPath('reqTime')));
