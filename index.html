@@ -134,7 +134,11 @@ body{font-family:-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;backgro
 .c-btn.dyn{border-color:var(--pu600);background:var(--pu50);border-style:dashed;}
 .c-name{font-size:14px;font-weight:600;color:var(--tx);line-height:1.3;}
 .c-type{font-size:10px;color:var(--th);}
-.c-dest{font-size:15px;font-weight:700;color:var(--co600);line-height:1.3;}
+/* 当日入力のカードの並び：
+   チャーター出荷＝納品先 → 車番 → 実車名、入庫＝車番 → 会社名 */
+.c-dest{font-size:16px;font-weight:800;color:var(--co600);line-height:1.25;}
+.c-num{font-size:15px;font-weight:800;color:var(--bl600);line-height:1.25;}
+.c-main{font-size:14px;font-weight:700;color:var(--tx);line-height:1.3;}
 .c-sub-name{font-size:10px;color:var(--th);margin-top:1px;}
 .c-st{font-size:10px;font-weight:600;}
 .c-st.w{color:var(--th);} .c-st.e{color:var(--am600);} .c-st.l{color:var(--bl600);} .c-st.d{color:var(--gn600);} .c-st.g{color:var(--gy600);}
@@ -358,8 +362,9 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 /* 押し間違い防止の確認画面 */
 .rcp-cf{padding:6px 0;}
 .rcp-cf .box{border:2.5px solid var(--bd);border-radius:18px;background:var(--sf);padding:24px 18px;margin-bottom:22px;text-align:center;}
-.rcp-cf .nm{font-size:27px;font-weight:800;color:var(--tx);line-height:1.3;}
-.rcp-cf .cn{font-size:23px;font-weight:800;color:var(--bl600);margin-top:8px;}
+.rcp-cf .ds{font-size:28px;font-weight:800;color:var(--co600);line-height:1.25;}
+.rcp-cf .cn{font-size:24px;font-weight:800;color:var(--bl600);}
+.rcp-cf .nm{font-size:21px;font-weight:700;color:var(--tx);line-height:1.3;}
 .rcp-cf .sb{font-size:15px;color:var(--th);margin-top:10px;}
 .rcp-cf .q{font-size:23px;font-weight:800;color:var(--tx);text-align:center;margin-bottom:20px;}
 /* 出荷情報（件数・個数・才数）。事務所タッチ画面と同じ内容を大きく出す */
@@ -378,9 +383,11 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .rcp-card{text-align:left;padding:16px;border-radius:14px;border:2px solid var(--bd);background:var(--sf);font-family:inherit;cursor:pointer;display:flex;flex-direction:column;gap:5px;}
 .rcp-card:active{transform:scale(.98);}
 .rcp-card.off{opacity:.55;cursor:not-allowed;background:var(--gy50);border-style:dashed;}
-.rcp-card .nm{font-size:19px;font-weight:800;color:var(--tx);line-height:1.3;}
+/* 並び：チャーター出荷は 納品先 → 車番 → 実車名 の順に目立たせる */
+.rcp-card .ds{font-size:20px;font-weight:800;color:var(--co600);line-height:1.25;}
+.rcp-card .cn{font-size:18px;font-weight:800;color:var(--bl600);line-height:1.25;}
+.rcp-card .nm{font-size:16px;font-weight:700;color:var(--tx);line-height:1.3;}
 .rcp-card .sb{font-size:13px;color:var(--th);}
-.rcp-card .cn{font-size:18px;font-weight:800;color:var(--bl600);}
 .rcp-card .st{font-size:13px;font-weight:700;color:var(--ts);}
 .rcp-card .rs{font-size:12px;font-weight:700;color:var(--rd600);}
 .rcp-bdg{display:inline-block;padding:2px 9px;border-radius:10px;background:var(--am600);color:#fff;font-size:13px;font-weight:700;}
@@ -5482,15 +5489,13 @@ function rcpRender(){
     crumb.textContent=`${modeLbl} ／ ${wh?wh.name:''}`;
     if(!rcpPend){rcpStep=3;rcpRender();return;}
     const c=rcpPend.c,n=rcpPend.n;
-    let nm=esc(c.short||c.name),cn='',sb='';
-    if(c._dyn&&c.type==='spot_charter'){
-      cn=c._carNum?`🔢 ${esc(c._carNum)}`:'';
-      sb=[c._dest?`📍 ${c._dest}`:'',c._realCarrier?`実車:${c._realCarrier}`:'','チャーター出荷'].filter(Boolean).join(' ／ ');
-    }else if(c._dyn&&c.type==='truck_in'){
-      cn=c._carNum?`🔢 ${esc(c._carNum)}`:'';
-      sb=[c._origin?`出荷元:${c._origin}`:'','トラック入庫'].filter(Boolean).join(' ／ ');
-    }else if(c._dyn&&c.type==='container_in'){
-      sb='コンテナ入庫';
+    // 確認画面も同じ並びに揃える（車番を大きく、その下に実際に運ぶ会社名）
+    const d=carrierDisplay(c);
+    let nm=esc(d.main||c.short||c.name),cn='',ds='',sb='';
+    if(c._dyn){
+      ds=d.dest?`📍 ${esc(d.dest)}`:'';
+      cn=d.num?`🔢 ${esc(d.num)}`:'';
+      sb=d.sub;
     }else{
       sb=tLabel(c.type);
     }
@@ -5511,8 +5516,9 @@ function rcpRender(){
     body.innerHTML=`
       <div class="rcp-cf">
         <div class="box">
+          ${ds?`<div class="ds">${ds}</div>`:''}
+          ${cn?`<div class="cn" style="margin:4px 0 6px;">${cn}</div>`:''}
           <div class="nm">${nm}${nLbl?`<span class="rcp-bdg" style="margin-left:8px;">${esc(n)}回目</span>`:''}</div>
-          ${cn?`<div class="cn">${cn}</div>`:''}
           ${sb?`<div class="sb">${esc(sb)}</div>`:''}
         </div>
         ${shipHtml}
@@ -5554,16 +5560,14 @@ function rcpCard(x,enabled){
   const c=x.c,s=x.s;
   const i=rcpList.indexOf(x);
   const bdg=(s.can&&s.n>1)?`<span class="rcp-bdg">${s.n}回目</span>`:'';
+  // 事務所・現場のタッチ画面と同じ並び（車番 → 実際に運ぶ会社名 → 補足）に揃える
   let main='',sub='';
-  if(c.type==='spot_charter'&&c._dyn){
-    main=`${c._carNum?`<span class="cn">🔢 ${esc(c._carNum)}</span>`:''}<span class="nm">${esc(c.name)}</span>`;
-    sub=[c._dest?`📍 ${c._dest}`:'',c._realCarrier?`実車:${c._realCarrier}`:'','チャーター出荷'].filter(Boolean).join(' ／ ');
-  }else if(c._dyn&&c.type==='truck_in'){
-    main=`<span class="nm">${esc(c.name)}</span>${c._carNum?`<span class="cn">🔢 ${esc(c._carNum)}</span>`:''}`;
-    sub=[c._origin?`出荷元:${c._origin}`:'','トラック入庫'].filter(Boolean).join(' ／ ');
-  }else if(c._dyn&&c.type==='container_in'){
-    main=`<span class="nm">${esc(c.name)}</span>`;
-    sub='コンテナ入庫';
+  if(c._dyn){
+    const d=carrierDisplay(c);
+    main=`${d.dest?`<span class="ds">📍 ${esc(d.dest)}</span>`:''}`+
+         `${d.num?`<span class="cn">🔢 ${esc(d.num)}</span>`:''}`+
+         `${d.main?`<span class="nm">${esc(d.main)}</span>`:''}`;
+    sub=d.sub;
   }else{
     main=`<span class="nm">${esc(c.short||c.name)}</span>`;
     sub=tLabel(c.type)+((c.type==='regular'||c.type==='irregular'||c.type==='delivery')
@@ -5784,6 +5788,34 @@ function renderOffice(){
   }
   if(selOff)updateOffPanel();
 }
+// 当日入力（チャーター出荷・トラック入庫・コンテナ入庫）の表示内容を組み立てる。
+// ★以前はチャーター出荷とトラック入庫で「車番」と「会社名」の並びが
+//   逆になっていて分かりにくかったため、ここに集約して統一した。
+//   探す手がかりの順に「車番」→「実際に運ぶ会社名」→「補足」と並べる。
+//   事務所・現場・総合受付のすべてがこの関数を使う。
+function carrierDisplay(c){
+  if(!c._dyn)return{dest:'',num:'',main:c.short||c.name,sub:''};
+  if(c.type==='spot_charter'){
+    // ★チャーター出荷だけは「納品先」が一番の手がかりになるため最上位に置く。
+    //   次に車番、そのあとに実車名（実際に運ぶ会社）。
+    //   依頼元の運送会社は、実車名と違う場合だけ補足に添える。
+    const real=c._realCarrier||c.name;
+    const sub=[
+      (c._realCarrier&&c._realCarrier!==c.name)?`依頼:${c.name}`:'',
+      'チャーター出荷'
+    ].filter(Boolean).join(' ／ ');
+    return{dest:c._dest||'',num:c._carNum||'',main:real,sub};
+  }
+  if(c.type==='truck_in'){
+    return{dest:'',num:c._carNum||'',main:c.name,
+      sub:[c._origin?`出荷元:${c._origin}`:'','トラック入庫'].filter(Boolean).join(' ／ ')};
+  }
+  if(c.type==='container_in'){
+    // コンテナは番号そのものが識別子なので、車番の位置に出す
+    return{dest:'',num:c.name,main:'',sub:'コンテナ入庫'};
+  }
+  return{dest:'',num:'',main:c.short||c.name,sub:c._label||tLabel(c.type)};
+}
 function makeCarrierBtn(c,mode){
   const rec=getLatestRecord(c.id,c._dyn);const st=stLabel(rec);
   const btn=document.createElement('button');
@@ -5793,12 +5825,15 @@ function makeCarrierBtn(c,mode){
   if(c._dyn)cls+=' dyn';
   if((mode==='off'?selOff:selFld)===c.id)cls+=' sel';
   btn.className=cls;
-  // チャーター出荷は納品先・車番をメインに表示
-  if(c.type==='spot_charter'&&c._dyn){
-    const destText=c._dest?`<span class="c-dest">📍 ${esc(c._dest)}</span>`:'';
-    const carNumText=c._carNum?`<span class="c-dest" style="color:var(--bl600);">🔢 ${esc(c._carNum)}</span>`:'';
-    const subName=`<span class="c-sub-name">${esc(c.name)}　チャーター出荷</span>`;
-    btn.innerHTML=`${destText}${carNumText}${subName}<span class="c-st ${st.c}">${st.l}</span>`;
+  // 当日入力（チャーター出荷・トラック入庫・コンテナ入庫）は
+  // 「車番 → 実際に運ぶ会社名 → 補足」の順で統一して表示する
+  if(c._dyn){
+    const d=carrierDisplay(c);
+    const destHtml=d.dest?`<span class="c-dest">📍 ${esc(d.dest)}</span>`:'';
+    const numHtml=d.num?`<span class="c-num">🔢 ${esc(d.num)}</span>`:'';
+    const mainHtml=d.main?`<span class="c-main">${esc(d.main)}</span>`:'';
+    const subHtml=d.sub?`<span class="c-sub-name">${esc(d.sub)}</span>`:'';
+    btn.innerHTML=`${destHtml}${numHtml}${mainHtml}${subHtml}<span class="c-st ${st.c}">${st.l}</span>`;
   } else {
     const extra=c._info?`<span class="c-extra">${esc(c._info)}</span>`:'';
     // 定期便・不定期便・持込は種別非表示、代わりに依頼時間を表示
