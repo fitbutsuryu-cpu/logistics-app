@@ -392,6 +392,9 @@ canvas.sc{width:100%;height:200px;border:1.5px solid var(--bd);border-radius:var
 .rcp-card .rs{font-size:12px;font-weight:700;color:var(--rd600);}
 .rcp-bdg{display:inline-block;padding:2px 9px;border-radius:10px;background:var(--am600);color:#fff;font-size:13px;font-weight:700;}
 .rcp-sec{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--th);margin:12px 0 2px;padding-top:8px;border-top:1px dashed var(--bd);}
+/* 2回目以降（再入場）は1回目とはっきり分けて見せる */
+.rcp-sec-again{font-size:16px;color:var(--am600);margin-top:22px;padding-top:14px;border-top:2px dashed var(--am200);}
+.rcp-card.again{border-color:var(--am200);background:var(--am50);}
 .rcp-note{font-size:14px;color:var(--ts);margin:16px 0 0;padding:12px 16px;background:var(--gy50);border-radius:10px;text-align:center;}
 .rcp-empty{color:var(--th);font-size:15px;padding:26px 0;text-align:center;}
 .rcp-done{text-align:center;padding:48px 20px;}
@@ -5541,8 +5544,22 @@ function rcpRender(){
         :'現在入場中の運送会社はありません。'}<br>事務所までご連絡ください。</div>`;
     }else{
       html+='<div class="rcp-grid">';
-      if(ok.length){
-        html+=`<div class="rcp-sec">${rcpMode==='enter'?'▼ 受付できます':'▼ 退場できます'}</div>`;
+      if(rcpMode==='enter'){
+        // ★1回目の入場と2回目以降（再入場）を混ぜない。
+        //   同じ会社が「未入場」と「2回目」で並ぶと、ドライバーが
+        //   どちらを押せばよいか分からなくなるため、見出しで区切る。
+        const first=ok.filter(x=>!(x.s.n>1));
+        const again=ok.filter(x=>x.s.n>1);
+        if(first.length){
+          html+='<div class="rcp-sec">▼ 受付できます</div>';
+          first.forEach(x=>{html+=rcpCard(x,true);});
+        }
+        if(again.length){
+          html+='<div class="rcp-sec rcp-sec-again">🔄 2回目以降の入場（再入場）はこちら</div>';
+          again.forEach(x=>{html+=rcpCard(x,true,'again');});
+        }
+      }else if(ok.length){
+        html+='<div class="rcp-sec">▼ 退場できます</div>';
         ok.forEach(x=>{html+=rcpCard(x,true);});
       }
       if(ng.length){
@@ -5556,7 +5573,7 @@ function rcpRender(){
   }
 }
 // 運送会社1件分のカード
-function rcpCard(x,enabled){
+function rcpCard(x,enabled,extraCls){
   const c=x.c,s=x.s;
   const i=rcpList.indexOf(x);
   const bdg=(s.can&&s.n>1)?`<span class="rcp-bdg">${s.n}回目</span>`:'';
@@ -5578,7 +5595,7 @@ function rcpCard(x,enabled){
   // ★出荷情報（件数・個数・才数）はこの一覧には出さない。
   //   受付には他社のドライバーも並ぶため、一覧に出すと各社の物量が
   //   一目で分かってしまう。自社ぶんだけ見える「確認画面」でのみ表示する。
-  return `<button class="rcp-card${enabled?'':' off'}"${enabled?` onclick="rcpPick(${i})"`:' disabled'}>
+  return `<button class="rcp-card${enabled?'':' off'}${extraCls?' '+extraCls:''}"${enabled?` onclick="rcpPick(${i})"`:' disabled'}>
     ${main}${bdg?`<span>${bdg}</span>`:''}<span class="sb">${esc(sub)}</span>${st}${rs}</button>`;
 }
 
